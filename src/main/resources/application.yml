@@ -1,0 +1,85 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 4h
+      cookie:
+        http-only: true
+        secure: false  # 클라우드 HTTPS 배포 시 true로 변경
+
+spring:
+  profiles:
+    active: h2
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  web:
+    resources:
+      cache:
+        period: 0
+        cachecontrol:
+          no-store: true
+  datasource:
+    url: jdbc:h2:file:./data/upbitbot;MODE=MySQL;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+bot:
+  pollSeconds: 5
+  defaultMarkets: ["KRW-SOL", "KRW-ADA"]
+  defaultCandleUnitMinutes: 5
+  boundarySchedulerEnabled: true
+  boundaryBufferSeconds: 2
+  boundaryMaxRetry: 5
+  boundaryRetrySleepMs: 1000
+  catchUpMaxCandles: 3
+  staleEntryTtlSeconds: 120
+  tpSlTickerEnabled: true
+  tpSlPollIntervalSeconds: 5
+  apiMaxRetries: 5
+  apiBaseBackoffMs: 250
+
+strategy:
+  consecutiveDown: 7
+  takeProfitRate: 0.03
+  addBuyOnEachExtraDown: false
+  feeRate: 0.0005
+
+trade:
+  globalBaseOrderKrw: 10000
+  addBuyMultiplier: 1.0
+  maxAddBuys: 2
+  slippageRate: 0.002
+  minOrderKrw: 5000
+  live:
+    orderPollIntervalMs: 800
+    orderPollTimeoutMs: 10000
+    orderTestBeforePlace: true
+    cancelOnTimeout: true
+
+upbit:
+  accessKey: ${UPBIT_ACCESS_KEY:}
+  secretKey: ${UPBIT_SECRET_KEY:}
+
+logging:
+  level:
+    root: INFO
+    com.example.upbit.bot: INFO
+  file:
+    name: logs/autotrade.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{20} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{20} - %msg%n"

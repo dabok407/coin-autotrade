@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Upbit AutoTrade - Backtest</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
+  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260308e)}">
+  <link rel="stylesheet" th:href="@{/css/datepicker.css}">
+</head>
+<body>
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <h1>Upbit AutoTrade</h1>
+        <div class="tabs">
+          <a class="tab" th:href="@{/dashboard}">Dashboard</a>
+          <a class="tab" th:href="@{/settings}">Settings</a>
+          <a class="tab active" th:href="@{/backtest}">Backtest</a>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="pill small" id="btReset" type="button" title="결과 초기화">↻ Refresh</button>
+        <button class="pill small" id="themeToggle" type="button" aria-pressed="false">🌙 Dark</button>
+        <button class="pill small" id="logoutBtn" type="button" style="color:var(--danger)">🚪 Logout</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Backtest Conditions</h2>
+
+        <!-- ── Global ── -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--primary);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">Global</div>
+          <div class="toolbar">
+            <div class="field">
+              <label>Capital (KRW)</label>
+              <input class="input" type="text" id="btCapital" value="100,000"/>
+            </div>
+            <div class="field">
+              <label>Period</label>
+              <div class="select-wrap">
+                <select class="select" id="btPeriod">
+                <option value="1일">1일</option>
+                <option value="1주" selected>1주</option>
+                <option value="1달">1달</option>
+                <option value="3달">3달</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>From</label>
+              <input class="input dp-date" type="text" inputmode="numeric" id="btFromDate" placeholder="YYYY-MM-DD" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label>To</label>
+              <input class="input dp-date" type="text" inputmode="numeric" id="btToDate" placeholder="YYYY-MM-DD" autocomplete="off" />
+            </div>
+            <div class="actions">
+              <button class="btn primary" id="btRun">Run Backtest</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Strategy Groups ── -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Strategy Groups</div>
+            <button class="btn" id="btAddGroupBtn" style="font-size:12px;padding:4px 12px">+ Add Group</button>
+          </div>
+          <div id="btGroupsContainer"></div>
+        </div>
+        <div id="btError" style="margin-top:12px;color:#ffd3db;display:none"></div>
+      </div>
+
+      <div class="grid cols-4">
+        <div class="card"><h2>Total Return (KRW) <span class="help-icon" data-tooltip="백테스트 동안 확정(실현)된 손익 합계입니다.\n매도가 체결된 거래만 집계하며, 미청산 포지션은 포함하지 않습니다." aria-label="Total Return help"></span></h2><div class="kv"><div class="value" id="btTotalReturn">-</div></div></div>
+        <div class="card"><h2>ROI <span class="help-icon" data-tooltip="실현 손익을 초기 자본(capital)으로 나눈 수익률(%)입니다.\nROI = (실현손익 / 초기자본) * 100\n미청산 포지션은 반영하지 않습니다." aria-label="Backtest ROI help"></span></h2><div class="kv"><div class="value" id="btRoi">-</div></div></div>
+        <div class="card"><h2>Trades <span class="help-icon" data-tooltip="매도(청산) 횟수 기준 거래 수입니다.\n매수/추가매수는 포지션 진입/증액으로만 보고, '거래 1회'는 SELL 시점에 1회로 카운트합니다." aria-label="Trades help"></span></h2><div class="kv"><div class="value" id="btTrades">-</div></div></div>
+        <div class="card"><h2>Win Rate <span class="help-icon" data-tooltip="승률(%) = (이익으로 끝난 매도 횟수 / 전체 매도 횟수) * 100\n매도 0건이면 0%로 표시됩니다." aria-label="Win rate help"></span></h2><div class="kv"><div class="value" id="btWinRate">-</div></div></div>
+      </div>
+
+      <div class="card">
+        <h2>Trades</h2>
+        <div class="tableWrap" style="margin-top:12px">
+          <div class="tableHeader">
+            <div class="title">Trade Records</div>
+            <div class="right" style="flex-wrap:wrap;gap:6px">
+              <input class="input" id="btMarketFilter" placeholder="Market filter" style="height:36px;border-radius:10px;width:130px"/>
+              <div class="select-wrap" style="height:36px;width:100px">
+                <select class="select" id="btActionFilter" style="height:36px;border-radius:10px;width:100%">
+                <option value="ALL" selected>ALL</option>
+                <option value="BUY">BUY</option>
+                <option value="ADD_BUY">ADD_BUY</option>
+                <option value="SELL">SELL</option>
+                </select>
+              </div>
+              <div class="ms" id="btLogTypeMs" style="width:180px">
+                <button type="button" class="ms-button" style="height:36px;border-radius:10px">
+                  <div class="ms-value">
+                    <span class="ms-placeholder">Type filter</span>
+                    <div class="ms-chips"></div>
+                  </div>
+                  <span class="ms-caret">▾</span>
+                </button>
+                <div class="ms-panel">
+                  <input class="ms-search" placeholder="Search type…"/>
+                  <div class="ms-list"></div>
+                  <div class="ms-footer">
+                    <button type="button" class="ms-link" data-ms="all">Select all</button>
+                    <button type="button" class="ms-link" data-ms="none">Clear</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tableBody">
+            <table class="table table-fixed" id="btTable">
+              <colgroup>
+                <col style="width:14%"><!-- Time -->
+                <col style="width:11%"><!-- Market -->
+                <col style="width:7%"><!-- Action -->
+                <col style="width:14%"><!-- Type -->
+                <col style="width:7%"><!-- Score -->
+                <col style="width:17%"><!-- Price -->
+                <col style="width:8%"><!-- Qty -->
+                <col style="width:22%"><!-- PnL + ROI -->
+              </colgroup>
+              <thead>
+                <tr>
+                  <th data-sort="ts" class="sortable">Time <span class="sort-btn" title="정렬">⇅</span></th>
+                  <th data-sort="market">Market</th>
+                  <th data-sort="action">Action</th>
+                  <th data-sort="orderType">Type</th>
+                  <th data-sort="confidence">Score</th>
+                  <th data-sort="price">Price</th>
+                  <th data-sort="qty">Qty</th>
+                  <th data-sort="pnlKrw">PnL(KRW)</th>
+                </tr>
+              </thead>
+              <tbody id="btTbody">
+                <tr><td colspan="8" style="color:var(--muted)">Run Backtest를 실행하세요.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pager">
+            <div class="muted" id="btPagerInfo">page 1 · size 50 · total 0</div>
+            <div style="display:flex;gap:10px">
+              <button class="btn" id="btPrev">Prev</button>
+              <button class="btn" id="btNext">Next</button>
+              <div class="select-wrap" style="height:36px;width:92px">
+                <select class="select" id="btSize" style="height:36px;border-radius:10px;width:100%">
+                  <option value="20">20</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <small style="display:block;margin-top:10px">(API) /api/backtest/run</small>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Strategy descriptions modal (click on ? icon) -->
+  <div class="modal" id="strategyModal" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="strategyModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="strategyModalTitle">Strategy Descriptions</div>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+      </div>
+      <div class="modal-body" id="strategyModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Strategy detail settings modal (⚙ icon) -->
+  <div class="modal" id="stratDetailModal" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="btStratDetailTitle" style="max-width:600px">
+      <div class="modal-header">
+        <div class="modal-title" id="btStratDetailTitle">⚙ 전략 상세 설정</div>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+      </div>
+      <div class="modal-body" id="btStratDetailBody"></div>
+      <div style="padding:12px 20px 16px;text-align:right;border-top:1px solid var(--border)">
+        <button class="btn primary" id="btSdSaveBtn" style="font-size:13px;padding:8px 24px">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script th:src="@{/js/autotrade-common.js(v=20260308e)}"></script>
+  <script th:src="@{/js/chart-popup.js(v=20260308e)}"></script>
+  <script th:src="@{/js/datepicker.js(v=20260308e)}"></script>
+  <script th:src="@{/js/backtest.js(v=20260308e)}"></script>
+</body>
+</html>

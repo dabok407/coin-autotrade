@@ -1,0 +1,58 @@
+package com.example.upbit.db;
+
+import javax.persistence.*;
+import java.math.BigDecimal;
+import java.time.Instant;
+
+/**
+ * 재시작/비정상 종료 대비를 위해 "현재 포지션"을 DB에 저장합니다.
+ * LIVE 모드에서는 업비트 주문/체결과 동기화가 핵심이라, 이 테이블이 기준 상태(source of truth)가 됩니다.
+ */
+@Entity
+@Table(name = "position")
+public class PositionEntity {
+
+    @Id
+    @Column(name = "market", length = 20)
+    private String market;
+
+    /**
+     * 수량/가격/원화 등 "정밀 값"은 double을 쓰지 않습니다.
+     * (LIVE 체결/슬리피지/수수료 누적 시 double 오차가 쉽게 누적됩니다.)
+     */
+    @Column(name = "qty", nullable = false, precision = 28, scale = 18)
+    private BigDecimal qty = BigDecimal.ZERO;
+
+    @Column(name = "avg_price", nullable = false, precision = 28, scale = 8)
+    private BigDecimal avgPrice = BigDecimal.ZERO;
+
+    @Column(name = "add_buys", nullable = false)
+    private int addBuys;
+
+    @Column(name = "opened_at")
+    private Instant openedAt;
+
+    /** 진입(매수) 전략 이름. Strategy Lock 활성 시 이 전략만 매도 가능 */
+    @Column(name = "entry_strategy", length = 100)
+    private String entryStrategy;
+
+    public String getMarket() { return market; }
+    public void setMarket(String market) { this.market = market; }
+
+    public BigDecimal getQty() { return qty; }
+    public void setQty(BigDecimal qty) { this.qty = (qty == null ? BigDecimal.ZERO : qty); }
+    public void setQty(double qty) { this.qty = BigDecimal.valueOf(qty); }
+
+    public BigDecimal getAvgPrice() { return avgPrice; }
+    public void setAvgPrice(BigDecimal avgPrice) { this.avgPrice = (avgPrice == null ? BigDecimal.ZERO : avgPrice); }
+    public void setAvgPrice(double avgPrice) { this.avgPrice = BigDecimal.valueOf(avgPrice); }
+
+    public int getAddBuys() { return addBuys; }
+    public void setAddBuys(int addBuys) { this.addBuys = addBuys; }
+
+    public Instant getOpenedAt() { return openedAt; }
+    public void setOpenedAt(Instant openedAt) { this.openedAt = openedAt; }
+
+    public String getEntryStrategy() { return entryStrategy; }
+    public void setEntryStrategy(String entryStrategy) { this.entryStrategy = entryStrategy; }
+}

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Upbit AutoTrade - Settings</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
+  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260308e)}">
+</head>
+<body>
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <h1>Upbit AutoTrade</h1>
+        <div class="tabs">
+          <a class="tab" th:href="@{/dashboard}">Dashboard</a>
+          <a class="tab active" th:href="@{/settings}">Settings</a>
+          <a class="tab" th:href="@{/backtest}">Backtest</a>
+        </div>
+      </div>
+      <div class="nav">
+        <button class="pill small" id="themeToggle" type="button" aria-pressed="false">&#127769; Dark</button>
+        <button class="pill small" id="logoutBtn" type="button" style="color:var(--danger)">&#128682; Logout</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- ── Global Settings ── -->
+      <div class="card">
+        <h2>Global Settings</h2>
+        <div class="toolbar">
+          <div class="field">
+            <label>Mode <span class="help-icon" data-tooltip="PAPER: 모의투자 모드 (실제 주문 없음, 슬리피지 0.1% + 수수료 0.05% 시뮬레이션)&#10;LIVE: 실거래 모드 (실제 업비트 주문 실행)" aria-label="Mode help"></span></label>
+            <div class="select-wrap">
+              <select class="select" id="mode">
+                <option value="PAPER" selected>PAPER</option>
+                <option value="LIVE">LIVE</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Capital (KRW) <span class="help-icon" data-tooltip="자동매매에 사용할 총 자본금(원화)입니다.&#10;PCT 주문 모드에서 이 값의 비율만큼 주문합니다." aria-label="Capital help"></span></label>
+            <input class="input" type="text" id="capital" value="100,000"/>
+          </div>
+          <div class="field" style="min-width:200px">
+            <label class="label-row">API Key <span class="help-icon" data-tooltip="업비트 API 키 연결 상태를 테스트합니다.&#10;LIVE 모드 사용 시 API 키가 필요합니다." aria-label="API Key help"></span></label>
+            <div style="display:flex;align-items:center;gap:8px;height:42px">
+              <button class="btn" id="apiTestBtn" style="font-size:12px;padding:6px 12px;white-space:nowrap">API Test</button>
+            </div>
+          </div>
+        </div>
+        <div id="apiTestResult" style="display:none;margin-top:10px;padding:12px 16px;border-radius:10px;border:1px solid var(--border);font-size:13px;line-height:1.6;white-space:pre-wrap"></div>
+      </div>
+
+      <!-- ── Strategy Groups ── -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px">
+          <h2 style="margin:0">Strategy Groups <span class="help-icon" data-tooltip="Strategy Groups: Different coin groups can have independent strategy/risk settings.&#10;&#10;Each group sets its own markets, strategies, TP/SL, interval, and other parameters.&#10;A market can only belong to one group (mutual exclusion).&#10;&#10;Example:&#10;- Group 1: SOL+ETH with EMA_RSI_TREND, TP3/SL2, minConf 8&#10;- Group 2: BTC+ADA with BOLLINGER_RSI_MEAN_REVERSION, TP3/SL2, minConf 6" aria-label="Strategy groups help"></span></h2>
+          <button class="btn primary" id="addGroupBtn" type="button" style="font-size:13px;padding:6px 16px">+ Add Group</button>
+        </div>
+        <div id="groupsContainer">
+          <!-- Group cards will be rendered here by JS -->
+        </div>
+      </div>
+
+      <!-- ── Actions ── -->
+      <div class="card" style="text-align:right">
+        <button class="btn primary" id="applyBtn" style="font-size:15px;padding:10px 32px">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategy descriptions modal (? icon) -->
+  <div class="modal" id="strategyModal" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="strategyModalTitle">
+      <div class="modal-header">
+        <div class="modal-title" id="strategyModalTitle">Strategy Descriptions</div>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+      </div>
+      <div class="modal-body" id="strategyModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Strategy detail settings modal (⚙ icon) -->
+  <div class="modal" id="stratDetailModal" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="stratDetailTitle" style="max-width:600px">
+      <div class="modal-header">
+        <div class="modal-title" id="stratDetailTitle">⚙ 전략 상세 설정</div>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+      </div>
+      <div class="modal-body" id="stratDetailBody"></div>
+      <div style="padding:12px 20px 16px;text-align:right;border-top:1px solid var(--border)">
+        <button class="btn primary" id="sdSaveBtn" style="font-size:13px;padding:8px 24px">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script th:src="@{/js/autotrade-common.js(v=20260308e)}"></script>
+  <script th:src="@{/js/settings.js(v=20260308e)}"></script>
+</body>
+</html>
