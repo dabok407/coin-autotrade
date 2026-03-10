@@ -16,11 +16,18 @@ import javax.servlet.http.HttpSession;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Controller
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOCKOUT_DURATION_MS = 15 * 60 * 1000L; // 15분
+
+    /** IP별 로그인 실패 추적: {ip -> [failCount, lastFailTimeMs]} */
+    private final ConcurrentHashMap<String, long[]> loginAttempts = new ConcurrentHashMap<String, long[]>();
 
     private final RsaKeyHolder rsaKeyHolder;
     private final AuthenticationManager authManager;
@@ -30,6 +37,45 @@ public class AuthController {
         this.rsaKeyHolder = rsaKeyHolder;
         this.authManager = authManager;
         this.sessionRegistry = sessionRegistry;
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.trim().isEmpty()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+
+    private boolean isLockedOut(String ip) {
+        long[] info = loginAttempts.get(ip);
+        if (info == null) return false;
+        if (info[0] < MAX_LOGIN_ATTEMPTS) return false;
+        // 잠금 기간이 지났으면 해제
+        if (System.currentTimeMillis() - info[1] > LOCKOUT_DURATION_MS) {
+            loginAttempts.remove(ip);
+            return false;
+        }
+        return true;
+    }
+
+    private void recordFailure(String ip) {
+        long now = System.currentTimeMillis();
+        loginAttempts.compute(ip, new java.util.function.BiFunction<String, long[], long[]>() {
+            @Override
+            public long[] apply(String key, long[] existing) {
+                if (existing == null) return new long[]{1, now};
+                // 이전 잠금이 만료되었으면 리셋
+                if (System.currentTimeMillis() - existing[1] > LOCKOUT_DURATION_MS) {
+                    return new long[]{1, now};
+                }
+                return new long[]{existing[0] + 1, now};
+            }
+        });
+    }
+
+    private void clearFailures(String ip) {
+        loginAttempts.remove(ip);
     }
 
     /** 로그인 페이지 — 이미 인증된 상태이면 대시보드로 리다이렉트 */
@@ -65,6 +111,17 @@ public class AuthController {
     public Map<String, Object> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
         Map<String, Object> result = new LinkedHashMap<String, Object>();
 
+        // ── 로그인 시도 횟수 제한 (IP 기반) ──
+        String clientIp = getClientIp(request);
+        if (isLockedOut(clientIp)) {
+            long[] info = loginAttempts.get(clientIp);
+            long remainSec = info != null ? (LOCKOUT_DURATION_MS - (System.currentTimeMillis() - info[1])) / 1000 : 0;
+            log.warn("로그인 잠금 상태: ip={}, 남은시간={}초", clientIp, remainSec);
+            result.put("success", false);
+            result.put("message", "로그인 시도 횟수를 초과했습니다. " + (remainSec / 60 + 1) + "분 후에 다시 시도해주세요.");
+            return result;
+        }
+
         String username = body.get("username");
         String encryptedPassword = body.get("encryptedPassword");
 
@@ -89,15 +146,14 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(username.trim(), plainPassword);
             Authentication auth = authManager.authenticate(token);
 
-            // ── 단일 세션 강제: 기존 세션 모두 만료 ──
+            // ── 단일 세션 강제: 해당 사용자의 기존 세션만 만료 ──
             // Spring Security의 maximumSessions(1)은 formLogin에서만 자동 작동하므로,
             // 커스텀 로그인에서는 SessionRegistry를 통해 수동 제어 필요
-            for (Object principal : sessionRegistry.getAllPrincipals()) {
-                List<SessionInformation> sessions = sessionRegistry.getAllSessions(principal, false);
-                for (SessionInformation si : sessions) {
-                    si.expireNow(); // 기존 세션 즉시 만료
-                    log.info("기존 세션 만료 처리: sessionId={}", si.getSessionId());
-                }
+            List<SessionInformation> existingSessions =
+                    sessionRegistry.getAllSessions(auth.getPrincipal(), false);
+            for (SessionInformation si : existingSessions) {
+                si.expireNow(); // 해당 사용자의 기존 세션만 만료
+                log.info("기존 세션 만료 처리: sessionId={}", si.getSessionId());
             }
 
             // 기존 세션 무효화 후 새 세션 생성 (세션 고정 공격 방지)
@@ -116,13 +172,20 @@ public class AuthController {
             // 새 세션을 SessionRegistry에 등록
             sessionRegistry.registerNewSession(newSession.getId(), auth.getPrincipal());
 
+            clearFailures(clientIp); // 성공 시 실패 기록 초기화
+
             log.info("로그인 성공: {} (새 세션: {})", username, newSession.getId());
             result.put("success", true);
             result.put("redirect", "/dashboard");
         } catch (BadCredentialsException e) {
-            log.warn("로그인 실패 (잘못된 자격증명): {}", username);
+            recordFailure(clientIp);
+            long[] info = loginAttempts.get(clientIp);
+            int remaining = MAX_LOGIN_ATTEMPTS - (info != null ? (int)info[0] : 0);
+            log.warn("로그인 실패 (잘못된 자격증명): {} ip={} 남은횟수={}", username, clientIp, remaining);
             result.put("success", false);
-            result.put("message", "아이디 또는 비밀번호가 올바르지 않습니다.");
+            result.put("message", remaining > 0
+                    ? "아이디 또는 비밀번호가 올바르지 않습니다. (남은 시도: " + remaining + "회)"
+                    : "로그인 시도 횟수를 초과했습니다. 15분 후에 다시 시도해주세요.");
         } catch (DisabledException e) {
             result.put("success", false);
             result.put("message", "비활성화된 계정입니다.");

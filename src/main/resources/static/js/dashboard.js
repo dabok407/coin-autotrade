@@ -683,7 +683,7 @@
 
     try{
       botSwitch.disabled = true;
-      await req(next ? API.botStart : API.botStop, { method:'GET' });
+      await req(next ? API.botStart : API.botStop, { method:'POST' });
       setRunningUI(next);
       await loadStatus();
     }catch(e){

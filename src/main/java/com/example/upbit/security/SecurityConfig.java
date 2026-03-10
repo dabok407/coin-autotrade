@@ -36,7 +36,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .authorizeRequests()
                 // 로그인 페이지, RSA 공개키, 정적 자원만 허용
                 .antMatchers("/login", "/api/auth/pubkey", "/api/auth/login").permitAll()
-                .antMatchers("/api/backtest/**").permitAll()   // TODO: 개발용 - 배포 전 제거
                 .antMatchers("/css/**", "/js/**", "/favicon.ico").permitAll()
                 // 나머지 모든 요청은 인증 필요
                 .anyRequest().authenticated()
@@ -77,13 +76,13 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             // ── CSRF: Cookie 기반 (JS에서 X-XSRF-TOKEN 헤더로 전송) ──
             .csrf()
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                // 로그인/공개키 엔드포인트는 CSRF 면제
-                .ignoringAntMatchers("/api/auth/login", "/api/auth/pubkey", "/api/backtest/**", "/h2/**")
+                // 로그인/공개키 엔드포인트만 CSRF 면제
+                .ignoringAntMatchers("/api/auth/login", "/api/auth/pubkey")
             .and()
 
-            // ── H2 콘솔 iframe 허용 (개발용) ──
+            // ── iframe 클릭재킹 방어: DENY (H2 콘솔 미사용) ──
             .headers()
-                .frameOptions().sameOrigin()
+                .frameOptions().deny()
             .and()
 
             // ── 세션 관리: 단일 세션 (동시 접속 불가) ──

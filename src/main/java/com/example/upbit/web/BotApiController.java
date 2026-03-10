@@ -37,13 +37,13 @@ public class BotApiController {
         this.marketConfigRepo = marketConfigRepo;
     }
 
-    @GetMapping("/api/bot/start")
+    @PostMapping("/api/bot/start")
     public BotStatus start() {
         bot.start();
         return bot.getStatus();
     }
 
-    @GetMapping("/api/bot/stop")
+    @PostMapping("/api/bot/stop")
     public BotStatus stop() {
         bot.stop();
         return bot.getStatus();
@@ -86,6 +86,8 @@ public class BotApiController {
      */
     @PostMapping("/api/bot/config")
     public BotStatus updateConfig(@RequestBody UpdateConfigRequest req) {
+        validateConfigValues(req.capitalKrw != null ? req.capitalKrw : req.capital,
+                req.takeProfitPct, req.stopLossPct, req.maxAddBuysGlobal, req.minConfidence);
         Double cap = (req.capitalKrw != null ? req.capitalKrw : req.capital);
         bot.updateBotConfig(req.mode, req.candleUnitMin, cap, req.strategyType, req.strategies,
                 req.orderSizingMode, req.orderSizingValue, req.maxAddBuysGlobal, req.takeProfitPct, req.stopLossPct, req.strategyLock, req.minConfidence, null, null, null);
@@ -99,12 +101,33 @@ public class BotApiController {
      */
     @PostMapping("/api/bot/settings")
     public BotStatus updateSettings(@RequestBody SettingsRequest req) {
+        validateConfigValues(req.capitalKrw != null ? req.capitalKrw : req.capital,
+                req.takeProfitPct, req.stopLossPct, req.maxAddBuysGlobal, req.minConfidence);
         Integer unit = req.candleUnitMin;
         if (unit == null && req.interval != null) unit = parseIntervalToMin(req.interval);
         Double cap = (req.capitalKrw != null ? req.capitalKrw : req.capital);
         bot.updateBotConfig(req.mode, unit, cap, req.strategyType, req.strategies,
                 req.orderSizingMode, req.orderSizingValue, req.maxAddBuysGlobal, req.takeProfitPct, req.stopLossPct, req.strategyLock, req.minConfidence, req.timeStopMinutes, req.strategyIntervalsCsv, req.emaFilterCsv);
         return bot.getStatus();
+    }
+
+    /** 설정 값 범위 검증 — 비정상적인 값 차단 */
+    private void validateConfigValues(Double capital, Double tp, Double sl, Integer maxAdds, Double minConf) {
+        if (capital != null && (capital < 0 || capital > 1_000_000_000)) {
+            throw new IllegalArgumentException("자본금은 0 ~ 10억 범위여야 합니다.");
+        }
+        if (tp != null && (tp < 0 || tp > 100)) {
+            throw new IllegalArgumentException("익절(TP)은 0 ~ 100% 범위여야 합니다.");
+        }
+        if (sl != null && (sl < 0 || sl > 100)) {
+            throw new IllegalArgumentException("손절(SL)은 0 ~ 100% 범위여야 합니다.");
+        }
+        if (maxAdds != null && (maxAdds < 0 || maxAdds > 20)) {
+            throw new IllegalArgumentException("최대 추가매수 횟수는 0 ~ 20 범위여야 합니다.");
+        }
+        if (minConf != null && (minConf < 0 || minConf > 10)) {
+            throw new IllegalArgumentException("최소 신뢰도는 0 ~ 10 범위여야 합니다.");
+        }
     }
 
     private Integer parseIntervalToMin(String interval) {

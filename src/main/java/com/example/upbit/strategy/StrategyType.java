@@ -95,6 +95,24 @@ public enum StrategyType {
     }
 
     /**
+     * 백테스트 검증 결과 실전 성과가 없는 전략인지 판별.
+     * - 445건 백테스트(13전략×5코인×7시장국면) 결과 거래 0건 또는 일관된 손실
+     * - UI에서 "(삭제예정)" 표시 및 셀렉트박스 하단 배치
+     */
+    public boolean isDeprecated() {
+        switch (this) {
+            case CONSECUTIVE_DOWN_REBOUND:       // 5개 코인 전부 거래 0건
+            case THREE_METHODS_BULLISH:          // 5개 코인 전부 거래 0건
+            case THREE_WHITE_SOLDIERS:           // 5개 코인 전부 거래 0건
+            case BOLLINGER_RSI_MEAN_REVERSION:   // 거의 거래 없음 (1~2건)
+            case SCALP_MOMENTUM:                 // 거래 다수이나 승률 10~30%, 전 코인 손실
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
      * EMA 트렌드 필터 설정 모드.
      * CONFIGURABLE: 사용자가 EMA 기간을 선택 가능 (기본 50)
      * INTERNAL: 전략 내부에서 다중 EMA를 자체 관리 (설정 불가)

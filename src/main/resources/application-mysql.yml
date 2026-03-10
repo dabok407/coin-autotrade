@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/upbitbot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
-    username: upbitbot
-    password: upbitbot
+    url: jdbc:mysql://localhost:3306/upbitbot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:upbitbot}
+    password: ${MYSQL_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate

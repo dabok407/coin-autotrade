@@ -5,7 +5,8 @@ server:
       timeout: 4h
       cookie:
         http-only: true
-        secure: false  # 클라우드 HTTPS 배포 시 true로 변경
+        secure: ${SESSION_COOKIE_SECURE:false}  # HTTPS 배포 시 환경변수로 true 설정
+        same-site: lax  # CSRF 보완: 크로스사이트 요청 시 쿠키 미전송
 
 spring:
   profiles:
@@ -23,15 +24,14 @@ spring:
     url: jdbc:h2:file:./data/upbitbot;MODE=MySQL;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
-    password:
+    password: ${H2_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
   h2:
     console:
-      enabled: true
-      path: /h2
+      enabled: false
   flyway:
     enabled: true
     locations: classpath:db/migration

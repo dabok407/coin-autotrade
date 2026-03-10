@@ -1225,6 +1225,18 @@ if (timeStopMin > 0 && openForTpSl && pe != null && pe.getOpenedAt() != null) {
 }
 
 // ===== STEP 2: 전략 평가 — 그룹별 전략/인터벌 지원 =====
+
+// 전략 그룹이 1개 이상 존재하는데 이 마켓이 어떤 그룹에도 속하지 않으면 → 전략 평가 스킵
+// (TP/SL, 타임스탑은 위에서 이미 처리 → 기존 포지션 보호는 유지)
+// (그룹 미설정 마켓이 글로벌 설정으로 폴백되어 의도치 않게 신규 매수되는 버그 방지)
+if (marketGroup == null) {
+    List<StrategyGroupEntity> allGroups = strategyGroupRepo.findAllByOrderBySortOrderAsc();
+    if (allGroups != null && !allGroups.isEmpty()) {
+        log.info("[{}] 전략그룹 미지정 → 전략 평가 스킵 (TP/SL·타임스탑은 정상 작동)", market);
+        continue;
+    }
+}
+
 java.util.List<StrategyType> stypes;
 if (marketGroup != null && !marketGroup.getStrategyTypesList().isEmpty()) {
     // 그룹별 전략 사용
