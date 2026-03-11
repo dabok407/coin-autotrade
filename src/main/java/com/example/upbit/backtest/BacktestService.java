@@ -9,6 +9,8 @@ import com.example.upbit.market.CandleService;
 import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.strategy.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -32,6 +34,8 @@ import java.time.format.DateTimeFormatter;
  */
 @Service
 public class BacktestService {
+
+    private static final Logger log = LoggerFactory.getLogger(BacktestService.class);
 
     private final CandleService candleService;
     private final StrategyFactory strategyFactory;
@@ -599,14 +603,19 @@ public class BacktestService {
     private int parseDays(String period) {
         if (period == null) return 7;
         String p = period.trim().toLowerCase();
-        // UI friendly
+        // UI friendly (한국어)
         if (p.contains("1일")) return 1;
-        if (p.contains("1달") || p.contains("30")) return 30;
+        if (p.contains("1달")) return 30;
         if (p.contains("3달")) return 90;
-        if (p.contains("1주") || p.contains("7")) return 7;
-        if (p.contains("1d")) return 1;
-        if (p.contains("7d")) return 7;
-        if (p.contains("30d")) return 30;
+        if (p.contains("6달")) return 180;
+        if (p.contains("1주")) return 7;
+        // 숫자+d 형식 범용 파싱 (예: 90d, 180d, 365d)
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)\\s*d").matcher(p);
+        if (m.find()) {
+            try { return Math.max(1, Integer.parseInt(m.group(1))); } catch (Exception ignore) {}
+        }
+        // 순수 숫자
+        try { return Math.max(1, Integer.parseInt(p)); } catch (Exception ignore) {}
         return 7;
     }
 

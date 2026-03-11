@@ -56,6 +56,15 @@ public class StrategyFactory {
 
         // 볼린저 밴드 + RSI 평균회귀 (횡보장 특화)
         strategies.put(StrategyType.BOLLINGER_RSI_MEAN_REVERSION, new BollingerRsiMeanReversionStrategy());
+
+        // 쓰리 마켓 패턴 (이중 가짜돌파 → 신고가 돌파)
+        strategies.put(StrategyType.THREE_MARKET_PATTERN, new ThreeMarketPatternStrategy());
+
+        // 볼린저 밴드 스퀴즈 돌파
+        strategies.put(StrategyType.BOLLINGER_SQUEEZE_BREAKOUT, new BollingerSqueezeBreakoutStrategy());
+
+        // 삼각수렴 돌파
+        strategies.put(StrategyType.TRIANGLE_CONVERGENCE, new TriangleConvergenceStrategy());
     }
 
     public TradingStrategy get(StrategyType type) {

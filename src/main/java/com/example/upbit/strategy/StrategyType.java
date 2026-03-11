@@ -51,7 +51,16 @@ public enum StrategyType {
     EMA_RSI_TREND,                // EMA-RSI Trend (매수 전용 → TP/SL/매도전략에 청산 위임)
 
     // [12] 볼린저 밴드 + RSI 평균회귀 (횡보장 특화, 자급자족)
-    BOLLINGER_RSI_MEAN_REVERSION; // BMR: BB Lower + RSI 과매도 매수 → BB Middle 익절
+    BOLLINGER_RSI_MEAN_REVERSION, // BMR: BB Lower + RSI 과매도 매수 → BB Middle 익절
+
+    // [13] 쓰리 마켓 패턴 (이중 가짜돌파 → 신고가 돌파 매수, 자급자족)
+    THREE_MARKET_PATTERN,
+
+    // [14] 볼린저 밴드 스퀴즈 돌파 (스퀴즈→확장 진입, 10SMA 청산, 자급자족)
+    BOLLINGER_SQUEEZE_BREAKOUT,
+
+    // [15] 삼각수렴 돌파 (삼각형 수렴 → 거래량 동반 돌파 진입, 자급자족)
+    TRIANGLE_CONVERGENCE;
 
     /**
      * 매도 전용 전략인지 판별.
@@ -79,6 +88,9 @@ public enum StrategyType {
             case REGIME_PULLBACK:
             case CONSECUTIVE_DOWN_REBOUND:
             case BOLLINGER_RSI_MEAN_REVERSION:
+            case THREE_MARKET_PATTERN:
+            case BOLLINGER_SQUEEZE_BREAKOUT:
+            case TRIANGLE_CONVERGENCE:
                 return true;
             // SCALP_MOMENTUM, EMA_RSI_TREND는 BUY-ONLY (isBuyOnly=true)
             default:
@@ -134,6 +146,9 @@ public enum StrategyType {
             case SCALP_MOMENTUM:
             case EMA_RSI_TREND:
             case BOLLINGER_RSI_MEAN_REVERSION:
+            case THREE_MARKET_PATTERN:
+            case BOLLINGER_SQUEEZE_BREAKOUT:
+            case TRIANGLE_CONVERGENCE:
                 return "INTERNAL";
             default:
                 return "NONE";
@@ -177,6 +192,9 @@ public enum StrategyType {
             case CONSECUTIVE_DOWN_REBOUND:
             case EMA_RSI_TREND:
             case BOLLINGER_RSI_MEAN_REVERSION:
+            case THREE_MARKET_PATTERN:
+            case BOLLINGER_SQUEEZE_BREAKOUT:
+            case TRIANGLE_CONVERGENCE:
                 return 60;
 
             // 스캘핑 전략: 15분봉 권장 (5분봉은 ATR 대비 비용이 높음)

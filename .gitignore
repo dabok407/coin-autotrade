@@ -46,6 +46,18 @@ data/backtests/
 data/*.sh
 data/README.md
 
+# ===== Compiled standalone tools =====
+*.class
+BOOT-INF/
+lib/
+
+# ===== Temp scripts =====
+create_xlsx.py
+data/gen_excel*.py
+data/gen_excel*.ps1
+data/write_ps1.py
+extract*.ps1
+
 # ===== Claude Agent =====
 .claude/
 CLAUDE.md
