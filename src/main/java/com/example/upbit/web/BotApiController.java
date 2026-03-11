@@ -9,6 +9,7 @@ import com.example.upbit.db.StrategyGroupEntity;
 import com.example.upbit.db.StrategyGroupRepository;
 import com.example.upbit.db.TradeEntity;
 
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -192,6 +193,7 @@ public List<MarketConfigEntity> markets() {
      * 마켓 중복 검증: 한 마켓은 하나의 그룹에만 속해야 함.
      * 저장 후 market_config 동기화 (그룹에 포함된 마켓 활성화).
      */
+    @Transactional
     @PostMapping("/api/bot/groups")
     public Map<String, Object> saveGroups(@RequestBody List<GroupDto> groups) {
         Map<String, Object> response = new LinkedHashMap<String, Object>();

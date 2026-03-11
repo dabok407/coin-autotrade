@@ -972,6 +972,11 @@ private void tickInternal(boolean boundaryAligned) {
         currentTickUnitMin = unit; // persist()에서 trade_log.candle_unit_min에 기록
         String mode = bc.getMode() == null ? "PAPER" : bc.getMode().toUpperCase();
 
+        // ★ tick-level 그룹 스냅샷: 마켓 루프 전에 한 번 조회하여 일관성 보장
+        //   → 그룹 저장(@Transactional) 중에도 tick 내 모든 마켓이 동일 스냅샷 참조
+        final List<StrategyGroupEntity> tickGroups = strategyGroupRepo.findAllByOrderBySortOrderAsc();
+        final boolean hasGroups = tickGroups != null && !tickGroups.isEmpty();
+
         // 대상 마켓(활성화) 순회
         List<MarketConfigEntity> enabled = marketRepo.findByEnabledTrueOrderByMarketAsc();
 
@@ -1127,8 +1132,13 @@ double avgForTpSl = openForTpSl ? bd(pe.getAvgPrice()) : 0;
 double tpPctVal = bd(bc.getTakeProfitPct());
 double slPctVal = bd(bc.getStopLossPct());
 
-// 그룹별 설정 해석: 해당 마켓이 속한 그룹의 값 사용
-StrategyGroupEntity marketGroup = findGroupForMarket(market);
+// 그룹별 설정 해석: tick-level 스냅샷에서 해당 마켓의 그룹 조회 (일관성 보장)
+StrategyGroupEntity marketGroup = null;
+if (hasGroups) {
+    for (StrategyGroupEntity tg : tickGroups) {
+        if (tg.getMarketsList().contains(market)) { marketGroup = tg; break; }
+    }
+}
 if (marketGroup != null) {
     tpPctVal = bd(marketGroup.getTakeProfitPct());
     slPctVal = bd(marketGroup.getStopLossPct());
@@ -1229,10 +1239,29 @@ if (timeStopMin > 0 && openForTpSl && pe != null && pe.getOpenedAt() != null) {
 // 전략 그룹이 1개 이상 존재하는데 이 마켓이 어떤 그룹에도 속하지 않으면 → 전략 평가 스킵
 // (TP/SL, 타임스탑은 위에서 이미 처리 → 기존 포지션 보호는 유지)
 // (그룹 미설정 마켓이 글로벌 설정으로 폴백되어 의도치 않게 신규 매수되는 버그 방지)
+//
+// ★ 이중 방어: tick-level 스냅샷 + 실시간 DB 재확인
+//   (1) tick 시작 시점의 hasGroups 스냅샷으로 1차 판단
+//   (2) 만약 스냅샷에서 그룹이 없었지만 그 사이 저장되었을 수 있으므로 DB 재확인 (safety net)
 if (marketGroup == null) {
-    List<StrategyGroupEntity> allGroups = strategyGroupRepo.findAllByOrderBySortOrderAsc();
-    if (allGroups != null && !allGroups.isEmpty()) {
+    boolean groupsExist = hasGroups;
+    if (!groupsExist) {
+        // tick 스냅샷에서는 그룹 없음 → 혹시 그 사이 저장됐을 수 있으므로 실시간 재확인
+        List<StrategyGroupEntity> liveGroups = strategyGroupRepo.findAllByOrderBySortOrderAsc();
+        groupsExist = liveGroups != null && !liveGroups.isEmpty();
+    }
+    if (groupsExist) {
         log.info("[{}] 전략그룹 미지정 → 전략 평가 스킵 (TP/SL·타임스탑은 정상 작동)", market);
+        try {
+            Map<String, Object> det = new LinkedHashMap<String, Object>();
+            det.put("market", market);
+            det.put("hasGroupsSnapshot", hasGroups);
+            det.put("reason", "마켓이 어떤 전략그룹에도 속하지 않음");
+            addDecisionLog(market, unit, "N/A", "SKIPPED",
+                    "GROUP_NOT_ASSIGNED",
+                    "이 마켓은 전략그룹에 배정되지 않아 신규 매수가 차단되었습니다. (기존 포지션 TP/SL은 정상 작동)",
+                    det);
+        } catch (Exception ignore) {}
         continue;
     }
 }
