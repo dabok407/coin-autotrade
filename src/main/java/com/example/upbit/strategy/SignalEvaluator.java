@@ -88,6 +88,7 @@ public final class SignalEvaluator {
         StrategyType chosenType = null;
 
         for (StrategyType t : stypes) {
+            if (!strategyFactory.isRegistered(t)) continue; // skip deprecated
             TradingStrategy s = strategyFactory.get(t);
             Signal sig = s.evaluate(ctx);
             if (sig == null || sig.action == SignalAction.NONE) continue;

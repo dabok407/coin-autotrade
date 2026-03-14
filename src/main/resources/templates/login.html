@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Login — Upbit AutoTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
   <style>
     :root{
@@ -21,22 +24,40 @@
     body{
       background:var(--bg0);
       color:var(--text);
-      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,sans-serif;
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,sans-serif;
       display:flex;
       align-items:center;
       justify-content:center;
       min-height:100vh;
       padding:20px;
+      position:relative;
+    }
+    body::before{
+      content:'';
+      position:fixed;
+      top:0; left:0; right:0;
+      height:60vh;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(43,118,255,0.15) 0%, rgba(124,77,255,0.06) 40%, transparent 70%);
+      pointer-events:none;
     }
 
     .login-card{
       width:100%;
       max-width:400px;
-      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
-      border:1px solid var(--border);
+      background:rgba(22,27,45,0.7);
+      backdrop-filter:blur(20px);
+      -webkit-backdrop-filter:blur(20px);
+      border:1px solid rgba(255,255,255,.06);
       border-radius:var(--radius);
       box-shadow:0 20px 50px rgba(0,0,0,.35);
       padding:40px 32px;
+      position:relative;
+      z-index:1;
+      animation:fadeInUp .5s ease both;
+    }
+    @keyframes fadeInUp{
+      from{opacity:0;transform:translateY(16px)}
+      to{opacity:1;transform:translateY(0)}
     }
 
     .login-header{
@@ -94,19 +115,20 @@
     .login-btn{
       width:100%;
       height:48px;
-      border:1px solid rgba(43,118,255,.55);
+      border:none;
       border-radius:10px;
-      background:rgba(43,118,255,.18);
-      color:var(--text);
+      background:linear-gradient(135deg, #2b76ff 0%, #7c4dff 100%);
+      color:#fff;
       font-size:15px;
       font-weight:700;
       cursor:pointer;
-      transition:background .2s, transform .15s;
+      transition:transform .2s, box-shadow .2s;
       margin-top:8px;
+      box-shadow:0 4px 20px rgba(43,118,255,0.25);
     }
     .login-btn:hover{
-      background:rgba(43,118,255,.28);
-      transform:translateY(-1px);
+      transform:translateY(-2px);
+      box-shadow:0 8px 30px rgba(43,118,255,0.3);
     }
     .login-btn:active{
       transform:translateY(0);
@@ -171,8 +193,15 @@
 
 <div class="login-card">
   <div class="login-header">
-    <div class="logo">🔐</div>
-    <h1>Upbit AutoTrade</h1>
+    <div class="logo">
+      <svg width="40" height="40" viewBox="0 0 32 32">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2b76ff"/><stop offset="100%" stop-color="#20c997"/></linearGradient></defs>
+        <rect width="32" height="32" rx="6" fill="url(#lg)"/>
+        <path d="M8 22 L14 12 L18 17 L24 8" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="24" cy="8" r="2.5" fill="white"/>
+      </svg>
+    </div>
+    <h1>Login</h1>
     <p>인증된 사용자만 접근할 수 있습니다</p>
   </div>
 

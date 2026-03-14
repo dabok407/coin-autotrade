@@ -36,7 +36,8 @@ public class TriangleConvergenceStrategy implements TradingStrategy {
     private static final int TRI_LOOKBACK = 50;            // 삼각형 패턴 탐색 범위
     private static final int SWING_WINDOW = 2;             // 스윙 포인트 감지 윈도우 (좌우 N봉) — 더 민감하게
     private static final double CONVERGENCE_MIN_RATIO = 0.15; // 수렴 최소 비율 (거의 만나는 지점도 허용)
-    private static final double CONVERGENCE_MAX_RATIO = 0.92; // 수렴 최대 비율 (약간의 수렴만으로도 OK)
+    // FIX: 0.92 → 0.65 — 최소 35% 이상 수렴해야 진입 (에너지 압축 확인)
+    private static final double CONVERGENCE_MAX_RATIO = 0.65;
 
     // ===== 돌파 조건 =====
     private static final double VOLUME_MULT = 1.0;         // 평균 대비 거래량 배수 (평균 이상이면 OK)

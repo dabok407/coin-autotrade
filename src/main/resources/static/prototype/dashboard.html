@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upbit AutoTrade - Dashboard Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== CSS Variables / Design Tokens ===== */
+:root {
+    --bg-body: #0d0f1a;
+    --bg-header: rgba(13, 15, 26, 0.85);
+    --bg-card: rgba(22, 27, 45, 0.7);
+    --bg-card-hover: rgba(30, 36, 58, 0.8);
+    --bg-card-solid: #161b2d;
+    --bg-input: rgba(255,255,255,0.05);
+    --bg-table-row: rgba(255,255,255,0.02);
+    --bg-table-row-hover: rgba(255,255,255,0.06);
+
+    --border-card: rgba(255,255,255,0.06);
+    --border-subtle: rgba(255,255,255,0.04);
+
+    --text-primary: #e8ecf4;
+    --text-secondary: #8892a8;
+    --text-muted: #5a6478;
+
+    --color-profit: #00c853;
+    --color-profit-bg: rgba(0, 200, 83, 0.1);
+    --color-loss: #ff1744;
+    --color-loss-bg: rgba(255, 23, 68, 0.1);
+    --color-accent: #2979ff;
+    --color-accent-bg: rgba(41, 121, 255, 0.1);
+    --color-warning: #ff9100;
+    --color-warning-bg: rgba(255, 145, 0, 0.1);
+
+    --gradient-accent: linear-gradient(135deg, #2979ff 0%, #7c4dff 100%);
+    --gradient-profit: linear-gradient(135deg, #00c853 0%, #00e676 100%);
+    --gradient-loss: linear-gradient(135deg, #ff1744 0%, #ff5252 100%);
+    --gradient-card: linear-gradient(135deg, rgba(41,121,255,0.05) 0%, rgba(124,77,255,0.05) 100%);
+
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+    --shadow-glow-profit: 0 0 20px rgba(0, 200, 83, 0.15);
+    --shadow-glow-accent: 0 0 20px rgba(41, 121, 255, 0.15);
+
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 400ms ease;
+
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+
+    --header-height: 60px;
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    background: var(--bg-body);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Background ambient glow */
+body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(41,121,255,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(124,77,255,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ===== Header ===== */
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    background: var(--bg-header);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-card);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--spacing-lg);
+    z-index: 100;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--gradient-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: white;
+}
+
+.nav-tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.nav-tab {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+.nav-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.05);
+}
+
+.nav-tab.active {
+    color: var(--color-accent);
+    background: var(--color-accent-bg);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.header-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-card);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: 16px;
+}
+
+.header-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+    border-color: rgba(255,255,255,0.12);
+}
+
+/* ===== Main Layout ===== */
+.main {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: calc(var(--header-height) + var(--spacing-lg)) var(--spacing-lg) var(--spacing-xl);
+}
+
+/* ===== Bot Status Bar ===== */
+.status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.status-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-profit);
+    box-shadow: 0 0 8px var(--color-profit);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--color-profit); }
+    50% { opacity: 0.5; box-shadow: 0 0 16px var(--color-profit); }
+}
+
+.status-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.status-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-meta-label {
+    color: var(--text-muted);
+}
+
+.status-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.next-tick {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+.btn-bot-toggle {
+    padding: 6px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-bot-toggle.running {
+    background: var(--color-loss-bg);
+    color: var(--color-loss);
+    border: 1px solid rgba(255,23,68,0.2);
+}
+
+.btn-bot-toggle.running:hover {
+    background: rgba(255,23,68,0.2);
+}
+
+/* ===== KPI Row ===== */
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.kpi-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.kpi-card:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.kpi-card.profit::before { background: var(--gradient-profit); }
+.kpi-card.accent::before { background: var(--gradient-accent); }
+.kpi-card.loss::before { background: var(--gradient-loss); }
+.kpi-card.neutral::before { background: linear-gradient(135deg, #546e7a 0%, #78909c 100%); }
+
+.kpi-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    line-height: 1.2;
+    margin-bottom: 6px;
+}
+
+.kpi-value.profit { color: var(--color-profit); }
+.kpi-value.loss { color: var(--color-loss); }
+.kpi-value.accent { color: var(--color-accent); }
+
+.kpi-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.kpi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.kpi-badge.up {
+    background: var(--color-profit-bg);
+    color: var(--color-profit);
+}
+
+.kpi-badge.down {
+    background: var(--color-loss-bg);
+    color: var(--color-loss);
+}
+
+/* Win rate circular progress */
+.win-rate-ring {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    float: right;
+    margin-top: -8px;
+}
+
+.win-rate-ring svg {
+    transform: rotate(-90deg);
+}
+
+.win-rate-ring .ring-bg {
+    fill: none;
+    stroke: rgba(255,255,255,0.06);
+    stroke-width: 5;
+}
+
+.win-rate-ring .ring-fill {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 157;
+    stroke-dashoffset: 71.4; /* 157 * (1 - 0.545) */
+    transition: stroke-dashoffset 1s ease;
+}
+
+.win-rate-ring .ring-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+}
+
+/* Sparkline */
+.sparkline {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 24px;
+    margin-top: 4px;
+}
+
+.sparkline-bar {
+    width: 4px;
+    border-radius: 2px;
+    transition: height var(--transition-normal);
+}
+
+/* ===== Main Content Grid ===== */
+.content-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Chart Area */
+.chart-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    min-height: 340px;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.chart-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.chart-period-tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.period-tab {
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.period-tab:hover { color: var(--text-secondary); }
+.period-tab.active {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+}
+
+/* Placeholder chart */
+.chart-placeholder {
+    width: 100%;
+    height: 260px;
+    border-radius: var(--radius-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-area {
+    position: absolute;
+    inset: 0;
+}
+
+.chart-area svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Strategy Panel */
+.strategy-panel {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+}
+
+.strategy-panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.strategy-panel-title .count {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.strategy-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.strategy-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    cursor: pointer;
+}
+
+.strategy-item:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.08);
+}
+
+.strategy-item-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.strategy-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.strategy-icon.blue { background: var(--color-accent-bg); color: var(--color-accent); }
+.strategy-icon.green { background: var(--color-profit-bg); color: var(--color-profit); }
+.strategy-icon.orange { background: var(--color-warning-bg); color: var(--color-warning); }
+.strategy-icon.red { background: var(--color-loss-bg); color: var(--color-loss); }
+
+.strategy-name {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.strategy-markets {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.strategy-item-right {
+    text-align: right;
+}
+
+.strategy-pnl {
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.strategy-pnl.profit { color: var(--color-profit); }
+.strategy-pnl.loss { color: var(--color-loss); }
+
+.strategy-trades {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* ===== Strategy Groups ===== */
+.groups-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.section-title {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.group-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all var(--transition-normal);
+}
+
+.group-card:hover {
+    border-color: rgba(255,255,255,0.1);
+    box-shadow: var(--shadow-md);
+}
+
+.group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+}
+
+.group-name {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.group-market-badge {
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+}
+
+.group-toggle {
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.group-body {
+    padding: 12px 16px;
+}
+
+.group-strategy-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+}
+
+.group-strategy-row + .group-strategy-row {
+    border-top: 1px solid var(--border-subtle);
+}
+
+.group-strategy-name {
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.group-strategy-type {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 100px;
+    font-weight: 500;
+}
+
+.type-buy { background: var(--color-profit-bg); color: var(--color-profit); }
+.type-sell { background: var(--color-loss-bg); color: var(--color-loss); }
+
+/* ===== Trade Log Table ===== */
+.trades-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.trades-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.trades-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.trades-title {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.trades-filter {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.filter-btn {
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--border-card);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+    color: var(--text-secondary);
+    border-color: rgba(255,255,255,0.12);
+}
+
+.filter-btn.active {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+    border-color: rgba(41,121,255,0.3);
+}
+
+.trades-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.trades-table th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.trades-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background var(--transition-fast);
+}
+
+.trades-table tr:hover td {
+    background: var(--bg-table-row-hover);
+}
+
+.trades-table tr:last-child td {
+    border-bottom: none;
+}
+
+.trade-time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.trade-market {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.market-coin-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: white;
+}
+
+.market-coin-icon.sol { background: linear-gradient(135deg, #9945ff, #14f195); }
+.market-coin-icon.ada { background: linear-gradient(135deg, #0033ad, #1a44b8); }
+.market-coin-icon.xrp { background: linear-gradient(135deg, #23292f, #00aae4); }
+.market-coin-icon.dot { background: linear-gradient(135deg, #e6007a, #552bbf); }
+.market-coin-icon.matic { background: linear-gradient(135deg, #8247e5, #6f42c1); }
+
+.trade-type-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.trade-type-badge.buy {
+    background: var(--color-profit-bg);
+    color: var(--color-profit);
+}
+
+.trade-type-badge.sell {
+    background: var(--color-loss-bg);
+    color: var(--color-loss);
+}
+
+.trade-price {
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.trade-pnl {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.trade-pnl.profit { color: var(--color-profit); }
+.trade-pnl.loss { color: var(--color-loss); }
+.trade-pnl.neutral { color: var(--text-muted); }
+
+.strategy-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* Pagination */
+.trades-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.pagination-info {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.pagination-controls {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.page-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-card);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.page-btn:hover {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-primary);
+}
+
+.page-btn.active {
+    background: var(--color-accent);
+    color: white;
+    border-color: var(--color-accent);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+    .kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+    .groups-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .main {
+        padding: calc(var(--header-height) + var(--spacing-md)) var(--spacing-md) var(--spacing-lg);
+    }
+    .kpi-row {
+        grid-template-columns: 1fr;
+    }
+    .status-bar {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        align-items: flex-start;
+    }
+    .status-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .groups-grid {
+        grid-template-columns: 1fr;
+    }
+    .header-left .nav-tabs {
+        display: none;
+    }
+    .trades-table th:nth-child(5),
+    .trades-table td:nth-child(5) {
+        display: none;
+    }
+    .kpi-value {
+        font-size: 22px;
+    }
+}
+
+/* ===== Animations ===== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.kpi-card, .chart-card, .strategy-panel, .group-card, .trades-card, .status-bar {
+    animation: fadeInUp 0.5s ease both;
+}
+
+.kpi-card:nth-child(1) { animation-delay: 0.05s; }
+.kpi-card:nth-child(2) { animation-delay: 0.1s; }
+.kpi-card:nth-child(3) { animation-delay: 0.15s; }
+.kpi-card:nth-child(4) { animation-delay: 0.2s; }
+
+.chart-card { animation-delay: 0.25s; }
+.strategy-panel { animation-delay: 0.3s; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ===== Tooltip / Confidence ===== */
+.confidence-bar {
+    width: 40px;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.confidence-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--color-accent);
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header class="header">
+    <div class="header-left">
+        <a href="#" class="logo">
+            <div class="logo-icon">U</div>
+            <span>Upbit AutoTrade</span>
+        </a>
+        <nav class="nav-tabs">
+            <button class="nav-tab active">&#x1f4ca; &#xb300;&#xc2dc;&#xbcf4;&#xb4dc;</button>
+            <button class="nav-tab">&#x2699;&#xfe0f; &#xc124;&#xc815;</button>
+            <button class="nav-tab">&#x1f9ea; &#xbc31;&#xd14c;&#xc2a4;&#xd2b8;</button>
+        </nav>
+    </div>
+    <div class="header-right">
+        <button class="header-btn" title="Refresh" onclick="location.reload()">&#x21bb;</button>
+        <button class="header-btn" title="Theme">&#x263e;</button>
+        <button class="header-btn" title="Logout">&#x23fb;</button>
+    </div>
+</header>
+
+<!-- ===== Main ===== -->
+<main class="main">
+
+    <!-- Bot Status Bar -->
+    <div class="status-bar">
+        <div class="status-left">
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span style="color:var(--color-profit)">Running</span>
+            </div>
+            <div class="status-meta">
+                <span class="status-meta-item">
+                    <span class="status-meta-label">&#xbaa8;&#xb4dc;</span>
+                    <span style="color:var(--color-warning)">PAPER</span>
+                </span>
+                <span class="status-meta-item">
+                    <span class="status-meta-label">&#xcea8;&#xb4e4;</span>
+                    <span>5&#xbd84;</span>
+                </span>
+                <span class="status-meta-item">
+                    <span class="status-meta-label">&#xb9c8;&#xcf13;</span>
+                    <span>5&#xac1c; &#xd65c;&#xc131;</span>
+                </span>
+                <span class="status-meta-item">
+                    <span class="status-meta-label">&#xc804;&#xb7b5;</span>
+                    <span>8&#xac1c;</span>
+                </span>
+            </div>
+        </div>
+        <div class="status-right">
+            <div class="next-tick">
+                <span style="color:var(--text-muted)">&#xb2e4;&#xc74c; &#xd2f1;</span>
+                <span style="color:var(--color-accent)">02:34</span>
+            </div>
+            <button class="btn-bot-toggle running">&#xc815;&#xc9c0;</button>
+        </div>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="kpi-row">
+        <!-- Total PnL -->
+        <div class="kpi-card profit">
+            <div class="kpi-label">&#xcd1d; &#xc218;&#xc775; (Total PnL)</div>
+            <div class="kpi-value profit">+243,500&#xc6d0;</div>
+            <div class="kpi-sub">
+                <span class="kpi-badge up">&#x25b2; +18,200&#xc6d0; &#xc624;&#xb298;</span>
+                <span style="color:var(--text-muted)">12&#xac74; &#xccb4;&#xacb0;</span>
+            </div>
+        </div>
+
+        <!-- ROI -->
+        <div class="kpi-card accent">
+            <div class="kpi-label">&#xc218;&#xc775;&#xb960; (ROI)</div>
+            <div class="kpi-value accent">+24.3%</div>
+            <div class="kpi-sub">
+                <span class="kpi-badge up">&#x25b2; 2.1%</span>
+                <span style="color:var(--text-muted)">&#xcd08;&#xae30;&#xc790;&#xbcf8; 1,000,000&#xc6d0;</span>
+            </div>
+            <div class="sparkline" id="roiSparkline"></div>
+        </div>
+
+        <!-- Win Rate -->
+        <div class="kpi-card accent">
+            <div class="kpi-label">&#xc2b9;&#xb960; (Win Rate)</div>
+            <div class="win-rate-ring">
+                <svg width="56" height="56" viewBox="0 0 56 56">
+                    <circle class="ring-bg" cx="28" cy="28" r="25"/>
+                    <circle class="ring-fill" cx="28" cy="28" r="25"/>
+                </svg>
+                <div class="ring-text">54.5%</div>
+            </div>
+            <div class="kpi-value" style="font-size:24px;">54.5%</div>
+            <div class="kpi-sub">
+                <span>6&#xc2b9; 5&#xd328;</span>
+                <span style="color:var(--text-muted)">&#xd3c9;&#xade0; +22,136&#xc6d0;</span>
+            </div>
+        </div>
+
+        <!-- Active Trades -->
+        <div class="kpi-card neutral">
+            <div class="kpi-label">&#xd65c;&#xc131; &#xd3ec;&#xc9c0;&#xc158;</div>
+            <div class="kpi-value" style="color:var(--text-primary);">2 <span style="font-size:16px;color:var(--text-muted);font-weight:400;">/ 5</span></div>
+            <div class="kpi-sub" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                <span>KRW-SOL <span style="color:var(--color-profit);">+1.2%</span></span>
+                <span>KRW-ADA <span style="color:var(--color-loss);">-0.4%</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+        <!-- Portfolio Chart -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div class="chart-card-title">&#xd3ec;&#xd2b8;&#xd3f4;&#xb9ac;&#xc624; &#xc131;&#xacfc;</div>
+                <div class="chart-period-tabs">
+                    <button class="period-tab">1D</button>
+                    <button class="period-tab active">1W</button>
+                    <button class="period-tab">1M</button>
+                    <button class="period-tab">ALL</button>
+                </div>
+            </div>
+            <div class="chart-placeholder">
+                <div class="chart-area">
+                    <svg viewBox="0 0 800 260" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#2979ff" stop-opacity="0.3"/>
+                                <stop offset="100%" stop-color="#2979ff" stop-opacity="0"/>
+                            </linearGradient>
+                            <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stop-color="#2979ff"/>
+                                <stop offset="100%" stop-color="#7c4dff"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Grid lines -->
+                        <line x1="0" y1="65" x2="800" y2="65" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                        <line x1="0" y1="130" x2="800" y2="130" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                        <line x1="0" y1="195" x2="800" y2="195" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                        <!-- Area fill -->
+                        <path d="M0,220 C40,210 80,200 120,195 C160,190 200,180 240,165 C280,150 320,155 360,148 C400,140 440,120 480,105 C520,90 560,85 600,78 C640,70 680,55 720,48 C760,40 790,35 800,32 L800,260 L0,260 Z"
+                              fill="url(#chartGrad)"/>
+                        <!-- Line -->
+                        <path d="M0,220 C40,210 80,200 120,195 C160,190 200,180 240,165 C280,150 320,155 360,148 C400,140 440,120 480,105 C520,90 560,85 600,78 C640,70 680,55 720,48 C760,40 790,35 800,32"
+                              fill="none" stroke="url(#lineGrad)" stroke-width="2.5" stroke-linecap="round"/>
+                        <!-- Current point -->
+                        <circle cx="800" cy="32" r="4" fill="#7c4dff" stroke="white" stroke-width="2"/>
+                    </svg>
+                    <!-- Y-axis labels -->
+                    <div style="position:absolute;top:0;left:8px;right:0;height:100%;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;padding:8px 0;">
+                        <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">+250K</span>
+                        <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">+180K</span>
+                        <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">+100K</span>
+                        <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Strategy Performance -->
+        <div class="strategy-panel">
+            <div class="strategy-panel-title">
+                <span>&#xc804;&#xb7b5;&#xbcc4; &#xc131;&#xacfc;</span>
+                <span class="count">8&#xac1c; &#xd65c;&#xc131;</span>
+            </div>
+            <div class="strategy-list">
+                <div class="strategy-item">
+                    <div class="strategy-item-left">
+                        <div class="strategy-icon green">RF</div>
+                        <div>
+                            <div class="strategy-name">RegimeFilteredPullback</div>
+                            <div class="strategy-markets">SOL, ADA</div>
+                        </div>
+                    </div>
+                    <div class="strategy-item-right">
+                        <div class="strategy-pnl profit">+98,400</div>
+                        <div class="strategy-trades">5&#xac74; / 80%</div>
+                    </div>
+                </div>
+                <div class="strategy-item">
+                    <div class="strategy-item-left">
+                        <div class="strategy-icon blue">CD</div>
+                        <div>
+                            <div class="strategy-name">ConsecutiveDown</div>
+                            <div class="strategy-markets">SOL, DOT, MATIC</div>
+                        </div>
+                    </div>
+                    <div class="strategy-item-right">
+                        <div class="strategy-pnl profit">+72,100</div>
+                        <div class="strategy-trades">4&#xac74; / 75%</div>
+                    </div>
+                </div>
+                <div class="strategy-item">
+                    <div class="strategy-item-left">
+                        <div class="strategy-icon blue">BE</div>
+                        <div>
+                            <div class="strategy-name">BullishEngulfing</div>
+                            <div class="strategy-markets">ADA</div>
+                        </div>
+                    </div>
+                    <div class="strategy-item-right">
+                        <div class="strategy-pnl profit">+45,200</div>
+                        <div class="strategy-trades">3&#xac74; / 67%</div>
+                    </div>
+                </div>
+                <div class="strategy-item">
+                    <div class="strategy-item-left">
+                        <div class="strategy-icon orange">IB</div>
+                        <div>
+                            <div class="strategy-name">InsideBarBreakout</div>
+                            <div class="strategy-markets">SOL</div>
+                        </div>
+                    </div>
+                    <div class="strategy-item-right">
+                        <div class="strategy-pnl profit">+31,800</div>
+                        <div class="strategy-trades">2&#xac74; / 50%</div>
+                    </div>
+                </div>
+                <div class="strategy-item">
+                    <div class="strategy-item-left">
+                        <div class="strategy-icon orange">AT</div>
+                        <div>
+                            <div class="strategy-name">AdaptiveTrendMomentum</div>
+                            <div class="strategy-markets">DOT, MATIC</div>
+                        </div>
+                    </div>
+                    <div class="strategy-item-right">
+                        <div class="strategy-pnl loss">-4,000</div>
+                        <div class="strategy-trades">2&#xac74; / 0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategy Groups -->
+    <div class="groups-section">
+        <div class="section-header">
+            <div class="section-title">&#xc804;&#xb7b5; &#xadf8;&#xb8f9;</div>
+        </div>
+        <div class="groups-grid">
+            <div class="group-card">
+                <div class="group-header">
+                    <div class="group-name">
+                        <span class="group-market-badge">KRW-SOL</span>
+                        <span>Group A</span>
+                    </div>
+                    <span class="group-toggle">&#x25bc;</span>
+                </div>
+                <div class="group-body">
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">ConsecutiveDown <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-profit);">+52K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">RegimeFilteredPullback <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-profit);">+48K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">BearishEngulfing <span class="group-strategy-type type-sell">SELL</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">&mdash;</span>
+                    </div>
+                </div>
+            </div>
+            <div class="group-card">
+                <div class="group-header">
+                    <div class="group-name">
+                        <span class="group-market-badge">KRW-ADA</span>
+                        <span>Group B</span>
+                    </div>
+                    <span class="group-toggle">&#x25bc;</span>
+                </div>
+                <div class="group-body">
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">BullishEngulfing <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-profit);">+45K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">RegimeFilteredPullback <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-profit);">+50K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">EveningStarSell <span class="group-strategy-type type-sell">SELL</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">&mdash;</span>
+                    </div>
+                </div>
+            </div>
+            <div class="group-card">
+                <div class="group-header">
+                    <div class="group-name">
+                        <span class="group-market-badge">KRW-DOT</span>
+                        <span>Group C</span>
+                    </div>
+                    <span class="group-toggle">&#x25bc;</span>
+                </div>
+                <div class="group-body">
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">ConsecutiveDown <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-profit);">+20K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">AdaptiveTrendMomentum <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-loss);">-2K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">ThreeBlackCrows <span class="group-strategy-type type-sell">SELL</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">&mdash;</span>
+                    </div>
+                </div>
+            </div>
+            <div class="group-card">
+                <div class="group-header">
+                    <div class="group-name">
+                        <span class="group-market-badge">KRW-MATIC</span>
+                        <span>Group D</span>
+                    </div>
+                    <span class="group-toggle">&#x25bc;</span>
+                </div>
+                <div class="group-body">
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">ConsecutiveDown <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-loss);">-1K</span>
+                    </div>
+                    <div class="group-strategy-row">
+                        <span class="group-strategy-name">AdaptiveTrendMomentum <span class="group-strategy-type type-buy">BUY</span></span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-loss);">-2K</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Trades -->
+    <div class="trades-section">
+        <div class="trades-card">
+            <div class="trades-header">
+                <div class="trades-title">&#xcd5c;&#xadfc; &#xac70;&#xb798; &#xb0b4;&#xc5ed;</div>
+                <div class="trades-filter">
+                    <button class="filter-btn active">&#xc804;&#xccb4;</button>
+                    <button class="filter-btn">BUY</button>
+                    <button class="filter-btn">SELL</button>
+                </div>
+            </div>
+            <table class="trades-table">
+                <thead>
+                    <tr>
+                        <th>&#xc2dc;&#xac04;</th>
+                        <th>&#xb9c8;&#xcf13;</th>
+                        <th>&#xc720;&#xd615;</th>
+                        <th>&#xac00;&#xaca9;</th>
+                        <th>&#xc804;&#xb7b5;</th>
+                        <th style="text-align:right;">PnL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="trade-time">14:45:23</td>
+                        <td class="trade-market"><span class="market-coin-icon sol">S</span> SOL</td>
+                        <td><span class="trade-type-badge sell">SELL</span></td>
+                        <td class="trade-price">248,500</td>
+                        <td><span class="strategy-tag">RegimeFiltered</span> <span class="confidence-bar"><span class="confidence-fill" style="width:85%;background:var(--color-profit);"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl profit">+3,500</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">14:32:10</td>
+                        <td class="trade-market"><span class="market-coin-icon sol">S</span> SOL</td>
+                        <td><span class="trade-type-badge buy">BUY</span></td>
+                        <td class="trade-price">245,000</td>
+                        <td><span class="strategy-tag">RegimeFiltered</span> <span class="confidence-bar"><span class="confidence-fill" style="width:78%;"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl neutral">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">13:58:41</td>
+                        <td class="trade-market"><span class="market-coin-icon ada">A</span> ADA</td>
+                        <td><span class="trade-type-badge sell">SELL</span></td>
+                        <td class="trade-price">685</td>
+                        <td><span class="strategy-tag">BullishEngulfing</span> <span class="confidence-bar"><span class="confidence-fill" style="width:72%;background:var(--color-profit);"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl profit">+1,240</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">13:15:07</td>
+                        <td class="trade-market"><span class="market-coin-icon ada">A</span> ADA</td>
+                        <td><span class="trade-type-badge buy">BUY</span></td>
+                        <td class="trade-price">672</td>
+                        <td><span class="strategy-tag">BullishEngulfing</span> <span class="confidence-bar"><span class="confidence-fill" style="width:65%;"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl neutral">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">12:40:55</td>
+                        <td class="trade-market"><span class="market-coin-icon dot">D</span> DOT</td>
+                        <td><span class="trade-type-badge sell">SELL</span></td>
+                        <td class="trade-price">8,920</td>
+                        <td><span class="strategy-tag">ConsecutiveDown</span> <span class="confidence-bar"><span class="confidence-fill" style="width:60%;background:var(--color-loss);"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl loss">-820</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">12:05:33</td>
+                        <td class="trade-market"><span class="market-coin-icon dot">D</span> DOT</td>
+                        <td><span class="trade-type-badge buy">BUY</span></td>
+                        <td class="trade-price">9,010</td>
+                        <td><span class="strategy-tag">ConsecutiveDown</span> <span class="confidence-bar"><span class="confidence-fill" style="width:58%;"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl neutral">&mdash;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">11:22:18</td>
+                        <td class="trade-market"><span class="market-coin-icon matic">M</span> MATIC</td>
+                        <td><span class="trade-type-badge sell">SELL</span></td>
+                        <td class="trade-price">1,285</td>
+                        <td><span class="strategy-tag">AdaptiveTrend</span> <span class="confidence-bar"><span class="confidence-fill" style="width:55%;background:var(--color-loss);"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl loss">-1,560</span></td>
+                    </tr>
+                    <tr>
+                        <td class="trade-time">10:48:02</td>
+                        <td class="trade-market"><span class="market-coin-icon sol">S</span> SOL</td>
+                        <td><span class="trade-type-badge sell">SELL</span></td>
+                        <td class="trade-price">246,200</td>
+                        <td><span class="strategy-tag">InsideBar</span> <span class="confidence-bar"><span class="confidence-fill" style="width:82%;background:var(--color-profit);"></span></span></td>
+                        <td style="text-align:right;"><span class="trade-pnl profit">+4,800</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="trades-footer">
+                <div class="pagination-info">1 - 8 / 42&#xac74;</div>
+                <div class="pagination-controls">
+                    <button class="page-btn">&lsaquo;</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <button class="page-btn">4</button>
+                    <button class="page-btn">5</button>
+                    <button class="page-btn">&rsaquo;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+// ===== ROI Sparkline =====
+(function() {
+    var container = document.getElementById('roiSparkline');
+    if (!container) return;
+    var data = [12, 18, 14, 22, 19, 25, 20, 28, 24, 30, 27, 32, 29, 35];
+    var max = Math.max.apply(null, data);
+    for (var i = 0; i < data.length; i++) {
+        var bar = document.createElement('div');
+        bar.className = 'sparkline-bar';
+        var h = Math.round((data[i] / max) * 24);
+        bar.style.height = h + 'px';
+        bar.style.background = i >= data.length - 3
+            ? 'var(--color-accent)'
+            : 'rgba(41,121,255,0.3)';
+        container.appendChild(bar);
+    }
+})();
+
+// ===== Group card collapse toggle =====
+(function() {
+    var headers = document.querySelectorAll('.group-header');
+    for (var i = 0; i < headers.length; i++) {
+        headers[i].addEventListener('click', function() {
+            var body = this.parentElement.querySelector('.group-body');
+            var toggle = this.querySelector('.group-toggle');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                toggle.textContent = '\u25BC';
+            } else {
+                body.style.display = 'none';
+                toggle.textContent = '\u25B6';
+            }
+        });
+    }
+})();
+
+// ===== Filter buttons toggle =====
+(function() {
+    var filters = document.querySelectorAll('.trades-filter .filter-btn');
+    for (var i = 0; i < filters.length; i++) {
+        filters[i].addEventListener('click', function() {
+            for (var j = 0; j < filters.length; j++) {
+                filters[j].classList.remove('active');
+            }
+            this.classList.add('active');
+        });
+    }
+})();
+
+// ===== Period tabs toggle =====
+(function() {
+    var tabs = document.querySelectorAll('.period-tab');
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].addEventListener('click', function() {
+            for (var j = 0; j < tabs.length; j++) {
+                tabs[j].classList.remove('active');
+            }
+            this.classList.add('active');
+        });
+    }
+})();
+
+// ===== Nav tab toggle =====
+(function() {
+    var navTabs = document.querySelectorAll('.nav-tab');
+    for (var i = 0; i < navTabs.length; i++) {
+        navTabs[i].addEventListener('click', function() {
+            for (var j = 0; j < navTabs.length; j++) {
+                navTabs[j].classList.remove('active');
+            }
+            this.classList.add('active');
+        });
+    }
+})();
+
+// ===== Next tick countdown =====
+(function() {
+    var el = document.querySelector('.next-tick span:last-child');
+    if (!el) return;
+    var sec = 154; // 2:34
+    setInterval(function() {
+        sec--;
+        if (sec < 0) sec = 300;
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+})();
+
+// ===== Pagination toggle =====
+(function() {
+    var pageBtns = document.querySelectorAll('.page-btn');
+    for (var i = 0; i < pageBtns.length; i++) {
+        pageBtns[i].addEventListener('click', function() {
+            if (this.textContent === '\u2039' || this.textContent === '\u203A') return;
+            for (var j = 0; j < pageBtns.length; j++) {
+                pageBtns[j].classList.remove('active');
+            }
+            this.classList.add('active');
+        });
+    }
+})();
+</script>
+
+</body>
+</html>

@@ -23,8 +23,12 @@ public class StrategyFactory {
     private final Map<StrategyType, TradingStrategy> strategies = new EnumMap<>(StrategyType.class);
 
     public StrategyFactory(StrategyProperties cfg) {
-        // 기존 전략
-        strategies.put(StrategyType.CONSECUTIVE_DOWN_REBOUND, new ConsecutiveDownReboundStrategy(cfg));
+        // === Deprecated 전략 제거 (백테스트 검증 결과 성과 없음) ===
+        // - CONSECUTIVE_DOWN_REBOUND: 거래 0건
+        // - THREE_METHODS_BULLISH: 거래 0건
+        // - THREE_WHITE_SOLDIERS: 거래 0건
+        // - SCALP_MOMENTUM: 승률 10~30%, 전 코인 손실
+        // - BOLLINGER_RSI_MEAN_REVERSION: 거래 1~2건, 암호화폐 부적합
 
         // 유튜브 스크립트 기반 전략들
         strategies.put(StrategyType.BULLISH_ENGULFING_CONFIRM, new BullishEngulfingConfirmStrategy());
@@ -33,13 +37,11 @@ public class StrategyFactory {
         strategies.put(StrategyType.MOMENTUM_FVG_PULLBACK, new MomentumFvgPullbackStrategy());
         strategies.put(StrategyType.BULLISH_PINBAR_ORDERBLOCK, new BullishPinbarOrderblockStrategy());
         strategies.put(StrategyType.INSIDE_BAR_BREAKOUT, new InsideBarBreakoutStrategy());
-        strategies.put(StrategyType.THREE_METHODS_BULLISH, new ThreeMethodsBullishStrategy());
         strategies.put(StrategyType.THREE_METHODS_BEARISH, new ThreeMethodsBearishStrategy());
 
         strategies.put(StrategyType.MORNING_STAR, new MorningStarStrategy());
         strategies.put(StrategyType.EVENING_STAR_SELL, new EveningStarSellStrategy());
 
-        strategies.put(StrategyType.THREE_WHITE_SOLDIERS, new ThreeWhiteSoldiersStrategy());
         strategies.put(StrategyType.THREE_BLACK_CROWS_SELL, new ThreeBlackCrowsSellStrategy());
 
         // 추세 필터 + 눌림 매수 + ATR 손절/익절
@@ -48,14 +50,8 @@ public class StrategyFactory {
         // 5중 확인 추세 모멘텀 + Chandelier Exit
         strategies.put(StrategyType.ADAPTIVE_TREND_MOMENTUM, new AdaptiveTrendMomentumStrategy());
 
-        // 고빈도 스캘핑 모멘텀
-        strategies.put(StrategyType.SCALP_MOMENTUM, new ScalpMomentumStrategy());
-
         // EMA-RSI 추세 추종
         strategies.put(StrategyType.EMA_RSI_TREND, new EmaRsiTrendStrategy());
-
-        // 볼린저 밴드 + RSI 평균회귀 (횡보장 특화)
-        strategies.put(StrategyType.BOLLINGER_RSI_MEAN_REVERSION, new BollingerRsiMeanReversionStrategy());
 
         // 쓰리 마켓 패턴 (이중 가짜돌파 → 신고가 돌파)
         strategies.put(StrategyType.THREE_MARKET_PATTERN, new ThreeMarketPatternStrategy());
@@ -69,7 +65,15 @@ public class StrategyFactory {
 
     public TradingStrategy get(StrategyType type) {
         TradingStrategy s = strategies.get(type);
-        if (s == null) throw new IllegalArgumentException("Unknown strategyType: " + type);
+        if (s == null) throw new IllegalArgumentException("Unknown or deprecated strategyType: " + type);
         return s;
+    }
+
+    /**
+     * 팩토리에 등록된(활성) 전략인지 확인.
+     * deprecated 전략은 등록되지 않으므로 false를 반환합니다.
+     */
+    public boolean isRegistered(StrategyType type) {
+        return strategies.containsKey(type);
     }
 }

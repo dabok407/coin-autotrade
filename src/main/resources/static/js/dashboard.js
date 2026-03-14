@@ -620,7 +620,9 @@
       }
     }
     totalPnl.textContent = fmt(s.totalPnlKrw);
+    totalPnl.style.color = (s.totalPnlKrw != null && s.totalPnlKrw >= 0) ? 'var(--success)' : (s.totalPnlKrw != null ? 'var(--danger)' : '');
     roi.textContent = (s.roi == null) ? '-' : `${Number(s.roi).toFixed(2)}%`;
+    roi.style.color = (s.roi != null && s.roi >= 0) ? 'var(--success)' : (s.roi != null ? 'var(--danger)' : '');
     winRate.textContent = (s.winRate == null) ? '-' : `${Number(s.winRate).toFixed(1)}%`;
     modeSnap.textContent = s.mode || '-';
 

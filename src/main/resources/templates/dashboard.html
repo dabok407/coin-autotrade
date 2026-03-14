@@ -5,63 +5,133 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Upbit AutoTrade - Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
-  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260308e)}">
+  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260314b)}">
 </head>
 <body>
   <!-- Toast notification container -->
   <div class="toast-container" id="toastContainer"></div>
+
   <div class="container">
+
+    <!-- ═══════ HEADER ═══════ -->
     <div class="header">
       <div class="brand">
-        <h1>Upbit AutoTrade</h1>
+        <h1>
+          <svg width="24" height="24" viewBox="0 0 32 32" style="vertical-align:middle;margin-right:8px">
+            <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2b76ff"/><stop offset="100%" stop-color="#20c997"/></linearGradient></defs>
+            <rect width="32" height="32" rx="6" fill="url(#hg)"/>
+            <path d="M8 22 L14 12 L18 17 L24 8" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="8" r="2.5" fill="white"/>
+          </svg>
+          Upbit AutoTrade
+        </h1>
         <div class="tabs">
-          <a class="tab active" th:href="@{/dashboard}">Dashboard</a>
-          <a class="tab" th:href="@{/settings}">Settings</a>
-          <a class="tab" th:href="@{/backtest}">Backtest</a>
+          <a class="tab active" th:href="@{/dashboard}">
+            <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+            Dashboard
+          </a>
+          <a class="tab" th:href="@{/settings}">
+            <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+            Settings
+          </a>
+          <a class="tab" th:href="@{/backtest}">
+            <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+            Backtest
+          </a>
         </div>
       </div>
       <div class="nav">
-        <button class="pill small" id="refreshBtn" type="button" title="전체 새로고침">↻ Refresh</button>
-        <button class="pill small" id="themeToggle" type="button" aria-pressed="false">🌙 Dark</button>
-        <button class="pill small" id="logoutBtn" type="button" style="color:var(--danger)">🚪 Logout</button>
+        <button class="pill small" id="refreshBtn" type="button" title="Refresh all data">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+          Refresh
+        </button>
+        <button class="pill small" id="themeToggle" type="button" aria-pressed="false">Dark</button>
+        <button class="pill small" id="logoutBtn" type="button" style="color:var(--danger)">Logout</button>
       </div>
     </div>
 
+    <!-- ═══════ BOT STATUS BAR ═══════ -->
+    <div class="bot-status-bar">
+      <div class="status-indicator">
+        <span class="status-dot stopped" id="statusDot"></span>
+        <span id="botStateText">STOPPED</span>
+      </div>
+      <button class="bot-toggle" id="botSwitch" aria-pressed="false" title="Click to Start/Stop bot" style="width:120px;flex-shrink:0">
+        <span class="bot-toggle-knob"></span>
+        <span class="bot-toggle-label">OFF</span>
+      </button>
+      <div class="status-meta">
+        <div class="status-meta-item">
+          <span>Mode</span>
+          <span class="status-meta-value" id="statusBarMode">-</span>
+        </div>
+        <div class="status-meta-item">
+          <span>Interval</span>
+          <span class="status-meta-value" id="statusBarInterval">-</span>
+        </div>
+        <div class="status-meta-item">
+          <span>Strategies</span>
+          <span class="status-meta-value status-tip" id="statusStrategy"><span class="skeleton skeleton-text" style="width:60px"></span></span>
+        </div>
+        <div class="status-meta-item">
+          <span>Markets</span>
+          <span class="status-meta-value status-tip" id="statusMarkets"><span class="skeleton skeleton-text" style="width:50px"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ KPI CARDS ═══════ -->
     <div class="grid">
-      <div class="grid cols-5">
-        <div class="card">
-          <h2 style="margin:0 0 4px">Status</h2>
-          <button class="bot-toggle" id="botSwitch" aria-pressed="false" title="Click to Start/Stop bot">
-            <span class="bot-toggle-knob"></span>
-            <span class="bot-toggle-label" id="botStateText">STOPPED</span>
-          </button>
-          <div class="kv" style="margin-top:12px">
-            <div class="label">Strategy</div>
-            <div class="status-tip" style="font-weight:900;display:inline-block;max-width:100%" id="statusStrategy"><span class="skeleton skeleton-text" style="width:60%"></span></div>
-            <div class="label">Markets</div>
-            <div class="status-tip" style="font-weight:900;display:inline-block;max-width:100%" id="statusMarkets"><span class="skeleton skeleton-text" style="width:50%"></span></div>
+      <div class="grid cols-4">
+        <div class="card kpi-primary">
+          <h2>Total PnL (KRW) <span class="help-icon" data-tooltip="실현 손익 합계(원화)입니다.\n- 실현 기준: 매도(청산)로 확정된 손익만 합산\n- 미청산 포지션의 평가손익은 포함하지 않음" aria-label="Total PnL help"></span></h2>
+          <div class="kv">
+            <div class="value" id="totalPnl"><span class="skeleton skeleton-value"></span></div>
           </div>
         </div>
-        <div class="card">
+        <div class="card kpi-success">
+          <h2>ROI <span class="help-icon" data-tooltip="수익률(%)입니다.\nROI = (실현 손익 / 초기 자본(capital)) * 100\n미청산 평가손익은 포함하지 않습니다." aria-label="ROI help"></span></h2>
+          <div class="kv">
+            <div class="value" id="roi"><span class="skeleton skeleton-value" style="width:60%"></span></div>
+            <div class="label">Win Rate <span class="help-icon" data-tooltip="승률(%) = (이익으로 끝난 매도 횟수 / 전체 매도 횟수) * 100\n매도 0건이면 0%로 표시됩니다." aria-label="Win rate help"></span></div>
+            <div style="font-weight:700;font-family:var(--font-mono)" id="winRate"><span class="skeleton skeleton-text" style="width:40%"></span></div>
+          </div>
+        </div>
+        <div class="card kpi-neutral">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
             <h2 style="margin:0">Balance <span class="help-icon" data-tooltip="현재 보유 자산 요약입니다.\n- Available KRW: 즉시 주문에 사용할 수 있는 원화\n- Locked KRW: 미체결 주문/락업 등으로 잠겨있는 원화\n- As of: 이 값들이 조회된 시각" aria-label="Balance help"></span></h2>
-            <button class="pill small" id="balanceRefreshBtn" type="button" title="Refresh balance">↻</button>
+            <button class="pill small" id="balanceRefreshBtn" type="button" title="Refresh balance">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+            </button>
           </div>
           <div class="kv" style="margin-top:10px">
-            <div class="label">Available KRW <span class="help-icon" data-tooltip="즉시 매수/매도 주문에 사용할 수 있는 원화 잔고입니다.\nLIVE 모드에서는 이 값이 부족하면 주문을 '사전에 차단'합니다." aria-label="Available KRW help"></span></div><div class="value" id="balanceAvailableKrw"><span class="skeleton skeleton-value" style="width:70%"></span></div>
-            <div class="label">Locked KRW <span class="help-icon" data-tooltip="미체결 주문 등으로 잠겨있는 원화입니다.\n체결/취소되기 전까지 Available에 포함되지 않습니다." aria-label="Locked KRW help"></span></div><div style="font-weight:900" id="balanceLockedKrw"><span class="skeleton skeleton-text" style="width:50%"></span></div>
-            <div class="label">As of <span class="help-icon" data-tooltip="업비트에서 잔고 정보를 조회한 시각입니다.\n새로고침 버튼(↻)으로 업데이트할 수 있어요." aria-label="As of help"></span></div><div style="font-weight:900" id="balanceAsOf"><span class="skeleton skeleton-text" style="width:65%"></span></div>
+            <div class="label">Available KRW <span class="help-icon" data-tooltip="즉시 매수/매도 주문에 사용할 수 있는 원화 잔고입니다.\nLIVE 모드에서는 이 값이 부족하면 주문을 '사전에 차단'합니다." aria-label="Available KRW help"></span></div>
+            <div class="value" style="font-size:20px" id="balanceAvailableKrw"><span class="skeleton skeleton-value" style="width:70%"></span></div>
+            <div class="label">Locked KRW <span class="help-icon" data-tooltip="미체결 주문 등으로 잠겨있는 원화입니다.\n체결/취소되기 전까지 Available에 포함되지 않습니다." aria-label="Locked KRW help"></span></div>
+            <div style="font-weight:700;font-family:var(--font-mono)" id="balanceLockedKrw"><span class="skeleton skeleton-text" style="width:50%"></span></div>
+            <div class="label">As of <span class="help-icon" data-tooltip="업비트에서 잔고 정보를 조회한 시각입니다.\n새로고침 버튼으로 업데이트할 수 있어요." aria-label="As of help"></span></div>
+            <div style="font-weight:700;font-family:var(--font-mono);font-size:12px" id="balanceAsOf"><span class="skeleton skeleton-text" style="width:65%"></span></div>
           </div>
         </div>
-        <div class="card"><h2>Total PnL (KRW) <span class="help-icon" data-tooltip="실현 손익 합계(원화)입니다.\n- 실현 기준: 매도(청산)로 확정된 손익만 합산\n- 미청산 포지션의 평가손익은 포함하지 않음" aria-label="Total PnL help"></span></h2><div class="kv"><div class="value" id="totalPnl"><span class="skeleton skeleton-value"></span></div></div></div>
-        <div class="card"><h2>ROI <span class="help-icon" data-tooltip="수익률(%)입니다.\nROI = (실현 손익 / 초기 자본(capital)) * 100\n미청산 평가손익은 포함하지 않습니다." aria-label="ROI help"></span></h2><div class="kv"><div class="value" id="roi"><span class="skeleton skeleton-value" style="width:60%"></span></div><div class="label">Win Rate <span class="help-icon" data-tooltip="승률(%) = (이익으로 끝난 매도 횟수 / 전체 매도 횟수) * 100\n매도 0건이면 0%로 표시됩니다." aria-label="Win rate help"></span></div><div style="font-weight:900" id="winRate"><span class="skeleton skeleton-text" style="width:40%"></span></div></div></div>
-        <div class="card"><h2>Settings Snapshot</h2><div class="kv"><div class="label">Mode <span class="help-icon" data-tooltip="PAPER: 가상체결(슬리피지+수수료 반영). 실제 업비트 주문은 보내지 않습니다.\nLIVE: 실제 업비트 주문을 전송합니다(키 필요).\n※ 안전장치(Order Guard)가 활성화되면 주문을 사전에 차단할 수 있습니다." aria-label="Mode help"></span></div><div style="font-weight:900" id="modeSnap"><span class="skeleton skeleton-text" style="width:50%"></span></div><div class="label">Interval <span class="help-icon" data-tooltip="거래 판단 기준 캔들 분봉입니다(예: 5m/15m/30m).\n'API 호출 주기'가 아니라, 어떤 분봉 캔들을 기준으로 패턴을 판단할지 의미합니다." aria-label="Interval help"></span></div><div style="font-weight:900" id="intervalSnap"><span class="skeleton skeleton-text" style="width:40%"></span></div></div></div>
+        <div class="card kpi-danger">
+          <h2>Settings <span class="help-icon" data-tooltip="현재 봇 설정 스냅샷입니다.\n변경하려면 Settings 페이지로 이동하세요." aria-label="Settings help"></span></h2>
+          <div class="kv">
+            <div class="label">Mode <span class="help-icon" data-tooltip="PAPER: 가상체결(슬리피지+수수료 반영). 실제 업비트 주문은 보내지 않습니다.\nLIVE: 실제 업비트 주문을 전송합니다(키 필요)." aria-label="Mode help"></span></div>
+            <div style="font-weight:700;font-family:var(--font-mono);font-size:20px" id="modeSnap"><span class="skeleton skeleton-text" style="width:50%"></span></div>
+            <div class="label">Interval <span class="help-icon" data-tooltip="거래 판단 기준 캔들 분봉입니다(예: 5m/15m/30m)." aria-label="Interval help"></span></div>
+            <div style="font-weight:700;font-family:var(--font-mono);font-size:20px" id="intervalSnap"><span class="skeleton skeleton-text" style="width:40%"></span></div>
+          </div>
+        </div>
       </div>
 
-      <!-- ── Open Positions ── -->
+      <!-- ═══════ OPEN POSITIONS ═══════ -->
       <div class="card" id="positionsCard">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
-          <h2 style="margin:0">Open Positions <span class="help-icon" data-tooltip="현재 보유 중인 포지션 목록입니다.&#10;미실현 손익은 마지막 체결가 기준 추정치입니다." aria-label="Positions help"></span></h2>
+          <h2 style="margin:0">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle;margin-right:6px;opacity:.7"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+            Open Positions
+            <span class="help-icon" data-tooltip="현재 보유 중인 포지션 목록입니다.&#10;미실현 손익은 마지막 체결가 기준 추정치입니다." aria-label="Positions help"></span>
+          </h2>
           <span class="badge" id="posCountBadge" style="font-size:11px">0</span>
         </div>
         <div class="tableBody">
@@ -87,58 +157,68 @@
               </tr>
             </thead>
             <tbody id="posTbody">
-              <tr><td colspan="7" style="color:var(--muted)">Loading…</td></tr>
+              <tr><td colspan="7" style="color:var(--muted)">Loading...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
+      <!-- ═══════ ORDER GUARD ═══════ -->
       <div class="card">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                <h2 style="margin:0">Order Guard</h2>
-                <span class="badge" id="guardBadge">-</span>
-              </div>
-              <div class="kv" style="margin-top:10px">
-                <div class="label">상태</div><div style="font-weight:900" id="guardSummary">-</div>
-                <div class="label">최근 차단/경고</div><div style="font-weight:900" id="guardRecent">-</div>
-              </div>
-      
-              <div class="tableWrap" style="margin-top:12px">
-                <div class="tableHeader">
-                  <div class="title">Recent Guard Logs</div>
-                  <div class="right">
-                    <button class="pill small" id="guardRefreshBtn" type="button" title="Refresh guard logs">↻</button>
-                  </div>
-                </div>
-                <div class="tableBody">
-                  <table class="table table-fixed" id="guardTable">
-                    <colgroup>
-                      <col style="width:22%"><!-- Time -->
-                      <col style="width:16%"><!-- Market -->
-                      <col style="width:14%"><!-- Action -->
-                      <col style="width:14%"><!-- Result -->
-                      <col style="width:34%"><!-- Reason -->
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th data-guardsort="tsEpochMs" class="sortable">Time <span class="sort-btn" title="정렬">⇅</span></th>
-                        <th>Market</th>
-                        <th>Action</th>
-                        <th>Result</th>
-                        <th>Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody id="guardTbody">
-                      <tr><td colspan="5" style="color:var(--muted)">Loading…</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <small style="display:block;margin-top:10px">(API) /api/dashboard/decision-logs</small>
-            </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <h2 style="margin:0">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle;margin-right:6px;opacity:.7"><path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clip-rule="evenodd"/></svg>
+            Order Guard
+          </h2>
+          <span class="badge" id="guardBadge">-</span>
+        </div>
+        <div class="kv" style="margin-top:10px">
+          <div class="label">Status</div><div style="font-weight:700" id="guardSummary">-</div>
+          <div class="label">Recent Block/Warning</div><div style="font-weight:700" id="guardRecent">-</div>
+        </div>
 
-<div class="card">
-        <h2>Trade Logs</h2>
+        <div class="tableWrap" style="margin-top:12px">
+          <div class="tableHeader">
+            <div class="title">Recent Guard Logs</div>
+            <div class="right">
+              <button class="pill small" id="guardRefreshBtn" type="button" title="Refresh guard logs">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="tableBody">
+            <table class="table table-fixed" id="guardTable">
+              <colgroup>
+                <col style="width:22%"><!-- Time -->
+                <col style="width:16%"><!-- Market -->
+                <col style="width:14%"><!-- Action -->
+                <col style="width:14%"><!-- Result -->
+                <col style="width:34%"><!-- Reason -->
+              </colgroup>
+              <thead>
+                <tr>
+                  <th data-guardsort="tsEpochMs" class="sortable">Time <span class="sort-btn" title="Sort">&#8645;</span></th>
+                  <th>Market</th>
+                  <th>Action</th>
+                  <th>Result</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="guardTbody">
+                <tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <small style="display:block;margin-top:10px">(API) /api/dashboard/decision-logs</small>
+      </div>
+
+      <!-- ═══════ TRADE LOGS ═══════ -->
+      <div class="card">
+        <h2>
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle;margin-right:6px;opacity:.7"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 10a1 1 0 10-2 0v3a1 1 0 102 0v-3zm2-3a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zm4-1a1 1 0 10-2 0v7a1 1 0 102 0V8z" clip-rule="evenodd"/></svg>
+          Trade Logs
+        </h2>
         <div class="tableWrap" style="margin-top:12px">
           <div class="tableHeader">
             <div class="title">Logs</div>
@@ -158,10 +238,10 @@
                     <span class="ms-placeholder">Type filter</span>
                     <div class="ms-chips"></div>
                   </div>
-                  <span class="ms-caret">▾</span>
+                  <span class="ms-caret">&#9662;</span>
                 </button>
                 <div class="ms-panel">
-                  <input class="ms-search" placeholder="Search type…"/>
+                  <input class="ms-search" placeholder="Search type..."/>
                   <div class="ms-list"></div>
                   <div class="ms-footer">
                     <button type="button" class="ms-link" data-ms="all">Select all</button>
@@ -180,12 +260,13 @@
                 <col style="width:7%"><!-- Action -->
                 <col style="width:14%"><!-- Type -->
                 <col style="width:7%"><!-- Score -->
-                <col style="width:17%"><!-- Price (매수→매도) -->
+                <col style="width:17%"><!-- Price -->
                 <col style="width:8%"><!-- Qty -->
                 <col style="width:22%"><!-- PnL + ROI -->
-              </colgroup>              <thead>
+              </colgroup>
+              <thead>
                 <tr>
-                  <th data-sort="tsEpochMs" class="sortable">Time <span class="sort-btn" title="정렬">⇅</span></th>
+                  <th data-sort="tsEpochMs" class="sortable">Time <span class="sort-btn" title="Sort">&#8645;</span></th>
                   <th data-sort="market">Market</th>
                   <th data-sort="action">Action</th>
                   <th data-sort="orderType">Type</th>
@@ -196,13 +277,13 @@
                 </tr>
               </thead>
               <tbody id="logTbody">
-                <tr><td colspan="8" style="color:var(--muted)">Loading…</td></tr>
+                <tr><td colspan="8" style="color:var(--muted)">Loading...</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="pager">
-            <div class="muted" id="logPagerInfo">page 1 · size 50</div>
+            <div class="muted" id="logPagerInfo">page 1 &middot; size 50</div>
             <div style="display:flex;gap:10px;align-items:center">
               <button class="btn" id="prevPageBtn">Prev</button>
               <button class="btn" id="nextPageBtn">Next</button>
@@ -229,20 +310,20 @@
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="guardModalTitle">
       <div class="modal-header">
         <div class="modal-title" id="guardModalTitle">Order Guard Detail</div>
-        <button type="button" class="modal-close" aria-label="Close" data-guard-close>×</button>
+        <button type="button" class="modal-close" aria-label="Close" data-guard-close>&times;</button>
       </div>
       <div class="modal-body">
         <div style="display:flex;flex-direction:column;gap:10px">
           <div>
-            <div style="font-weight:900;margin-bottom:6px">한글 설명</div>
+            <div style="font-weight:700;margin-bottom:6px">Description</div>
             <div id="guardModalKo" style="line-height:1.5">-</div>
           </div>
           <div>
-            <div style="font-weight:900;margin-bottom:6px">기술 상세(참고)</div>
-            <pre id="guardModalDetails" style="white-space:pre-wrap;word-break:break-word;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin:0">-</pre>
+            <div style="font-weight:700;margin-bottom:6px">Technical Details</div>
+            <pre id="guardModalDetails" style="white-space:pre-wrap;word-break:break-word;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin:0;font-family:var(--font-mono);font-size:12px">-</pre>
           </div>
           <div>
-            <button type="button" class="guard-chart-btn" id="guardChartBtn">📊 차트 보기</button>
+            <button type="button" class="guard-chart-btn" id="guardChartBtn">Chart</button>
           </div>
         </div>
       </div>
@@ -255,15 +336,15 @@
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="strategyModalTitle">
       <div class="modal-header">
         <div class="modal-title" id="strategyModalTitle">Strategy Descriptions</div>
-        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>&times;</button>
       </div>
       <div class="modal-body" id="strategyModalBody"></div>
     </div>
   </div>
 
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-  <script th:src="@{/js/autotrade-common.js(v=20260308e)}"></script>
-  <script th:src="@{/js/chart-popup.js(v=20260308e)}"></script>
-  <script th:src="@{/js/dashboard.js(v=20260308e)}"></script>
+  <script th:src="@{/js/autotrade-common.js(v=20260314b)}"></script>
+  <script th:src="@{/js/chart-popup.js(v=20260314b)}"></script>
+  <script th:src="@{/js/dashboard.js(v=20260314b)}"></script>
 </body>
 </html>

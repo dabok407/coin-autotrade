@@ -195,7 +195,7 @@ public class BotConfigEntity {
                 }
             }
         }
-        return 50; // 기본값: EMA50 (기존 동작 유지)
+        return 0; // 기본값: EMA OFF (emaFilterCsv에 명시된 전략만 EMA 적용)
     }
 
     /**

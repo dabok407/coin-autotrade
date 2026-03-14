@@ -130,11 +130,14 @@ public class RegimeFilteredPullbackStrategy implements TradingStrategy {
             }
 
             // 레짐 붕괴 시 청산 (추세 깨지면 빠르게 탈출)
+            // FIX: 수익 중인 포지션은 조기 청산하지 않음 — 손실 포지션만 빠르게 탈출
             if (!regimeUp && close < ema50) {
                 double pnlPct = ((close - avgPrice) / avgPrice) * 100.0;
-                String reason = String.format(Locale.ROOT,
-                        "REGIME_BREAK close<EMA50 ema50=%.2f pnl=%.2f%%", ema50, pnlPct);
-                return Signal.of(SignalAction.SELL, type(), reason);
+                if (pnlPct < -0.5) {
+                    String reason = String.format(Locale.ROOT,
+                            "REGIME_BREAK close<EMA50 ema50=%.2f pnl=%.2f%%", ema50, pnlPct);
+                    return Signal.of(SignalAction.SELL, type(), reason);
+                }
             }
 
             // 추가매수 (레짐 유지 + 가격이 ATR 스텝만큼 하락)

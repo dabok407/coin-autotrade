@@ -518,78 +518,85 @@ window.AutoTrade = (() => {
     });
   }
 
-  // ===== Strategy Group Presets =====
+  // ===== Strategy Group Presets (Phase1+2 최적화 결과 기반, 2026-03-14 갱신) =====
+  // Phase 1: 89.8M 조합 전수 검사 + Phase 2: 3.1M 다중 전략 조합 검사
+  // NOTE: CDR, TWS, TMB, SM, BMR 전략은 deprecated 처리됨 (거래 0건 또는 일관된 손실)
+  // 최적 결과 요약 (활성 전략 기준):
+  // - SOL: IBB(240)+MORNING_STAR(30) TP15/SL20 → 1Y ROI +94.8% (Phase 2 최고)
+  // - ADA: IBB(30) TP20/SL7 → 1Y ROI +65.2%
+  // - BTC: IBB(240) TP10/SL5 → 1Y ROI (활성 전략 기준 재최적화 필요)
+  // - ETH: IBB(240) TP15/SL7 → 1Y ROI (활성 전략 기준 재최적화 필요)
   var GROUP_PRESETS = {
     BULL_AGG: {
       label: '상승장 · 공격형',
-      desc: 'TP3/SL1 · 5전략 · 매도4h · mc7',
+      desc: 'TP15/SL7 · 5전략 · IBB+MS · 추매2',
       condition: 'BULL', style: 'AGG',
-      strategies: ['EMA_RSI_TREND','SCALP_MOMENTUM','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
-      candleUnitMin: 60,
-      strategyIntervals: {EVENING_STAR_SELL:240, THREE_BLACK_CROWS_SELL:240, BEARISH_ENGULFING:240},
+      strategies: ['INSIDE_BAR_BREAKOUT','MORNING_STAR','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
+      candleUnitMin: 240,
+      strategyIntervals: {MORNING_STAR:30, EVENING_STAR_SELL:240, THREE_BLACK_CROWS_SELL:240, BEARISH_ENGULFING:240},
       emaMap: {},
-      takeProfitPct: 3, stopLossPct: 1, minConfidence: 7,
-      maxAddBuys: 2, timeStopMinutes: 480, strategyLock: false,
+      takeProfitPct: 15, stopLossPct: 7, minConfidence: 6,
+      maxAddBuys: 2, timeStopMinutes: 4320, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
     },
     BULL_STB: {
       label: '상승장 · 안정형',
-      desc: 'TP2/SL1 · 4전략 · 60m · mc8',
+      desc: 'TP10/SL5 · 4전략 · IBB · 추매1',
       condition: 'BULL', style: 'STB',
-      strategies: ['EMA_RSI_TREND','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
-      candleUnitMin: 60,
-      strategyIntervals: {},
+      strategies: ['INSIDE_BAR_BREAKOUT','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
+      candleUnitMin: 240,
+      strategyIntervals: {EVENING_STAR_SELL:240, THREE_BLACK_CROWS_SELL:240, BEARISH_ENGULFING:240},
       emaMap: {},
-      takeProfitPct: 2, stopLossPct: 1, minConfidence: 8,
-      maxAddBuys: 2, timeStopMinutes: 480, strategyLock: false,
+      takeProfitPct: 10, stopLossPct: 5, minConfidence: 7,
+      maxAddBuys: 1, timeStopMinutes: 4320, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
     },
     SIDE_AGG: {
       label: '횡보장 · 공격형',
-      desc: 'TP2/SL0.8 · 5전략 · 매도2h · mc7',
+      desc: 'TP10/SL7 · 6전략 · IBB+BPO · 추매2',
       condition: 'SIDE', style: 'AGG',
-      strategies: ['EMA_RSI_TREND','SCALP_MOMENTUM','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
-      candleUnitMin: 60,
-      strategyIntervals: {EVENING_STAR_SELL:120, THREE_BLACK_CROWS_SELL:120, BEARISH_ENGULFING:120},
+      strategies: ['INSIDE_BAR_BREAKOUT','BULLISH_PINBAR_ORDERBLOCK','MORNING_STAR','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
+      candleUnitMin: 240,
+      strategyIntervals: {BULLISH_PINBAR_ORDERBLOCK:60, MORNING_STAR:30, EVENING_STAR_SELL:240, THREE_BLACK_CROWS_SELL:240, BEARISH_ENGULFING:240},
       emaMap: {},
-      takeProfitPct: 2, stopLossPct: 0.8, minConfidence: 7,
-      maxAddBuys: 2, timeStopMinutes: 480, strategyLock: false,
+      takeProfitPct: 10, stopLossPct: 7, minConfidence: 6,
+      maxAddBuys: 2, timeStopMinutes: 4320, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
     },
     SIDE_STB: {
       label: '횡보장 · 안정형',
-      desc: 'TP1.5/SL0.8 · 4전략 · 60m · mc8',
+      desc: 'TP8/SL5 · 5전략 · IBB+MS · 추매1',
       condition: 'SIDE', style: 'STB',
-      strategies: ['EMA_RSI_TREND','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
-      candleUnitMin: 60,
-      strategyIntervals: {},
+      strategies: ['INSIDE_BAR_BREAKOUT','MORNING_STAR','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
+      candleUnitMin: 240,
+      strategyIntervals: {MORNING_STAR:30, EVENING_STAR_SELL:240, THREE_BLACK_CROWS_SELL:240, BEARISH_ENGULFING:240},
       emaMap: {},
-      takeProfitPct: 1.5, stopLossPct: 0.8, minConfidence: 8,
-      maxAddBuys: 1, timeStopMinutes: 480, strategyLock: false,
+      takeProfitPct: 8, stopLossPct: 5, minConfidence: 7,
+      maxAddBuys: 1, timeStopMinutes: 2880, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
     },
     BEAR_AGG: {
       label: '하락장 · 공격형',
-      desc: 'TP1/SL0.5 · 4전략 · mc9 · 추매1',
+      desc: 'TP8/SL3 · 4전략 · IBB · 추매1',
       condition: 'BEAR', style: 'AGG',
-      strategies: ['EMA_RSI_TREND','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
-      candleUnitMin: 60,
-      strategyIntervals: {},
+      strategies: ['INSIDE_BAR_BREAKOUT','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
+      candleUnitMin: 30,
+      strategyIntervals: {EVENING_STAR_SELL:60, THREE_BLACK_CROWS_SELL:60, BEARISH_ENGULFING:60},
       emaMap: {},
-      takeProfitPct: 1, stopLossPct: 0.5, minConfidence: 9,
-      maxAddBuys: 1, timeStopMinutes: 240, strategyLock: false,
+      takeProfitPct: 8, stopLossPct: 3, minConfidence: 7,
+      maxAddBuys: 1, timeStopMinutes: 1440, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
     },
     BEAR_STB: {
       label: '하락장 · 안정형',
-      desc: 'TP1.5/SL0.5 · 4전략 · mc9 · 추매0',
+      desc: 'TP5/SL2 · 4전략 · IBB · 추매0',
       condition: 'BEAR', style: 'STB',
-      strategies: ['EMA_RSI_TREND','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
-      candleUnitMin: 60,
-      strategyIntervals: {},
+      strategies: ['INSIDE_BAR_BREAKOUT','BEARISH_ENGULFING','EVENING_STAR_SELL','THREE_BLACK_CROWS_SELL'],
+      candleUnitMin: 30,
+      strategyIntervals: {EVENING_STAR_SELL:60, THREE_BLACK_CROWS_SELL:60, BEARISH_ENGULFING:60},
       emaMap: {},
-      takeProfitPct: 1.5, stopLossPct: 0.5, minConfidence: 9,
-      maxAddBuys: 0, timeStopMinutes: 240, strategyLock: false,
+      takeProfitPct: 5, stopLossPct: 2, minConfidence: 8,
+      maxAddBuys: 0, timeStopMinutes: 1440, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
     }
   };

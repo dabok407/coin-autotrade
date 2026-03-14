@@ -10,7 +10,8 @@ package com.example.upbit.strategy;
  */
 public enum StrategyType {
 
-    // === 기존(백업) ===
+    // === 기존(백업) === [DEPRECATED: 백테스트 445건 검증 결과 거래 0건]
+    @Deprecated
     CONSECUTIVE_DOWN_REBOUND,
 
     // [1] 장악형 캔들
@@ -26,7 +27,8 @@ public enum StrategyType {
     // [4] 인사이드바(마더바 내부) 돌파 + 거래량 필터
     INSIDE_BAR_BREAKOUT,
 
-    // [5] 삼법형(3 Methods) + 20EMA 필터
+    // [5] 삼법형(3 Methods) + 20EMA 필터 [DEPRECATED: 백테스트 445건 검증 결과 거래 0건]
+    @Deprecated
     THREE_METHODS_BULLISH,
     THREE_METHODS_BEARISH,       // 하락 삼법형 (보유 중이면 청산)
 
@@ -34,7 +36,8 @@ public enum StrategyType {
     MORNING_STAR,
     EVENING_STAR_SELL,           // 보유 중이면 청산
 
-    // [7] 적삼병/흑삼병
+    // [7] 적삼병/흑삼병 [DEPRECATED: 백테스트 445건 검증 결과 거래 0건]
+    @Deprecated
     THREE_WHITE_SOLDIERS,
     THREE_BLACK_CROWS_SELL,      // 보유 중이면 청산
 
@@ -44,13 +47,15 @@ public enum StrategyType {
     // [9] 5중 확인 추세 모멘텀 + Chandelier Exit
     ADAPTIVE_TREND_MOMENTUM,      // Adaptive Trend Momentum (매수+매도 통합)
 
-    // [10] 스캘핑 모멘텀 (BUY-ONLY: EMA8/21 + RSI + 거래량)
+    // [10] 스캘핑 모멘텀 (BUY-ONLY: EMA8/21 + RSI + 거래량) [DEPRECATED: 승률 10~30%, 전 코인 손실]
+    @Deprecated
     SCALP_MOMENTUM,               // Scalp Momentum (매수 전용 → TP/SL/매도전략에 청산 위임)
 
     // [11] EMA-RSI 추세 추종 (BUY-ONLY: RSI 눌림 + 돌파 매수)
     EMA_RSI_TREND,                // EMA-RSI Trend (매수 전용 → TP/SL/매도전략에 청산 위임)
 
-    // [12] 볼린저 밴드 + RSI 평균회귀 (횡보장 특화, 자급자족)
+    // [12] 볼린저 밴드 + RSI 평균회귀 (횡보장 특화, 자급자족) [DEPRECATED: 거래 1~2건, 암호화폐 부적합]
+    @Deprecated
     BOLLINGER_RSI_MEAN_REVERSION, // BMR: BB Lower + RSI 과매도 매수 → BB Middle 익절
 
     // [13] 쓰리 마켓 패턴 (이중 가짜돌파 → 신고가 돌파 매수, 자급자족)

@@ -469,7 +469,7 @@
       if (hasEmaCol) {
         if (sd.emaFilterMode === 'CONFIGURABLE') {
           var recEma = sd.recommendedEma || 50;
-          var emaVal = inst.emaMap[skey] != null ? inst.emaMap[skey] : recEma;
+          var emaVal = skey in inst.emaMap ? inst.emaMap[skey] : recEma;
           html += '<td style="text-align:center;vertical-align:middle"><input class="input bt-sd-ema-input" data-strat="'+escAttr(skey)+'" type="number" min="0" max="500" step="10" value="'+emaVal+'" style="width:70px;height:34px;font-size:12px;text-align:center"/>';
           html += '<div style="font-size:10px;color:var(--primary);margin-top:2px">권장 '+recEma+'</div></td>';
         } else if (sd.emaFilterMode === 'INTERNAL') {
@@ -511,11 +511,7 @@
     for (var i = 0; i < emaInputs.length; i++) {
       var key = emaInputs[i].getAttribute('data-strat');
       var val = parseInt(emaInputs[i].value) || 0;
-      if (val > 0) {
-        btCurrentDetailInst.emaMap[key] = val;
-      } else {
-        delete btCurrentDetailInst.emaMap[key];
-      }
+      btCurrentDetailInst.emaMap[key] = val;
     }
 
     modal.classList.remove('open');
@@ -621,8 +617,8 @@
   function buildBtEmaFilterCsv(inst) {
     var parts = [];
     for (var k in inst.emaMap) {
-      if (inst.emaMap.hasOwnProperty(k) && inst.emaMap[k] > 0) {
-        parts.push(k + ':' + inst.emaMap[k]);
+      if (inst.emaMap.hasOwnProperty(k)) {
+        parts.push(k + ':' + (inst.emaMap[k] || 0));
       }
     }
     return parts.join(',');
@@ -984,6 +980,25 @@
       btTrades.textContent = fmt(res.tradesCount);
       btWinRate.textContent = (res.winRate == null ? '-' : Number(res.winRate).toFixed(2) + '%');
 
+      // Update distribution bar
+      var distBar = el('btDistBar');
+      var distWin = el('btDistWin');
+      var distLoss = el('btDistLoss');
+      if (distBar && distWin && distLoss && res.winRate != null) {
+        var wr = Number(res.winRate);
+        distWin.style.width = wr + '%';
+        distLoss.style.width = (100 - wr) + '%';
+        distBar.style.display = '';
+      }
+
+      // Color KPI values based on profit/loss
+      if (res.totalReturn != null) {
+        btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+      }
+      if (res.roi != null) {
+        btRoi.style.color = res.roi >= 0 ? 'var(--success)' : 'var(--danger)';
+      }
+
       logs = res.trades || [];
       page = 1;
       render();
@@ -1012,9 +1027,13 @@
     logs = [];
     page = 1;
     btTotalReturn.textContent = '-';
+    btTotalReturn.style.color = '';
     btRoi.textContent = '-';
+    btRoi.style.color = '';
     btTrades.textContent = '-';
     btWinRate.textContent = '-';
+    var distBar = el('btDistBar');
+    if (distBar) distBar.style.display = 'none';
     render();
   });
 

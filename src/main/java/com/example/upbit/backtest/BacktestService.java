@@ -2,7 +2,6 @@ package com.example.upbit.backtest;
 
 import com.example.upbit.api.BacktestRequest;
 import com.example.upbit.api.BacktestResponse;
-import com.example.upbit.api.BacktestTradeRow;
 import com.example.upbit.config.StrategyProperties;
 import com.example.upbit.config.TradeProperties;
 import com.example.upbit.market.CandleService;
@@ -78,7 +77,7 @@ public class BacktestService {
         // ===== 전략 파싱 + 파라미터 =====
         List<StrategyType> stypes = parseStrategies(req);
         if (stypes.isEmpty()) {
-            stypes.add(StrategyType.CONSECUTIVE_DOWN_REBOUND);
+            stypes.add(StrategyType.ADAPTIVE_TREND_MOMENTUM);
         }
 
         double capital = req.capitalKrw;
@@ -222,8 +221,15 @@ public class BacktestService {
         BacktestResponse res = new BacktestResponse();
         res.candleUnitMin = unit;
         res.periodDays = days;
-        res.usedTpPct = tpPct;
-        res.usedSlPct = slPct;
+        // 그룹 모드에서는 첫 번째 그룹의 TP/SL 값 표시 (단일 그룹이 대부분)
+        if (hasGroups && !marketGroupMap.isEmpty()) {
+            MarketGroupSettings firstGs = marketGroupMap.values().iterator().next();
+            res.usedTpPct = firstGs.tpPct;
+            res.usedSlPct = firstGs.slPct;
+        } else {
+            res.usedTpPct = tpPct;
+            res.usedSlPct = slPct;
+        }
         for (StrategyType t : stypes) res.strategies.add(t.name());
 
         // ===== 멀티 인터벌 캔들 조회: (마켓, 인터벌) 조합별 조회 =====
@@ -250,313 +256,66 @@ public class BacktestService {
         }
         res.candleCount = totalCandleCount;
 
-        int sellCount = 0;
-        int winCount = 0;
-        int tpSellCount = 0;
-        int slSellCount = 0;
-        int patternSellCount = 0;
-        int tpMissCount = 0;
+        // ===== TradingEngine으로 위임: 동일한 매매 로직 사용 =====
+        SimulationParams params = new SimulationParams();
+        params.markets = markets;
+        params.strategies = stypes;
+        params.capitalKrw = capital;
+        params.tpPct = tpPct;
+        params.slPct = slPct;
+        params.baseOrderKrw = baseOrderKrw;
+        params.maxAddBuys = maxAddBuysGlobal;
+        params.strategyLock = strategyLockEnabled;
+        params.minConfidence = minConfidence;
+        params.timeStopMinutes = timeStopMinutes;
+        params.candleUnitMin = unit;
+        params.emaTrendFilterMap = emaTrendFilterMap;
+        params.stratsByInterval = stratsByInterval;
+        params.hasGroups = hasGroups;
 
-        // ===== 멀티 마켓 + 멀티 인터벌: (마켓, 인터벌)별 타임라인 병합 =====
-        class Pos {
-            // 인터벌별 캔들 시리즈와 인덱스
-            Map<Integer, List<UpbitCandle>> seriesByInterval = new HashMap<Integer, List<UpbitCandle>>();
-            Map<Integer, Integer> idxByInterval = new HashMap<Integer, Integer>();
-
-            // 공유 포지션 상태
-            double qty = 0.0;
-            double avg = 0.0;
-            int addBuys = 0;
-            int downStreak = 0;
-            String entryStrategy = null;
-            long entryTsMs = 0;
-
-            // 마지막 가격 (downStreak 추적용)
-            double lastClose = 0.0;
-        }
-        Map<String, Pos> posByMarket = new HashMap<String, Pos>();
-        for (String m : markets) {
-            Pos p = new Pos();
-            Map<Integer, List<UpbitCandle>> byInterval = candlesByMI.get(m);
-            if (byInterval != null) {
-                for (Map.Entry<Integer, List<UpbitCandle>> e : byInterval.entrySet()) {
-                    List<UpbitCandle> series = e.getValue();
-                    if (series == null) series = new ArrayList<UpbitCandle>();
-                    p.seriesByInterval.put(e.getKey(), series);
-                    p.idxByInterval.put(e.getKey(), series.size() > 1 ? 1 : 0);
-                }
+        // MarketGroupSettings 변환 (BacktestService 내부 클래스 → SimulationParams 클래스)
+        if (hasGroups && !marketGroupMap.isEmpty()) {
+            java.util.Map<String, SimulationParams.MarketGroupSettings> simGroupMap =
+                    new java.util.HashMap<String, SimulationParams.MarketGroupSettings>();
+            for (java.util.Map.Entry<String, MarketGroupSettings> e : marketGroupMap.entrySet()) {
+                MarketGroupSettings src = e.getValue();
+                SimulationParams.MarketGroupSettings dst = new SimulationParams.MarketGroupSettings();
+                dst.tpPct = src.tpPct;
+                dst.slPct = src.slPct;
+                dst.maxAddBuys = src.maxAddBuys;
+                dst.strategyLock = src.strategyLock;
+                dst.minConfidence = src.minConfidence;
+                dst.timeStopMinutes = src.timeStopMinutes;
+                dst.candleUnitMin = src.candleUnitMin;
+                dst.orderSizingMode = src.orderSizingMode;
+                dst.orderSizingValue = src.orderSizingValue;
+                dst.baseOrderKrw = src.baseOrderKrw;
+                dst.intervalsCsv = src.intervalsCsv;
+                dst.emaFilterCsv = src.emaFilterCsv;
+                dst.strategies = src.strategies;
+                dst.strategyNames = src.strategyNames;
+                simGroupMap.put(e.getKey(), dst);
             }
-            posByMarket.put(m, p);
-        }
-
-        while (true) {
-            // 모든 (마켓, 인터벌) 조합 중 가장 빠른 다음 캔들 찾기
-            String nextMarket = null;
-            int nextInterval = 0;
-            UpbitCandle nextCur = null;
-            UpbitCandle nextPrev = null;
-
-            for (String m : markets) {
-                Pos p = posByMarket.get(m);
-                if (p == null) continue;
-                for (Map.Entry<Integer, Integer> ie : p.idxByInterval.entrySet()) {
-                    int intv = ie.getKey();
-                    int idx = ie.getValue();
-                    List<UpbitCandle> series = p.seriesByInterval.get(intv);
-                    if (series == null || idx >= series.size()) continue;
-                    if (idx < 1) continue; // 최소 1개 이전 캔들 필요
-                    UpbitCandle cur = series.get(idx);
-                    if (cur == null || cur.candle_date_time_utc == null) continue;
-                    if (nextCur == null || cur.candle_date_time_utc.compareTo(nextCur.candle_date_time_utc) < 0) {
-                        nextMarket = m;
-                        nextInterval = intv;
-                        nextCur = cur;
-                        nextPrev = series.get(idx - 1);
-                    }
-                }
-            }
-            if (nextCur == null) break;
-
-            Pos mp = posByMarket.get(nextMarket);
-            int curIdx = mp.idxByInterval.get(nextInterval);
-            mp.idxByInterval.put(nextInterval, curIdx + 1);
-
-            double prevClose = (nextPrev == null ? nextCur.trade_price : nextPrev.trade_price);
-            double close = nextCur.trade_price;
-            if (close < mp.lastClose && mp.lastClose > 0) mp.downStreak++;
-            else if (close >= mp.lastClose || mp.lastClose == 0) mp.downStreak = 0;
-            mp.lastClose = close;
-
-            boolean open = mp.qty > 0;
-
-            // ===== 그룹별 유효 설정 해석 =====
-            MarketGroupSettings mgs = hasGroups ? marketGroupMap.get(nextMarket) : null;
-            double effTpPct = (mgs != null ? mgs.tpPct : tpPct);
-            double effSlPct = (mgs != null ? mgs.slPct : slPct);
-            int effMaxAddBuys = (mgs != null ? mgs.maxAddBuys : maxAddBuysGlobal);
-            boolean effStrategyLock = (mgs != null ? mgs.strategyLock : strategyLockEnabled);
-            double effMinConfidence = (mgs != null ? mgs.minConfidence : minConfidence);
-            int effTimeStopMin = (mgs != null ? mgs.timeStopMinutes : timeStopMinutes);
-            double effBaseOrderKrw = (mgs != null ? mgs.baseOrderKrw : baseOrderKrw);
-
-            // ===== TP/SL 체크: 그룹별 TP/SL 적용 =====
-            SignalEvaluator.Result tpSlResult = SignalEvaluator.checkTpSl(open, mp.avg, close, effTpPct, effSlPct);
-            if (tpSlResult != null) {
-                double fill = close * (1.0 - tradeProps.getSlippageRate());
-                double gross = mp.qty * fill;
-                double fee = gross * strategyCfg.getFeeRate();
-                double realized = (gross - fee) - (mp.qty * mp.avg);
-                sellCount++;
-                if (tpSlResult.patternType != null && tpSlResult.patternType.equals("STOP_LOSS")) slSellCount++; else tpSellCount++;
-                if (realized > 0) winCount++;
-                BacktestTradeRow tpSlRow = row(nextCur, nextMarket, "SELL", tpSlResult.patternType, fill, mp.qty, realized, tpSlResult.reason, mp.avg);
-                tpSlRow.confidence = 0;
-                tpSlRow.candleUnitMin = nextInterval;
-                res.trades.add(tpSlRow);
-                mp.qty = 0.0; mp.avg = 0.0; mp.addBuys = 0; mp.downStreak = 0; mp.entryStrategy = null; mp.entryTsMs = 0;
-                capital += (gross - fee);
-                continue;
-            }
-
-            // ===== Time Stop 체크 =====
-            if (effTimeStopMin > 0 && open && mp.entryTsMs > 0 && nextCur.candle_date_time_utc != null) {
-                long curTsMs = java.time.LocalDateTime.parse(nextCur.candle_date_time_utc).toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
-                long elapsedMin = (curTsMs - mp.entryTsMs) / 60000L;
-                if (elapsedMin >= effTimeStopMin) {
-                    boolean isBuyOnlyEntry = false;
-                    if (mp.entryStrategy != null && !mp.entryStrategy.isEmpty()) {
-                        try { isBuyOnlyEntry = StrategyType.valueOf(mp.entryStrategy).isBuyOnly(); } catch (Exception ignore) {}
-                    }
-                    if (isBuyOnlyEntry) {
-                        double pnlPct = mp.avg > 0 ? ((close - mp.avg) / mp.avg) * 100.0 : 0;
-                        if (pnlPct < 0) {
-                            double fill = close * (1.0 - tradeProps.getSlippageRate());
-                            double gross = mp.qty * fill;
-                            double fee = gross * strategyCfg.getFeeRate();
-                            double realized = (gross - fee) - (mp.qty * mp.avg);
-                            sellCount++;
-                            if (realized > 0) winCount++;
-                            String tsReason = String.format(java.util.Locale.ROOT,
-                                    "TIME_STOP %dmin elapsed=%dmin entry=%s pnl=%.2f%%",
-                                    effTimeStopMin, elapsedMin, mp.entryStrategy, pnlPct);
-                            BacktestTradeRow tsRow = row(nextCur, nextMarket, "SELL", "TIME_STOP", fill, mp.qty, realized, tsReason, mp.avg);
-                            tsRow.confidence = 0;
-                            tsRow.candleUnitMin = nextInterval;
-                            res.trades.add(tsRow);
-                            mp.qty = 0.0; mp.avg = 0.0; mp.addBuys = 0; mp.downStreak = 0; mp.entryStrategy = null; mp.entryTsMs = 0;
-                            capital += (gross - fee);
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            // ===== 전략 평가: 현재 인터벌 그룹의 전략만 평가 =====
-            java.util.List<StrategyType> groupStrats = stratsByInterval.get(nextInterval);
-            if (groupStrats == null || groupStrats.isEmpty()) continue;
-
-            // 그룹 모드: 해당 마켓의 그룹 전략만 필터링
-            if (hasGroups && mgs != null && mgs.strategyNames != null) {
-                java.util.List<StrategyType> filtered = new java.util.ArrayList<StrategyType>();
-                for (StrategyType st : groupStrats) {
-                    if (mgs.strategyNames.contains(st.name())) filtered.add(st);
-                }
-                groupStrats = filtered;
-                if (groupStrats.isEmpty()) continue;
-            }
-
-            // 레거시 마켓별 전략 필터링 (그룹 모드가 아닐 때)
-            if (!hasGroups && mktStratMap != null) {
-                java.util.Set<String> allowed = mktStratMap.get(nextMarket);
-                if (allowed != null && !allowed.isEmpty()) {
-                    java.util.List<StrategyType> filtered = new java.util.ArrayList<StrategyType>();
-                    for (StrategyType st : groupStrats) {
-                        if (allowed.contains(st.name())) filtered.add(st);
-                    }
-                    groupStrats = filtered;
-                    if (groupStrats.isEmpty()) continue;
-                }
-            }
-
-            List<UpbitCandle> series = mp.seriesByInterval.get(nextInterval);
-            int windowEnd = Math.min(curIdx + 1, series.size());
-            List<UpbitCandle> window = series.subList(0, windowEnd);
-
-            com.example.upbit.db.PositionEntity syntheticPos = null;
-            if (mp.qty > 0) {
-                syntheticPos = new com.example.upbit.db.PositionEntity();
-                syntheticPos.setQty(java.math.BigDecimal.valueOf(mp.qty));
-                syntheticPos.setAvgPrice(java.math.BigDecimal.valueOf(mp.avg));
-                syntheticPos.setAddBuys(mp.addBuys);
-                syntheticPos.setEntryStrategy(mp.entryStrategy);
-            }
-            StrategyContext ctx = new StrategyContext(nextMarket, nextInterval, window, syntheticPos, mp.downStreak, emaTrendFilterMap);
-            SignalEvaluator.Result evalResult = SignalEvaluator.evaluateStrategies(groupStrats, strategyFactory, ctx);
-
-            if (evalResult.isEmpty()) continue;
-
-            String patternType = evalResult.patternType;
-            String reason = evalResult.reason;
-
-            if (evalResult.signal.action == SignalAction.BUY && !open) {
-                // Confidence filter: BUY 신호가 최소 점수 미달이면 스킵
-                if (effMinConfidence > 0 && evalResult.confidence < effMinConfidence) continue;
-                double orderKrw = effBaseOrderKrw;
-                if (orderKrw < tradeProps.getMinOrderKrw()) orderKrw = tradeProps.getMinOrderKrw();
-                if (capital < orderKrw) {
-                    if (capital >= tradeProps.getMinOrderKrw()) orderKrw = capital; else continue;
-                }
-
-                double fee = orderKrw * strategyCfg.getFeeRate();
-                double net = orderKrw - fee;
-                double fill = close * (1.0 + tradeProps.getSlippageRate());
-                double addQtyVal = net / fill;
-
-                mp.qty = addQtyVal;
-                mp.avg = fill;
-                mp.addBuys = 0;
-                mp.entryStrategy = patternType;
-                // 캔들 시간을 epoch ms로 변환
-                mp.entryTsMs = (nextCur.candle_date_time_utc != null)
-                        ? java.time.LocalDateTime.parse(nextCur.candle_date_time_utc).toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
-                        : 0;
-
-                capital -= orderKrw;
-                BacktestTradeRow buyRow = row(nextCur, nextMarket, "BUY", patternType, fill, addQtyVal, 0.0, reason);
-                buyRow.confidence = evalResult.confidence;
-                buyRow.candleUnitMin = nextInterval;
-                res.trades.add(buyRow);
-                continue;
-            }
-
-            if (evalResult.signal.action == SignalAction.ADD_BUY && open && mp.addBuys < effMaxAddBuys) {
-                // Strategy Lock: 매수전략과 다른 전략의 추가매수 차단
-                if (effStrategyLock && mp.entryStrategy != null
-                        && !mp.entryStrategy.isEmpty() && !mp.entryStrategy.equals(patternType)) {
-                    continue; // 전략 불일치 → 추가매수 차단
-                }
-                int next = mp.addBuys + 1;
-                double orderKrw = effBaseOrderKrw * Math.pow(tradeProps.getAddBuyMultiplier(), next);
-                if (orderKrw < tradeProps.getMinOrderKrw()) orderKrw = tradeProps.getMinOrderKrw();
-                if (capital < orderKrw) {
-                    if (capital >= tradeProps.getMinOrderKrw()) orderKrw = capital; else continue;
-                }
-
-                double fee = orderKrw * strategyCfg.getFeeRate();
-                double net = orderKrw - fee;
-                double fill = close * (1.0 + tradeProps.getSlippageRate());
-                double addQtyVal = net / fill;
-
-                double newQty = mp.qty + addQtyVal;
-                mp.avg = (mp.avg * mp.qty + fill * addQtyVal) / newQty;
-                mp.qty = newQty;
-                mp.addBuys++;
-
-                capital -= orderKrw;
-                BacktestTradeRow abRow = row(nextCur, nextMarket, "ADD_BUY", patternType, fill, addQtyVal, 0.0, reason);
-                abRow.confidence = evalResult.confidence;
-                abRow.candleUnitMin = nextInterval;
-                res.trades.add(abRow);
-                continue;
-            }
-
-            if (evalResult.signal.action == SignalAction.SELL && open) {
-                // Strategy Lock: TP/SL은 항상 허용, 매도 전용 전략(하락 장악형 등)도 항상 허용
-                if (effStrategyLock && !evalResult.isTpSl && mp.entryStrategy != null
-                        && !mp.entryStrategy.isEmpty() && !mp.entryStrategy.equals(patternType)) {
-                    boolean sellOnlyStrategy = false;
-                    try { sellOnlyStrategy = StrategyType.valueOf(patternType).isSellOnly(); } catch (Exception ignore) {}
-                    if (!sellOnlyStrategy) {
-                        continue; // 전략 불일치 + 매도 전용 아님 → 매도 차단
-                    }
-                }
-                double fill = close * (1.0 - tradeProps.getSlippageRate());
-                double gross = mp.qty * fill;
-                double fee = gross * strategyCfg.getFeeRate();
-                double realized = (gross - fee) - (mp.qty * mp.avg);
-
-                sellCount++;
-                if (evalResult.isTpSl) {
-                    if ("STOP_LOSS".equals(evalResult.patternType)) slSellCount++;
-                    else tpSellCount++;
-                } else {
-                    patternSellCount++;
-                }
-                if (realized > 0) winCount++;
-
-                BacktestTradeRow sellRow = row(nextCur, nextMarket, "SELL", patternType, fill, mp.qty, realized, reason, mp.avg);
-                sellRow.confidence = evalResult.confidence;
-                sellRow.candleUnitMin = nextInterval;
-                res.trades.add(sellRow);
-
-                mp.qty = 0.0;
-                mp.avg = 0.0;
-                mp.addBuys = 0;
-                mp.downStreak = 0;
-                mp.entryStrategy = null;
-                mp.entryTsMs = 0;
-
-                capital += (gross - fee);
-            }
+            params.marketGroupMap = simGroupMap;
         }
 
-        res.tradesCount = res.trades.size();
-        res.wins = winCount;
-        res.winRate = (sellCount == 0 ? 0.0 : (winCount * 100.0 / sellCount));
-        res.finalCapital = capital;
-        res.tpSellCount = tpSellCount;
-        res.slSellCount = slSellCount;
-        res.patternSellCount = patternSellCount;
-        res.tpMissCount = tpMissCount;
+        TradingEngine engine = new TradingEngine(strategyFactory, strategyCfg, tradeProps);
+        BacktestResponse coreRes = engine.simulate(params, candlesByMI);
 
-        double start = req.capitalKrw;
-        res.totalReturn = capital - start;
-        res.roi = (start <= 0 ? 0.0 : (res.totalReturn / start) * 100.0);
-
-        // legacy compatibility
-        res.totalPnl = res.totalReturn;
-        res.totalRoi = res.roi;
-        res.totalTrades = res.tradesCount;
+        // TradingEngine 결과를 기존 res에 머지 (캔들 카운트/마켓/전략 정보는 이미 세팅됨)
+        res.trades = coreRes.trades;
+        res.tradesCount = coreRes.tradesCount;
+        res.wins = coreRes.wins;
+        res.winRate = coreRes.winRate;
+        res.finalCapital = coreRes.finalCapital;
+        res.tpSellCount = coreRes.tpSellCount;
+        res.slSellCount = coreRes.slSellCount;
+        res.patternSellCount = coreRes.patternSellCount;
+        res.totalReturn = coreRes.totalReturn;
+        res.roi = coreRes.roi;
+        res.totalPnl = coreRes.totalPnl;
+        res.totalRoi = coreRes.totalRoi;
+        res.totalTrades = coreRes.totalTrades;
 
         return res;
     }
@@ -679,27 +438,6 @@ public class BacktestService {
         return out;
     }
 
-    private BacktestTradeRow row(UpbitCandle c, String market, String action, String type, double price, double qty, double pnl, String note) {
-        return row(c, market, action, type, price, qty, pnl, note, 0);
-    }
-
-    private BacktestTradeRow row(UpbitCandle c, String market, String action, String type, double price, double qty, double pnl, String note, double avgBuyPrice) {
-        BacktestTradeRow r = new BacktestTradeRow();
-        r.ts = (c.candle_date_time_utc == null ? null : c.candle_date_time_utc.toString());
-        r.market = market;
-        r.action = action;
-        r.orderType = type;
-        r.price = price;
-        r.qty = qty;
-        r.pnlKrw = pnl;
-        r.note = note;
-        r.avgBuyPrice = avgBuyPrice;
-        if (avgBuyPrice > 0 && price > 0) {
-            r.roiPercent = ((price - avgBuyPrice) / avgBuyPrice) * 100.0;
-        }
-        // candleUnitMin은 호출부에서 설정 (nextInterval)
-        return r;
-    }
 
     /**
      * 그룹별 마켓 설정: 백테스트 시 마켓별로 TP/SL/전략/인터벌 등을 독립 적용.

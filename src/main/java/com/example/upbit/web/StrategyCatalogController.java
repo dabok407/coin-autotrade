@@ -20,24 +20,14 @@ public class StrategyCatalogController {
     public List<StrategyInfo> strategies() {
         List<StrategyInfo> out = new ArrayList<StrategyInfo>();
         for (StrategyType t : StrategyType.values()) {
+            // deprecated 전략은 UI에 노출하지 않음
+            if (t.isDeprecated()) continue;
+
             String role = t.isSellOnly() ? "SELL_ONLY" : (t.isSelfContained() ? "SELF_CONTAINED" : "BUY_ONLY");
             String label = displayName(t);
-            if (t.isDeprecated()) {
-                label += " (삭제예정)";
-            }
             out.add(new StrategyInfo(t.name(), label, description(t), role,
-                    t.recommendedIntervalMin(), t.emaTrendFilterMode(), t.recommendedEmaPeriod(), t.isDeprecated()));
+                    t.recommendedIntervalMin(), t.emaTrendFilterMode(), t.recommendedEmaPeriod(), false));
         }
-        // 삭제예정 전략을 맨 아래로 정렬 (비-삭제예정 전략들 간 기존 순서 유지)
-        Collections.sort(out, new Comparator<StrategyInfo>() {
-            @Override
-            public int compare(StrategyInfo a, StrategyInfo b) {
-                if (a.deprecated != b.deprecated) {
-                    return a.deprecated ? 1 : -1;
-                }
-                return 0;
-            }
-        });
         return out;
     }
 

@@ -5,61 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Upbit AutoTrade - Backtest</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
-  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260308e)}">
+  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260314b)}">
   <link rel="stylesheet" th:href="@{/css/datepicker.css}">
 </head>
 <body>
   <div class="toast-container" id="toastContainer"></div>
   <div class="container">
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!--  Header — matches dashboard.html style                    -->
+    <!-- ══════════════════════════════════════════════════════════ -->
     <div class="header">
       <div class="brand">
-        <h1>Upbit AutoTrade</h1>
+        <h1>
+          <svg width="24" height="24" viewBox="0 0 32 32" style="vertical-align:middle;margin-right:8px">
+            <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2b76ff"/><stop offset="100%" stop-color="#20c997"/></linearGradient></defs>
+            <rect width="32" height="32" rx="6" fill="url(#hg)"/>
+            <path d="M8 22 L14 12 L18 17 L24 8" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="8" r="2.5" fill="white"/>
+          </svg>
+          Upbit AutoTrade
+        </h1>
         <div class="tabs">
-          <a class="tab" th:href="@{/dashboard}">Dashboard</a>
-          <a class="tab" th:href="@{/settings}">Settings</a>
-          <a class="tab active" th:href="@{/backtest}">Backtest</a>
+          <a class="tab" th:href="@{/dashboard}">
+            <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+            Dashboard
+          </a>
+          <a class="tab" th:href="@{/settings}">
+            <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+            Settings
+          </a>
+          <a class="tab active" th:href="@{/backtest}">
+            <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+            Backtest
+          </a>
         </div>
       </div>
       <div class="nav">
-        <button class="pill small" id="btReset" type="button" title="결과 초기화">↻ Refresh</button>
-        <button class="pill small" id="themeToggle" type="button" aria-pressed="false">🌙 Dark</button>
-        <button class="pill small" id="logoutBtn" type="button" style="color:var(--danger)">🚪 Logout</button>
+        <button class="pill small" id="btReset" type="button" title="Reset results">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+          Refresh
+        </button>
+        <button class="pill small" id="themeToggle" type="button" aria-pressed="false">Dark</button>
+        <button class="pill small" id="logoutBtn" type="button" style="color:var(--danger)">Logout</button>
       </div>
     </div>
 
     <div class="grid">
-      <div class="card">
-        <h2>Backtest Conditions</h2>
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <!--  Backtest Conditions Card                                 -->
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <div class="card" style="overflow:visible">
+        <h2><span class="gradient-text">Backtest Conditions</span></h2>
 
-        <!-- ── Global ── -->
+        <!-- ── Global Settings ── -->
         <div style="margin-bottom:20px">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--primary);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">Global</div>
           <div class="toolbar">
             <div class="field">
-              <label>Capital (KRW)</label>
+              <label>Capital (KRW) <span class="help-icon" data-tooltip="백테스트에 사용할 초기 자본금(원화)입니다.&#10;그룹별 주문 크기 계산에 사용됩니다." aria-label="Capital help"></span></label>
               <input class="input" type="text" id="btCapital" value="100,000"/>
             </div>
             <div class="field">
-              <label>Period</label>
+              <label>Period <span class="help-icon" data-tooltip="백테스트 기간을 선택합니다.&#10;선택 시 From/To 날짜가 자동으로 계산됩니다.&#10;직접 날짜를 수정할 수도 있습니다." aria-label="Period help"></span></label>
               <div class="select-wrap">
                 <select class="select" id="btPeriod">
-                <option value="1일">1일</option>
-                <option value="1주" selected>1주</option>
-                <option value="1달">1달</option>
-                <option value="3달">3달</option>
+                  <option value="1일">1일</option>
+                  <option value="1주" selected>1주</option>
+                  <option value="1달">1달</option>
+                  <option value="3달">3달</option>
                 </select>
               </div>
             </div>
             <div class="field">
-              <label>From</label>
-              <input class="input dp-date" type="text" inputmode="numeric" id="btFromDate" placeholder="YYYY-MM-DD" autocomplete="off" />
+              <label>From <span class="help-icon" data-tooltip="백테스트 시작 날짜입니다.&#10;Period를 선택하면 자동 계산되지만 직접 수정할 수 있습니다." aria-label="From date help"></span></label>
+              <input class="input dp-date" type="text" inputmode="numeric" id="btFromDate" placeholder="YYYY-MM-DD" autocomplete="off"/>
             </div>
             <div class="field">
-              <label>To</label>
-              <input class="input dp-date" type="text" inputmode="numeric" id="btToDate" placeholder="YYYY-MM-DD" autocomplete="off" />
-            </div>
-            <div class="actions">
-              <button class="btn primary" id="btRun">Run Backtest</button>
+              <label>To <span class="help-icon" data-tooltip="백테스트 종료 날짜입니다.&#10;Period를 선택하면 자동 계산되지만 직접 수정할 수 있습니다." aria-label="To date help"></span></label>
+              <input class="input dp-date" type="text" inputmode="numeric" id="btToDate" placeholder="YYYY-MM-DD" autocomplete="off"/>
             </div>
           </div>
         </div>
@@ -72,16 +95,45 @@
           </div>
           <div id="btGroupsContainer"></div>
         </div>
+
+        <!-- ── Run Button ── -->
+        <div style="margin-top:16px;text-align:center">
+          <button class="btn btn-run" id="btRun">Run Backtest</button>
+        </div>
         <div id="btError" style="margin-top:12px;color:#ffd3db;display:none"></div>
       </div>
 
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <!--  KPI Cards                                                -->
+      <!-- ══════════════════════════════════════════════════════════ -->
       <div class="grid cols-4">
-        <div class="card"><h2>Total Return (KRW) <span class="help-icon" data-tooltip="백테스트 동안 확정(실현)된 손익 합계입니다.\n매도가 체결된 거래만 집계하며, 미청산 포지션은 포함하지 않습니다." aria-label="Total Return help"></span></h2><div class="kv"><div class="value" id="btTotalReturn">-</div></div></div>
-        <div class="card"><h2>ROI <span class="help-icon" data-tooltip="실현 손익을 초기 자본(capital)으로 나눈 수익률(%)입니다.\nROI = (실현손익 / 초기자본) * 100\n미청산 포지션은 반영하지 않습니다." aria-label="Backtest ROI help"></span></h2><div class="kv"><div class="value" id="btRoi">-</div></div></div>
-        <div class="card"><h2>Trades <span class="help-icon" data-tooltip="매도(청산) 횟수 기준 거래 수입니다.\n매수/추가매수는 포지션 진입/증액으로만 보고, '거래 1회'는 SELL 시점에 1회로 카운트합니다." aria-label="Trades help"></span></h2><div class="kv"><div class="value" id="btTrades">-</div></div></div>
-        <div class="card"><h2>Win Rate <span class="help-icon" data-tooltip="승률(%) = (이익으로 끝난 매도 횟수 / 전체 매도 횟수) * 100\n매도 0건이면 0%로 표시됩니다." aria-label="Win rate help"></span></h2><div class="kv"><div class="value" id="btWinRate">-</div></div></div>
+        <div class="card kpi-primary">
+          <h2>Total Return (KRW) <span class="help-icon" data-tooltip="백테스트 동안 확정(실현)된 손익 합계입니다.&#10;매도가 체결된 거래만 집계하며, 미청산 포지션은 포함하지 않습니다." aria-label="Total Return help"></span></h2>
+          <div class="kv"><div class="value" id="btTotalReturn">-</div></div>
+        </div>
+        <div class="card kpi-success">
+          <h2>ROI <span class="help-icon" data-tooltip="실현 손익을 초기 자본(capital)으로 나눈 수익률(%)입니다.&#10;ROI = (실현손익 / 초기자본) * 100&#10;미청산 포지션은 반영하지 않습니다." aria-label="Backtest ROI help"></span></h2>
+          <div class="kv"><div class="value" id="btRoi">-</div></div>
+        </div>
+        <div class="card kpi-neutral">
+          <h2>Trades <span class="help-icon" data-tooltip="매도(청산) 횟수 기준 거래 수입니다.&#10;매수/추가매수는 포지션 진입/증액으로만 보고, '거래 1회'는 SELL 시점에 1회로 카운트합니다." aria-label="Trades help"></span></h2>
+          <div class="kv"><div class="value" id="btTrades">-</div></div>
+        </div>
+        <div class="card kpi-danger">
+          <h2>Win Rate <span class="help-icon" data-tooltip="승률(%) = (이익으로 끝난 매도 횟수 / 전체 매도 횟수) * 100&#10;매도 0건이면 0%로 표시됩니다." aria-label="Win rate help"></span></h2>
+          <div class="kv">
+            <div class="value" id="btWinRate">-</div>
+            <div class="dist-bar" id="btDistBar" style="display:none">
+              <div class="dist-bar-segment win" id="btDistWin" style="width:0%"></div>
+              <div class="dist-bar-segment loss" id="btDistLoss" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <!--  Trade Log Table                                          -->
+      <!-- ══════════════════════════════════════════════════════════ -->
       <div class="card">
         <h2>Trades</h2>
         <div class="tableWrap" style="margin-top:12px">
@@ -91,10 +143,10 @@
               <input class="input" id="btMarketFilter" placeholder="Market filter" style="height:36px;border-radius:10px;width:130px"/>
               <div class="select-wrap" style="height:36px;width:100px">
                 <select class="select" id="btActionFilter" style="height:36px;border-radius:10px;width:100%">
-                <option value="ALL" selected>ALL</option>
-                <option value="BUY">BUY</option>
-                <option value="ADD_BUY">ADD_BUY</option>
-                <option value="SELL">SELL</option>
+                  <option value="ALL" selected>ALL</option>
+                  <option value="BUY">BUY</option>
+                  <option value="ADD_BUY">ADD_BUY</option>
+                  <option value="SELL">SELL</option>
                 </select>
               </div>
               <div class="ms" id="btLogTypeMs" style="width:180px">
@@ -103,10 +155,10 @@
                     <span class="ms-placeholder">Type filter</span>
                     <div class="ms-chips"></div>
                   </div>
-                  <span class="ms-caret">▾</span>
+                  <span class="ms-caret">&#9662;</span>
                 </button>
                 <div class="ms-panel">
-                  <input class="ms-search" placeholder="Search type…"/>
+                  <input class="ms-search" placeholder="Search type..."/>
                   <div class="ms-list"></div>
                   <div class="ms-footer">
                     <button type="button" class="ms-link" data-ms="all">Select all</button>
@@ -131,7 +183,7 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th data-sort="ts" class="sortable">Time <span class="sort-btn" title="정렬">⇅</span></th>
+                  <th data-sort="ts" class="sortable">Time <span class="sort-btn" title="정렬">&#8693;</span></th>
                   <th data-sort="market">Market</th>
                   <th data-sort="action">Action</th>
                   <th data-sort="orderType">Type</th>
@@ -148,7 +200,7 @@
           </div>
 
           <div class="pager">
-            <div class="muted" id="btPagerInfo">page 1 · size 50 · total 0</div>
+            <div class="muted" id="btPagerInfo">page 1 &middot; size 50 &middot; total 0</div>
             <div style="display:flex;gap:10px">
               <button class="btn" id="btPrev">Prev</button>
               <button class="btn" id="btNext">Next</button>
@@ -168,25 +220,29 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  Modals                                                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+
   <!-- Strategy descriptions modal (click on ? icon) -->
   <div class="modal" id="strategyModal" aria-hidden="true">
     <div class="modal-backdrop" data-modal-close></div>
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="strategyModalTitle">
       <div class="modal-header">
         <div class="modal-title" id="strategyModalTitle">Strategy Descriptions</div>
-        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>&times;</button>
       </div>
       <div class="modal-body" id="strategyModalBody"></div>
     </div>
   </div>
 
-  <!-- Strategy detail settings modal (⚙ icon) -->
+  <!-- Strategy detail settings modal (gear icon) -->
   <div class="modal" id="stratDetailModal" aria-hidden="true">
     <div class="modal-backdrop" data-modal-close></div>
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="btStratDetailTitle" style="max-width:600px">
       <div class="modal-header">
-        <div class="modal-title" id="btStratDetailTitle">⚙ 전략 상세 설정</div>
-        <button type="button" class="modal-close" aria-label="Close" data-modal-close>×</button>
+        <div class="modal-title" id="btStratDetailTitle">&#9881; 전략 상세 설정</div>
+        <button type="button" class="modal-close" aria-label="Close" data-modal-close>&times;</button>
       </div>
       <div class="modal-body" id="btStratDetailBody"></div>
       <div style="padding:12px 20px 16px;text-align:right;border-top:1px solid var(--border)">
@@ -196,9 +252,9 @@
   </div>
 
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-  <script th:src="@{/js/autotrade-common.js(v=20260308e)}"></script>
-  <script th:src="@{/js/chart-popup.js(v=20260308e)}"></script>
-  <script th:src="@{/js/datepicker.js(v=20260308e)}"></script>
-  <script th:src="@{/js/backtest.js(v=20260308e)}"></script>
+  <script th:src="@{/js/autotrade-common.js(v=20260314b)}"></script>
+  <script th:src="@{/js/chart-popup.js(v=20260314b)}"></script>
+  <script th:src="@{/js/datepicker.js(v=20260314b)}"></script>
+  <script th:src="@{/js/backtest.js(v=20260314b)}"></script>
 </body>
 </html>

@@ -167,7 +167,7 @@ public class ThreeMarketPatternStrategy implements TradingStrategy {
 
         String reason = String.format(Locale.ROOT,
                 "3MKT_BUY rangeHigh=%.2f rangeLow=%.2f false_BO_up=%b false_BO_down=%b close=%.2f breakout=%.2f%% vol=%.1fx",
-                rangeHigh, rangeLow, true, true, close, breakoutPct, volRatio);
+                rangeHigh, rangeLow, falseBreakoutUp, falseBreakoutDown, close, breakoutPct, volRatio);
         return Signal.of(SignalAction.BUY, type(), reason, Math.min(10.0, score));
     }
 

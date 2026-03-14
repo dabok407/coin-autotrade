@@ -199,11 +199,16 @@ public class BollingerSqueezeBreakoutStrategy implements TradingStrategy {
         double pnlPct = ((close - avgPrice) / avgPrice) * 100.0;
 
         if (!Double.isNaN(sma10) && close < sma10 && pnlPct > 0.3) {
-            // 이전 봉도 10 SMA 아래인지 확인 (확실한 이탈)
-            UpbitCandle prev = candles.get(candles.size() - 2);
-            if (prev.trade_price < sma10) {
+            // FIX: 3캔들 연속 10-SMA 아래 확인으로 강화 (가짜 이탈 방지)
+            int belowCount = 0;
+            for (int i = candles.size() - 3; i < candles.size(); i++) {
+                if (i >= 0 && candles.get(i).trade_price < sma10) {
+                    belowCount++;
+                }
+            }
+            if (belowCount >= 3) {
                 String reason = String.format(Locale.ROOT,
-                        "BB_SQ_10SMA_EXIT close=%.2f < sma10=%.2f pnl=%.2f%%",
+                        "BB_SQ_10SMA_EXIT close=%.2f < sma10=%.2f pnl=%.2f%% (3candle confirm)",
                         close, sma10, pnlPct);
                 return Signal.of(SignalAction.SELL, type(), reason);
             }

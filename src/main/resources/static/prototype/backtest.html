@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>백테스트 - Upbit AutoTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== CSS Variables ===== */
+:root {
+  --bg0: #070a14;
+  --bg1: #0d1220;
+  --bg2: #131a2e;
+  --bg3: #1a2340;
+  --card-bg: rgba(19, 26, 46, 0.65);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --glass: rgba(255, 255, 255, 0.04);
+  --glass-hover: rgba(255, 255, 255, 0.07);
+
+  --text: #e8eefc;
+  --text-secondary: #8a9bc7;
+  --text-muted: #5a6a94;
+
+  --primary: #2b76ff;
+  --primary-glow: rgba(43, 118, 255, 0.25);
+  --primary-dark: #1a5ccc;
+  --success: #20c997;
+  --success-bg: rgba(32, 201, 151, 0.12);
+  --danger: #ff4d6d;
+  --danger-bg: rgba(255, 77, 109, 0.12);
+  --warning: #ffc107;
+  --warning-bg: rgba(255, 193, 7, 0.12);
+  --purple: #a855f7;
+  --purple-bg: rgba(168, 85, 247, 0.12);
+  --cyan: #06b6d4;
+  --orange: #f97316;
+
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --pad: 22px;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --container: 1360px;
+  --font: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; -webkit-font-smoothing: antialiased; }
+body {
+  min-height: 100%;
+  font-family: var(--font);
+  background: var(--bg0);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ===== Layout ===== */
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ===== Header ===== */
+.header {
+  background: rgba(7, 10, 20, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--card-border);
+  padding: 16px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-logo {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 16px; color: #fff;
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.header-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.header-nav {
+  display: flex;
+  gap: 8px;
+}
+.nav-link {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+.nav-link:hover { background: var(--glass-hover); color: var(--text); }
+.nav-link.active {
+  background: var(--primary-glow);
+  color: var(--primary);
+}
+
+/* ===== Page ===== */
+.page { padding: 32px 0 64px; }
+.page-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--text), var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.page-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+
+/* ===== Card ===== */
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: var(--pad);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+
+/* ===== Global Config Bar ===== */
+.config-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.config-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.input, .select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+  outline: none;
+}
+.input:focus, .select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.select { cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a9bc7' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* ===== Preset Bar ===== */
+.preset-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.preset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--glass);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.preset-btn:hover {
+  background: var(--glass-hover);
+  color: var(--text);
+  border-color: rgba(255,255,255,0.15);
+}
+.preset-btn.active {
+  background: var(--primary-glow);
+  border-color: rgba(43, 118, 255, 0.3);
+  color: var(--primary);
+}
+.preset-icon { font-size: 14px; }
+
+/* ===== Strategy Groups ===== */
+.strategy-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.group-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  transition: var(--transition);
+}
+.group-card:hover {
+  border-color: rgba(255,255,255,0.14);
+}
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.group-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--font);
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.15);
+  width: 200px;
+}
+.group-name::placeholder { color: var(--text-muted); }
+.group-delete {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: var(--danger-bg);
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.group-delete:hover { background: rgba(255, 77, 109, 0.25); }
+
+.group-section {
+  margin-bottom: 14px;
+}
+.group-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+/* Market chips */
+.market-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.chip-sol { background: rgba(147, 51, 234, 0.2); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.3); }
+.chip-ada { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.chip-xrp { background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+.chip-dot { background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+.chip-matic { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); }
+.chip-avax { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.chip-link { background: rgba(37, 99, 235, 0.2); color: #93c5fd; border: 1px solid rgba(37, 99, 235, 0.3); }
+
+/* Strategy badges */
+.strategy-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: var(--glass);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+}
+.badge-active { background: var(--primary-glow); border-color: rgba(43,118,255,0.2); color: var(--primary); }
+.badge-green { background: var(--success-bg); border-color: rgba(32,201,151,0.2); color: var(--success); }
+.badge-purple { background: var(--purple-bg); border-color: rgba(168,85,247,0.2); color: var(--purple); }
+.badge-orange { background: var(--warning-bg); border-color: rgba(255,193,7,0.2); color: var(--warning); }
+
+/* Params grid */
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.param-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.param-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.param-input {
+  padding: 6px 10px;
+  background: var(--bg1);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  transition: var(--transition);
+  width: 100%;
+}
+.param-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+/* Interval pills */
+.interval-pills {
+  display: flex;
+  gap: 6px;
+}
+.interval-pill {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--glass);
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.interval-pill.active {
+  background: var(--primary-glow);
+  border-color: rgba(43,118,255,0.3);
+  color: var(--primary);
+}
+.interval-pill:hover:not(.active) {
+  background: var(--glass-hover);
+  color: var(--text-secondary);
+}
+
+/* EMA toggle */
+.ema-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toggle-switch {
+  width: 36px; height: 20px;
+  background: var(--bg1);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.toggle-switch.active {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.toggle-switch::after {
+  content: '';
+  width: 14px; height: 14px;
+  background: var(--text);
+  border-radius: 50%;
+  position: absolute;
+  top: 2px; left: 2px;
+  transition: var(--transition);
+}
+.toggle-switch.active::after {
+  left: 18px;
+}
+.toggle-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Collapsible */
+.collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 0;
+  user-select: none;
+  border: none;
+  background: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: var(--transition);
+}
+.collapse-toggle:hover { color: var(--text-secondary); }
+.collapse-arrow { transition: var(--transition); display: inline-block; font-size: 10px; }
+.collapse-arrow.open { transform: rotate(90deg); }
+.collapse-content { overflow: hidden; transition: max-height 0.3s ease; }
+.collapse-content.collapsed { max-height: 0; }
+.collapse-content.expanded { max-height: 400px; }
+
+/* Add group button */
+.add-group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: 2px dashed rgba(255,255,255,0.1);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  min-height: 160px;
+}
+.add-group-btn:hover {
+  border-color: rgba(43,118,255,0.3);
+  color: var(--primary);
+  background: rgba(43,118,255,0.04);
+}
+
+/* ===== Run Button ===== */
+.run-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.run-btn {
+  padding: 14px 48px;
+  background: linear-gradient(135deg, var(--primary), #1a5ccc, #6d28d9);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 4px 20px var(--primary-glow), 0 0 60px rgba(43, 118, 255, 0.1);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.run-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px var(--primary-glow), 0 0 80px rgba(43, 118, 255, 0.15);
+}
+.run-btn:active { transform: translateY(0); }
+.run-icon { font-size: 18px; }
+
+/* ===== Divider ===== */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--card-border), transparent);
+  margin: 40px 0;
+}
+
+/* ===== KPI Cards ===== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.kpi-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition);
+}
+.kpi-card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-2px); }
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+}
+.kpi-card.roi::before { background: linear-gradient(90deg, var(--success), #06b6d4); }
+.kpi-card.trades::before { background: linear-gradient(90deg, var(--primary), #818cf8); }
+.kpi-card.winrate::before { background: linear-gradient(90deg, var(--warning), var(--orange)); }
+.kpi-card.capital::before { background: linear-gradient(90deg, var(--purple), #ec4899); }
+.kpi-card.dist::before { background: linear-gradient(90deg, var(--cyan), var(--success)); }
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+.kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.kpi-value.positive { color: var(--success); }
+.kpi-value.negative { color: var(--danger); }
+.kpi-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Win rate circular progress */
+.winrate-circle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.circle-progress {
+  width: 56px; height: 56px;
+  position: relative;
+}
+.circle-progress svg {
+  width: 56px; height: 56px;
+  transform: rotate(-90deg);
+}
+.circle-bg { fill: none; stroke: var(--bg1); stroke-width: 5; }
+.circle-fg { fill: none; stroke: var(--warning); stroke-width: 5; stroke-linecap: round;
+  stroke-dasharray: 157; transition: stroke-dashoffset 0.6s ease; }
+.circle-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--warning);
+}
+
+/* Distribution mini bars */
+.dist-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dist-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 52px;
+  text-align: right;
+}
+.dist-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: var(--bg1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.dist-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.dist-bar-fill.tp { background: var(--success); }
+.dist-bar-fill.sl { background: var(--danger); }
+.dist-bar-fill.pattern { background: var(--purple); }
+.dist-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  width: 24px;
+}
+
+/* ===== Equity Curve ===== */
+.equity-section {
+  margin-bottom: 32px;
+}
+.equity-chart {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  height: 280px;
+  position: relative;
+  overflow: hidden;
+}
+.equity-chart-placeholder {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.equity-svg {
+  width: 100%;
+  height: 100%;
+}
+.equity-grid-line {
+  stroke: rgba(255,255,255,0.04);
+  stroke-width: 1;
+}
+.equity-line {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.equity-area {
+  fill: url(#equityGradient);
+}
+.equity-labels {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.equity-y-label {
+  position: absolute;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.equity-x-label {
+  position: absolute;
+  bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ===== Trade Log Table ===== */
+.table-section .card { padding: 0; overflow: hidden; }
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--card-border);
+}
+.table-title {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.table-filters {
+  display: flex;
+  gap: 10px;
+}
+.filter-select {
+  padding: 6px 28px 6px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238a9bc7' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.filter-select:focus { border-color: var(--primary); }
+
+.trade-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.trade-table thead th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  background: rgba(0,0,0,0.15);
+  border-bottom: 1px solid var(--card-border);
+  white-space: nowrap;
+}
+.trade-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: var(--transition);
+}
+.trade-table tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+.trade-table tbody tr:nth-child(even) {
+  background: rgba(0,0,0,0.08);
+}
+.trade-table tbody tr:nth-child(even):hover {
+  background: rgba(255,255,255,0.03);
+}
+.trade-table td {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.td-market {
+  font-weight: 700;
+  color: var(--text);
+}
+.td-action {
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.td-action.buy { background: var(--success-bg); color: var(--success); }
+.td-action.sell { background: var(--danger-bg); color: var(--danger); }
+.td-action.add-buy { background: var(--warning-bg); color: var(--warning); }
+
+.td-pnl { font-weight: 700; font-variant-numeric: tabular-nums; }
+.td-pnl.positive { color: var(--success); }
+.td-pnl.negative { color: var(--danger); }
+
+.td-strategy-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--glass);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+}
+
+/* Pagination */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  border-top: 1px solid var(--card-border);
+}
+.page-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.pagination {
+  display: flex;
+  gap: 4px;
+}
+.page-btn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-xs);
+  background: var(--glass);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.page-btn:hover { background: var(--glass-hover); color: var(--text); }
+.page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .strategy-groups { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .config-bar { grid-template-columns: 1fr 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .config-bar { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .header-nav { display: none; }
+  .params-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ===== Animations ===== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fadeInUp 0.4s ease-out both;
+}
+.animate-in:nth-child(1) { animation-delay: 0s; }
+.animate-in:nth-child(2) { animation-delay: 0.05s; }
+.animate-in:nth-child(3) { animation-delay: 0.1s; }
+.animate-in:nth-child(4) { animation-delay: 0.15s; }
+.animate-in:nth-child(5) { animation-delay: 0.2s; }
+
+/* Results section label */
+.results-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.results-title {
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--success), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.results-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid rgba(32,201,151,0.2);
+}
+
+/* Equity header */
+.equity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.equity-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.equity-meta {
+  display: flex;
+  gap: 16px;
+}
+.equity-stat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.equity-stat span { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header class="header">
+  <div class="container header-inner">
+    <div class="header-brand">
+      <div class="header-logo">U</div>
+      <div>
+        <div class="header-title">Upbit AutoTrade</div>
+        <div class="header-subtitle">Crypto Trading Bot</div>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="#" class="nav-link">대시보드</a>
+      <a href="#" class="nav-link active">백테스트</a>
+      <a href="#" class="nav-link">설정</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Page ===== -->
+<main class="page">
+  <div class="container">
+    <h1 class="page-title">백테스트</h1>
+    <p class="page-desc">전략 성과를 과거 데이터로 시뮬레이션하고 최적의 매매 전략을 검증합니다.</p>
+
+    <!-- ===== Global Config Bar ===== -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-icon" style="background: var(--primary-glow); color: var(--primary);">&#9881;</div>
+          글로벌 설정
+        </div>
+      </div>
+      <div class="config-bar">
+        <div class="config-field">
+          <label>초기 자본금 (KRW)</label>
+          <input type="text" class="input" value="1,000,000" />
+        </div>
+        <div class="config-field">
+          <label>기간</label>
+          <select class="select">
+            <option>1주</option>
+            <option>1달</option>
+            <option selected>3달</option>
+            <option>6달</option>
+            <option>1년</option>
+          </select>
+        </div>
+        <div class="config-field">
+          <label>시작일</label>
+          <input type="date" class="input" value="2025-12-14" />
+        </div>
+        <div class="config-field">
+          <label>종료일</label>
+          <input type="date" class="input" value="2026-03-14" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Preset Bar ===== -->
+    <div class="preset-bar">
+      <button class="preset-btn active">
+        <span class="preset-icon">&#x1F4C8;</span> 상승장
+      </button>
+      <button class="preset-btn">
+        <span class="preset-icon">&#x2194;</span> 횡보장
+      </button>
+      <button class="preset-btn">
+        <span class="preset-icon">&#x1F4C9;</span> 하락장
+      </button>
+      <button class="preset-btn">
+        <span class="preset-icon">&#x26A1;</span> 공격형
+      </button>
+      <button class="preset-btn">
+        <span class="preset-icon">&#x1F6E1;</span> 안정형
+      </button>
+    </div>
+
+    <!-- ===== Strategy Groups ===== -->
+    <div class="strategy-groups">
+
+      <!-- Group 1 -->
+      <div class="group-card animate-in">
+        <div class="group-header">
+          <input type="text" class="group-name" value="SOL 모멘텀 그룹" />
+          <button class="group-delete">&#10005;</button>
+        </div>
+
+        <div class="group-section">
+          <div class="group-section-label">마켓</div>
+          <div class="market-chips">
+            <span class="chip chip-sol">KRW-SOL</span>
+            <span class="chip chip-ada">KRW-ADA</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="group-section-label">전략</div>
+          <div class="strategy-badges">
+            <span class="badge badge-active">연속하락반등</span>
+            <span class="badge badge-green">모멘텀FVG</span>
+            <span class="badge badge-purple">핀바오더블록</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="group-section-label">캔들 간격</div>
+          <div class="interval-pills">
+            <span class="interval-pill">5m</span>
+            <span class="interval-pill">15m</span>
+            <span class="interval-pill active">60m</span>
+            <span class="interval-pill">240m</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="ema-toggle">
+            <div class="toggle-switch active"></div>
+            <span class="toggle-label">EMA 필터 (20/50)</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <button class="collapse-toggle" onclick="toggleCollapse(this)">
+            <span class="collapse-arrow open">&#9654;</span> 리스크 파라미터
+          </button>
+          <div class="collapse-content expanded">
+            <div class="params-grid" style="margin-top:8px;">
+              <div class="param-item">
+                <span class="param-label">TP (%)</span>
+                <input type="text" class="param-input" value="1.5" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">SL (%)</span>
+                <input type="text" class="param-input" value="2.0" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">최대 추가매수</span>
+                <input type="text" class="param-input" value="3" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">전략 락</span>
+                <select class="param-input" style="appearance:auto; padding:5px 8px;">
+                  <option selected>ON</option>
+                  <option>OFF</option>
+                </select>
+              </div>
+              <div class="param-item">
+                <span class="param-label">타임스탑 (H)</span>
+                <input type="text" class="param-input" value="48" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">기본주문금</span>
+                <input type="text" class="param-input" value="50,000" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 2 -->
+      <div class="group-card animate-in">
+        <div class="group-header">
+          <input type="text" class="group-name" value="멀티마켓 패턴 그룹" />
+          <button class="group-delete">&#10005;</button>
+        </div>
+
+        <div class="group-section">
+          <div class="group-section-label">마켓</div>
+          <div class="market-chips">
+            <span class="chip chip-dot">KRW-DOT</span>
+            <span class="chip chip-avax">KRW-AVAX</span>
+            <span class="chip chip-link">KRW-LINK</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="group-section-label">전략</div>
+          <div class="strategy-badges">
+            <span class="badge badge-active">상승장악형</span>
+            <span class="badge badge-orange">인사이드바</span>
+            <span class="badge badge-green">모닝스타</span>
+            <span class="badge badge-purple">적삼병</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="group-section-label">캔들 간격</div>
+          <div class="interval-pills">
+            <span class="interval-pill">5m</span>
+            <span class="interval-pill active">15m</span>
+            <span class="interval-pill">60m</span>
+            <span class="interval-pill">240m</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <div class="ema-toggle">
+            <div class="toggle-switch"></div>
+            <span class="toggle-label">EMA 필터 (20/50)</span>
+          </div>
+        </div>
+
+        <div class="group-section">
+          <button class="collapse-toggle" onclick="toggleCollapse(this)">
+            <span class="collapse-arrow">&#9654;</span> 리스크 파라미터
+          </button>
+          <div class="collapse-content collapsed">
+            <div class="params-grid" style="margin-top:8px;">
+              <div class="param-item">
+                <span class="param-label">TP (%)</span>
+                <input type="text" class="param-input" value="1.0" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">SL (%)</span>
+                <input type="text" class="param-input" value="1.5" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">최대 추가매수</span>
+                <input type="text" class="param-input" value="2" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">전략 락</span>
+                <select class="param-input" style="appearance:auto; padding:5px 8px;">
+                  <option>ON</option>
+                  <option selected>OFF</option>
+                </select>
+              </div>
+              <div class="param-item">
+                <span class="param-label">타임스탑 (H)</span>
+                <input type="text" class="param-input" value="24" />
+              </div>
+              <div class="param-item">
+                <span class="param-label">기본주문금</span>
+                <input type="text" class="param-input" value="30,000" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Group Button -->
+      <button class="add-group-btn">
+        <span style="font-size:24px; opacity:0.5;">+</span>
+        전략 그룹 추가
+      </button>
+    </div>
+
+    <!-- ===== Run Button ===== -->
+    <div class="run-section">
+      <button class="run-btn">
+        <span class="run-icon">&#9654;</span>
+        백테스트 실행
+      </button>
+    </div>
+
+    <!-- ===== Divider ===== -->
+    <div class="section-divider"></div>
+
+    <!-- ===== Results Section ===== -->
+    <div class="results-header">
+      <h2 class="results-title">시뮬레이션 결과</h2>
+      <span class="results-badge">3개월 | 2025.12.14 ~ 2026.03.14</span>
+    </div>
+
+    <!-- ===== KPI Cards ===== -->
+    <div class="kpi-grid">
+      <div class="kpi-card roi animate-in">
+        <div class="kpi-label">수익률 (ROI)</div>
+        <div class="kpi-value positive">+12.47%</div>
+        <div class="kpi-sub">+124,700 KRW</div>
+      </div>
+
+      <div class="kpi-card trades animate-in">
+        <div class="kpi-label">총 거래</div>
+        <div class="kpi-value" style="color: var(--primary);">187</div>
+        <div class="kpi-sub">매수 94 / 매도 93</div>
+      </div>
+
+      <div class="kpi-card winrate animate-in">
+        <div class="kpi-label">승률</div>
+        <div class="winrate-circle">
+          <div class="circle-progress">
+            <svg viewBox="0 0 56 56">
+              <circle class="circle-bg" cx="28" cy="28" r="25" />
+              <circle class="circle-fg" cx="28" cy="28" r="25"
+                      style="stroke-dashoffset: 54.95;" />
+            </svg>
+            <span class="circle-text">65%</span>
+          </div>
+          <div>
+            <div style="font-size:20px; font-weight:800; color:var(--warning);">65.0%</div>
+            <div class="kpi-sub">61승 32패</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card capital animate-in">
+        <div class="kpi-label">최종 자본</div>
+        <div class="kpi-value" style="color: var(--purple);">1,124,700</div>
+        <div class="kpi-sub">KRW</div>
+      </div>
+
+      <div class="kpi-card dist animate-in">
+        <div class="kpi-label">청산 분포</div>
+        <div class="dist-bars">
+          <div class="dist-row">
+            <span class="dist-label">TP</span>
+            <div class="dist-bar-bg"><div class="dist-bar-fill tp" style="width:65%"></div></div>
+            <span class="dist-count">42</span>
+          </div>
+          <div class="dist-row">
+            <span class="dist-label">SL</span>
+            <div class="dist-bar-bg"><div class="dist-bar-fill sl" style="width:35%"></div></div>
+            <span class="dist-count">22</span>
+          </div>
+          <div class="dist-row">
+            <span class="dist-label">패턴</span>
+            <div class="dist-bar-bg"><div class="dist-bar-fill pattern" style="width:45%"></div></div>
+            <span class="dist-count">29</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Equity Curve ===== -->
+    <div class="equity-section">
+      <div class="equity-header">
+        <div class="equity-title">
+          <span style="color: var(--success);">&#9650;</span> 자산 변동 곡선
+        </div>
+        <div class="equity-meta">
+          <span class="equity-stat">최대 낙폭: <span style="color:var(--danger);">-4.2%</span></span>
+          <span class="equity-stat">최고점: <span style="color:var(--success);">+14.8%</span></span>
+          <span class="equity-stat">샤프 비율: <span>1.42</span></span>
+        </div>
+      </div>
+      <div class="equity-chart">
+        <div class="equity-chart-placeholder">
+          <svg class="equity-svg" viewBox="0 0 1000 220" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(32, 201, 151, 0.25)" />
+                <stop offset="100%" stop-color="rgba(32, 201, 151, 0.0)" />
+              </linearGradient>
+            </defs>
+            <!-- Grid lines -->
+            <line class="equity-grid-line" x1="0" y1="44" x2="1000" y2="44" />
+            <line class="equity-grid-line" x1="0" y1="88" x2="1000" y2="88" />
+            <line class="equity-grid-line" x1="0" y1="132" x2="1000" y2="132" />
+            <line class="equity-grid-line" x1="0" y1="176" x2="1000" y2="176" />
+            <!-- Area -->
+            <path class="equity-area" d="M0,180 L30,175 70,168 120,160 170,155 220,140 270,148 320,135 370,120 420,130 470,115 520,105 570,110 620,95 670,80 720,85 770,70 820,62 870,55 920,48 970,40 1000,35 L1000,220 L0,220 Z" />
+            <!-- Line -->
+            <path class="equity-line" d="M0,180 L30,175 70,168 120,160 170,155 220,140 270,148 320,135 370,120 420,130 470,115 520,105 570,110 620,95 670,80 720,85 770,70 820,62 870,55 920,48 970,40 1000,35" />
+          </svg>
+          <div class="equity-labels">
+            <span class="equity-y-label" style="top: 10px;">1,150K</span>
+            <span class="equity-y-label" style="top: 27%;">1,100K</span>
+            <span class="equity-y-label" style="top: 50%;">1,050K</span>
+            <span class="equity-y-label" style="top: 73%;">1,000K</span>
+            <span class="equity-y-label" style="bottom: 8px;">950K</span>
+            <span class="equity-x-label" style="left: 5%;">12/14</span>
+            <span class="equity-x-label" style="left: 25%;">1/4</span>
+            <span class="equity-x-label" style="left: 45%;">1/24</span>
+            <span class="equity-x-label" style="left: 65%;">2/13</span>
+            <span class="equity-x-label" style="left: 85%;">3/5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Trade Log Table ===== -->
+    <div class="table-section">
+      <div class="card">
+        <div class="table-header">
+          <div class="table-title">
+            <span style="color: var(--primary);">&#9776;</span>
+            거래 내역
+            <span style="font-size:11px; color:var(--text-muted); font-weight:500; margin-left:4px;">187건</span>
+          </div>
+          <div class="table-filters">
+            <select class="filter-select">
+              <option>전체 마켓</option>
+              <option>KRW-SOL</option>
+              <option>KRW-ADA</option>
+              <option>KRW-DOT</option>
+              <option>KRW-AVAX</option>
+              <option>KRW-LINK</option>
+            </select>
+            <select class="filter-select">
+              <option>전체 액션</option>
+              <option>BUY</option>
+              <option>SELL</option>
+              <option>ADD_BUY</option>
+            </select>
+            <select class="filter-select">
+              <option>전체 전략</option>
+              <option>연속하락반등</option>
+              <option>모멘텀FVG</option>
+              <option>핀바오더블록</option>
+              <option>상승장악형</option>
+              <option>인사이드바</option>
+              <option>모닝스타</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="trade-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>일시</th>
+                <th>마켓</th>
+                <th>액션</th>
+                <th>전략</th>
+                <th>가격</th>
+                <th>수량</th>
+                <th>금액 (KRW)</th>
+                <th>PnL</th>
+                <th>수익률</th>
+                <th>신뢰도</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>187</td>
+                <td>03.14 09:15</td>
+                <td class="td-market">KRW-SOL</td>
+                <td><span class="td-action sell">SELL</span></td>
+                <td><span class="td-strategy-badge">연속하락반등</span></td>
+                <td>186,400</td>
+                <td>0.268</td>
+                <td>49,955</td>
+                <td class="td-pnl positive">+1,247</td>
+                <td class="td-pnl positive">+2.56%</td>
+                <td>0.82</td>
+              </tr>
+              <tr>
+                <td>186</td>
+                <td>03.14 06:30</td>
+                <td class="td-market">KRW-DOT</td>
+                <td><span class="td-action sell">SELL</span></td>
+                <td><span class="td-strategy-badge">인사이드바</span></td>
+                <td>8,250</td>
+                <td>6.06</td>
+                <td>49,995</td>
+                <td class="td-pnl negative">-892</td>
+                <td class="td-pnl negative">-1.75%</td>
+                <td>0.71</td>
+              </tr>
+              <tr>
+                <td>185</td>
+                <td>03.13 22:00</td>
+                <td class="td-market">KRW-ADA</td>
+                <td><span class="td-action buy">BUY</span></td>
+                <td><span class="td-strategy-badge">모멘텀FVG</span></td>
+                <td>645</td>
+                <td>77.52</td>
+                <td>50,000</td>
+                <td class="td-pnl">&#8212;</td>
+                <td class="td-pnl">&#8212;</td>
+                <td>0.88</td>
+              </tr>
+              <tr>
+                <td>184</td>
+                <td>03.13 18:45</td>
+                <td class="td-market">KRW-AVAX</td>
+                <td><span class="td-action sell">SELL</span></td>
+                <td><span class="td-strategy-badge">모닝스타</span></td>
+                <td>42,800</td>
+                <td>1.17</td>
+                <td>50,076</td>
+                <td class="td-pnl positive">+2,340</td>
+                <td class="td-pnl positive">+4.91%</td>
+                <td>0.93</td>
+              </tr>
+              <tr>
+                <td>183</td>
+                <td>03.13 15:00</td>
+                <td class="td-market">KRW-LINK</td>
+                <td><span class="td-action add-buy">ADD_BUY</span></td>
+                <td><span class="td-strategy-badge">상승장악형</span></td>
+                <td>18,750</td>
+                <td>2.67</td>
+                <td>50,063</td>
+                <td class="td-pnl">&#8212;</td>
+                <td class="td-pnl">&#8212;</td>
+                <td>0.76</td>
+              </tr>
+              <tr>
+                <td>182</td>
+                <td>03.13 11:30</td>
+                <td class="td-market">KRW-SOL</td>
+                <td><span class="td-action buy">BUY</span></td>
+                <td><span class="td-strategy-badge">핀바오더블록</span></td>
+                <td>181,900</td>
+                <td>0.275</td>
+                <td>50,023</td>
+                <td class="td-pnl">&#8212;</td>
+                <td class="td-pnl">&#8212;</td>
+                <td>0.85</td>
+              </tr>
+              <tr>
+                <td>181</td>
+                <td>03.12 20:15</td>
+                <td class="td-market">KRW-DOT</td>
+                <td><span class="td-action sell">SELL</span></td>
+                <td><span class="td-strategy-badge">적삼병</span></td>
+                <td>8,420</td>
+                <td>5.94</td>
+                <td>50,015</td>
+                <td class="td-pnl positive">+1,890</td>
+                <td class="td-pnl positive">+3.93%</td>
+                <td>0.91</td>
+              </tr>
+              <tr>
+                <td>180</td>
+                <td>03.12 16:00</td>
+                <td class="td-market">KRW-ADA</td>
+                <td><span class="td-action sell">SELL</span></td>
+                <td><span class="td-strategy-badge">연속하락반등</span></td>
+                <td>652</td>
+                <td>76.69</td>
+                <td>49,998</td>
+                <td class="td-pnl positive">+487</td>
+                <td class="td-pnl positive">+0.98%</td>
+                <td>0.79</td>
+              </tr>
+              <tr>
+                <td>179</td>
+                <td>03.12 12:30</td>
+                <td class="td-market">KRW-AVAX</td>
+                <td><span class="td-action buy">BUY</span></td>
+                <td><span class="td-strategy-badge">모닝스타</span></td>
+                <td>40,750</td>
+                <td>1.23</td>
+                <td>50,123</td>
+                <td class="td-pnl">&#8212;</td>
+                <td class="td-pnl">&#8212;</td>
+                <td>0.87</td>
+              </tr>
+              <tr>
+                <td>178</td>
+                <td>03.11 21:45</td>
+                <td class="td-market">KRW-LINK</td>
+                <td><span class="td-action sell">SELL</span></td>
+                <td><span class="td-strategy-badge">상승장악형</span></td>
+                <td>19,200</td>
+                <td>2.60</td>
+                <td>49,920</td>
+                <td class="td-pnl negative">-1,156</td>
+                <td class="td-pnl negative">-2.26%</td>
+                <td>0.68</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info">178 ~ 187 / 총 187건</span>
+          <div class="pagination">
+            <button class="page-btn" disabled>&#8249;</button>
+            <button class="page-btn">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">...</button>
+            <button class="page-btn">18</button>
+            <button class="page-btn active">19</button>
+            <button class="page-btn" disabled>&#8250;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// Collapse toggle
+function toggleCollapse(btn) {
+  var arrow = btn.querySelector('.collapse-arrow');
+  var content = btn.nextElementSibling;
+  if (content.classList.contains('collapsed')) {
+    content.classList.remove('collapsed');
+    content.classList.add('expanded');
+    arrow.classList.add('open');
+  } else {
+    content.classList.remove('expanded');
+    content.classList.add('collapsed');
+    arrow.classList.remove('open');
+  }
+}
+
+// Preset button toggle
+(function() {
+  var presetBtns = document.querySelectorAll('.preset-btn');
+  presetBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      presetBtns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+})();
+
+// Interval pill toggle
+(function() {
+  var groups = document.querySelectorAll('.interval-pills');
+  groups.forEach(function(group) {
+    var pills = group.querySelectorAll('.interval-pill');
+    pills.forEach(function(pill) {
+      pill.addEventListener('click', function() {
+        pills.forEach(function(p) { p.classList.remove('active'); });
+        pill.classList.add('active');
+      });
+    });
+  });
+})();
+
+// Toggle switch
+(function() {
+  var toggles = document.querySelectorAll('.toggle-switch');
+  toggles.forEach(function(toggle) {
+    toggle.addEventListener('click', function() {
+      toggle.classList.toggle('active');
+    });
+  });
+})();
+
+// Page button click
+(function() {
+  var pageBtns = document.querySelectorAll('.page-btn:not(:disabled)');
+  pageBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.page-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

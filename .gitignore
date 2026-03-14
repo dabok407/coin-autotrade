@@ -21,7 +21,9 @@ desktop.ini
 
 # ===== Security / Credentials =====
 application-local.yml
+application-dev.yml
 **/application-local.yml
+**/application-dev.yml
 *.pem
 *.key
 *.p12
