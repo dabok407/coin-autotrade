@@ -1151,12 +1151,6 @@
       return;
     }
 
-    console.log('[Backtest] request params:', JSON.stringify({
-      groups: p.groups ? p.groups.length : 0,
-      market: p.market,
-      period: p.period
-    }));
-
     req(API.backtestRun, {
       method: 'POST',
       body: JSON.stringify(p),

@@ -282,9 +282,23 @@ public class OpeningScannerService {
             double fee = orderKrw.doubleValue() * 0.0005;
             qty = (orderKrw.doubleValue() - fee) / fillPrice;
         } else {
-            // TODO: Live order via LiveOrderService
-            log.info("[OpeningScanner] LIVE buy not yet implemented for {}", market);
-            return;
+            // LIVE: 실제 업비트 주문
+            if (!liveOrders.isConfigured()) {
+                log.error("[OpeningScanner] LIVE 모드인데 업비트 키가 없습니다. market={}", market);
+                return;
+            }
+            LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw.doubleValue());
+            if (!r.isFilled()) {
+                log.warn("[OpeningScanner] LIVE buy pending/failed: market={} state={} vol={}",
+                        market, r.state, r.executedVolume);
+                return;
+            }
+            fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
+            qty = r.executedVolume;
+            if (qty <= 0) {
+                log.warn("[OpeningScanner] LIVE buy executedVolume=0 for {}", market);
+                return;
+            }
         }
 
         // 포지션 생성
@@ -311,8 +325,8 @@ public class OpeningScannerService {
         tl.setCandleUnitMin(cfg.getCandleUnitMin());
         tradeLogRepo.save(tl);
 
-        log.info("[OpeningScanner] BUY {} price={} qty={} conf={} reason={}",
-                market, fillPrice, qty, signal.confidence, signal.reason);
+        log.info("[OpeningScanner] BUY {} mode={} price={} qty={} conf={} reason={}",
+                market, cfg.getMode(), fillPrice, qty, signal.confidence, signal.reason);
     }
 
     private void executeSell(PositionEntity pe, UpbitCandle candle, Signal signal,
@@ -325,8 +339,18 @@ public class OpeningScannerService {
         if (isPaper) {
             fillPrice = price * 0.999; // 슬리피지 0.1%
         } else {
-            log.info("[OpeningScanner] LIVE sell not yet implemented for {}", pe.getMarket());
-            return;
+            // LIVE: 실제 업비트 시장가 매도
+            if (!liveOrders.isConfigured()) {
+                log.error("[OpeningScanner] LIVE 모드인데 업비트 키가 없습니다. market={}", pe.getMarket());
+                return;
+            }
+            LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(pe.getMarket(), qty);
+            if (!r.isFilled()) {
+                log.warn("[OpeningScanner] LIVE sell pending/failed: market={} state={} vol={}",
+                        pe.getMarket(), r.state, r.executedVolume);
+                return;
+            }
+            fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
         }
 
         double avgPrice = pe.getAvgPrice().doubleValue();

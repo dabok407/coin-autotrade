@@ -255,7 +255,6 @@ public class BacktestService {
             res.markets.add(m);
         }
         res.candleCount = totalCandleCount;
-
         // ===== TradingEngine으로 위임: 동일한 매매 로직 사용 =====
         SimulationParams params = new SimulationParams();
         params.markets = markets;

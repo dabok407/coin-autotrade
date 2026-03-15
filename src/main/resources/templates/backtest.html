@@ -99,72 +99,79 @@
 
     <!-- Tab: 오프닝 전략 -->
     <div class="bt-tab-content" id="btTabOpening" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div style="font-size:15px;font-weight:600">오프닝 전략 설정</div>
-        <button class="btn" id="obLoadSettings" type="button" style="font-size:12px;padding:6px 12px;background:rgba(43,118,255,.12);border:1px solid rgba(43,118,255,.3);color:var(--primary);border-radius:8px;cursor:pointer">&#x1F4E5; 설정에서 불러오기</button>
-      </div>
-
-      <!-- Market + Candle -->
-      <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
-        <div class="config-field">
-          <label>Markets <span class="help-icon" data-tooltip="백테스트할 마켓을 선택합니다.&#10;오프닝 스캐너는 선택된 마켓에서 돌파 신호를 감지합니다." aria-label="Markets help"></span></label>
-          <div class="ms" id="obMarketsMs">
-            <button type="button" class="ms-button"><div class="ms-value"><span class="ms-placeholder">Select markets...</span><div class="ms-chips"></div></div><span class="ms-caret">&#9662;</span></button>
-            <div class="ms-panel"><input class="ms-search" placeholder="Search market..."/><div class="ms-list"></div>
-            <div class="ms-footer"><button type="button" class="ms-link" data-ms="all">Select all</button><button type="button" class="ms-link" data-ms="none">Clear</button></div></div>
+      <div class="card" style="overflow:visible">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon" style="background:rgba(255,165,0,.15);color:#ffa500">&#x1F305;</div>
+            오프닝 전략 설정
           </div>
+          <button class="btn" id="obLoadSettings" type="button" style="font-size:11px;padding:4px 10px;background:rgba(43,118,255,.12);border:1px solid rgba(43,118,255,.3);color:var(--primary);border-radius:6px;cursor:pointer">&#x1F4E5; 설정에서 불러오기</button>
         </div>
-        <div class="config-field">
-          <label>Candle Interval <span class="help-icon" data-tooltip="오프닝 레인지 및 돌파 감지에 사용할&#10;캔들 간격(분)입니다." aria-label="Candle help"></span></label>
-          <select class="select" id="obCandleUnit">
-            <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
-          </select>
-        </div>
-      </div>
 
-      <!-- Timing -->
-      <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
-      <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
-        <div class="config-field">
-          <label>Range Start <span class="help-icon" data-tooltip="오프닝 레인지 수집 시작 시각(KST)&#10;이 시간부터 고가/저가를 측정합니다." aria-label="help"></span></label>
-          <input class="input" type="text" id="obRangeStart" value="08:00"/>
-        </div>
-        <div class="config-field">
-          <label>Range End <span class="help-icon" data-tooltip="오프닝 레인지 수집 종료 시각(KST)&#10;이 시간까지의 고/저로 레인지를 확정합니다." aria-label="help"></span></label>
-          <input class="input" type="text" id="obRangeEnd" value="08:59"/>
-        </div>
-        <div class="config-field">
-          <label>Entry Start <span class="help-icon" data-tooltip="돌파 진입 허용 시작 시각(KST)&#10;레인지 돌파 시 매수 진입을 시작합니다." aria-label="help"></span></label>
-          <input class="input" type="text" id="obEntryStart" value="09:05"/>
-        </div>
-        <div class="config-field">
-          <label>Entry End <span class="help-icon" data-tooltip="돌파 진입 허용 종료 시각(KST)&#10;이 시각 이후에는 신규 진입하지 않습니다." aria-label="help"></span></label>
-          <input class="input" type="text" id="obEntryEnd" value="10:30"/>
-        </div>
-        <div class="config-field">
-          <label>Session End <span class="help-icon" data-tooltip="세션 종료(강제 청산) 시각(KST)&#10;미청산 포지션을 전량 매도합니다." aria-label="help"></span></label>
-          <input class="input" type="text" id="obSessionEnd" value="12:00"/>
-        </div>
-      </div>
+        <div style="padding:16px 20px">
+          <!-- Market + Candle -->
+          <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>Markets <span class="help-icon" data-tooltip="백테스트할 마켓을 선택합니다.&#10;오프닝 스캐너는 선택된 마켓에서 돌파 신호를 감지합니다." aria-label="Markets help"></span></label>
+              <div class="ms" id="obMarketsMs">
+                <button type="button" class="ms-button"><div class="ms-value"><span class="ms-placeholder">Select markets...</span><div class="ms-chips"></div></div><span class="ms-caret">&#9662;</span></button>
+                <div class="ms-panel"><input class="ms-search" placeholder="Search market..."/><div class="ms-list"></div>
+                <div class="ms-footer"><button type="button" class="ms-link" data-ms="all">Select all</button><button type="button" class="ms-link" data-ms="none">Clear</button></div></div>
+              </div>
+            </div>
+            <div class="config-field">
+              <label>Candle Interval <span class="help-icon" data-tooltip="오프닝 레인지 및 돌파 감지에 사용할&#10;캔들 간격(분)입니다." aria-label="Candle help"></span></label>
+              <select class="select" id="obCandleUnit">
+                <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
+              </select>
+            </div>
+          </div>
 
-      <!-- Risk -->
-      <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
-      <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
-        <div class="config-field">
-          <label>TP (ATR x) <span class="help-icon" data-tooltip="익절 목표 = ATR x 배수&#10;레인지 ATR 대비 목표 수익 배수입니다." aria-label="help"></span></label>
-          <input class="input" type="number" id="obTpAtr" value="1.2" step="0.1"/>
-        </div>
-        <div class="config-field">
-          <label>SL (%) <span class="help-icon" data-tooltip="손절 비율(%)&#10;진입가 대비 이 비율 하락 시 손절합니다." aria-label="help"></span></label>
-          <input class="input" type="number" id="obSlPct" value="10" step="0.5"/>
-        </div>
-        <div class="config-field">
-          <label>Trail (ATR x) <span class="help-icon" data-tooltip="트레일링 스탑 = ATR x 배수&#10;고점 대비 ATR 배수만큼 하락 시 청산합니다." aria-label="help"></span></label>
-          <input class="input" type="number" id="obTrailAtr" value="0.8" step="0.1"/>
-        </div>
-        <div class="config-field">
-          <label>Volume Mult <span class="help-icon" data-tooltip="거래량 배수 필터&#10;평균 거래량 대비 이 배수 이상일 때만 진입합니다." aria-label="help"></span></label>
-          <input class="input" type="number" id="obVolMult" value="1.5" step="0.1"/>
+          <!-- Timing -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>Range Start <span class="help-icon" data-tooltip="오프닝 레인지 수집 시작 시각(KST)&#10;이 시간부터 고가/저가를 측정합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="obRangeStart" value="08:00"/>
+            </div>
+            <div class="config-field">
+              <label>Range End <span class="help-icon" data-tooltip="오프닝 레인지 수집 종료 시각(KST)&#10;이 시간까지의 고/저로 레인지를 확정합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="obRangeEnd" value="08:59"/>
+            </div>
+            <div class="config-field">
+              <label>Entry Start <span class="help-icon" data-tooltip="돌파 진입 허용 시작 시각(KST)&#10;레인지 돌파 시 매수 진입을 시작합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="obEntryStart" value="09:05"/>
+            </div>
+            <div class="config-field">
+              <label>Entry End <span class="help-icon" data-tooltip="돌파 진입 허용 종료 시각(KST)&#10;이 시각 이후에는 신규 진입하지 않습니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="obEntryEnd" value="10:30"/>
+            </div>
+            <div class="config-field">
+              <label>Session End <span class="help-icon" data-tooltip="세션 종료(강제 청산) 시각(KST)&#10;미청산 포지션을 전량 매도합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="obSessionEnd" value="12:00"/>
+            </div>
+          </div>
+
+          <!-- Risk -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>TP (ATR x) <span class="help-icon" data-tooltip="익절 목표 = ATR x 배수&#10;레인지 ATR 대비 목표 수익 배수입니다." aria-label="help"></span></label>
+              <input class="input" type="number" id="obTpAtr" value="1.2" step="0.1"/>
+            </div>
+            <div class="config-field">
+              <label>SL (%) <span class="help-icon" data-tooltip="손절 비율(%)&#10;진입가 대비 이 비율 하락 시 손절합니다." aria-label="help"></span></label>
+              <input class="input" type="number" id="obSlPct" value="10" step="0.5"/>
+            </div>
+            <div class="config-field">
+              <label>Trail (ATR x) <span class="help-icon" data-tooltip="트레일링 스탑 = ATR x 배수&#10;고점 대비 ATR 배수만큼 하락 시 청산합니다." aria-label="help"></span></label>
+              <input class="input" type="number" id="obTrailAtr" value="0.8" step="0.1"/>
+            </div>
+            <div class="config-field">
+              <label>Volume Mult <span class="help-icon" data-tooltip="거래량 배수 필터&#10;평균 거래량 대비 이 배수 이상일 때만 진입합니다." aria-label="help"></span></label>
+              <input class="input" type="number" id="obVolMult" value="1.5" step="0.1"/>
+            </div>
+          </div>
         </div>
       </div>
     </div>
