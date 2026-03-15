@@ -92,11 +92,15 @@
   let siEnabled = false;
   let siOverrides = {}; // {STRATEGY_KEY: intervalMinutes, ...} - kept for chart candle unit logic
 
+  var isMobile = window.innerWidth <= 640;
   function fmtTsEpochMs(ms){
     if(ms == null) return '-';
     const d = new Date(Number(ms));
     if(Number.isNaN(d.getTime())) return '-';
     const pad = (n) => String(n).padStart(2,'0');
+    if (isMobile) {
+      return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
@@ -509,16 +513,18 @@
           : fmt(pnlVal)
       );
 
+      var actionLower = String(x.action||'').toLowerCase().replace('_','-');
+      var pnlClass = Number(pnlVal||0) >= 0 ? 'positive' : 'negative';
       return `
       <tr class="chart-row" data-logidx="${idx}">
-        <td>${timeText}</td>
-        <td title="${String(marketCode).replaceAll('"','&quot;')}">${marketText}</td>
-        <td>${actionText}</td>
-        <td>${typeText}</td>
+        <td style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${timeText}</td>
+        <td class="td-market" title="${String(marketCode).replaceAll('"','&quot;')}">${marketText}</td>
+        <td><span class="td-action ${actionLower}">${String(x.action||'-')}</span></td>
+        <td><span class="td-strategy-badge">${typeText}</span></td>
         <td style="color:${confColor};font-weight:700;text-align:center">${confText}</td>
-        <td>${priceCell}</td>
-        <td>${x.qty == null ? '-' : x.qty}</td>
-        <td>${pnlCell}</td>
+        <td style="font-family:var(--font-mono)">${priceCell}</td>
+        <td style="font-family:var(--font-mono)">${x.qty == null ? '-' : x.qty}</td>
+        <td class="td-pnl ${pnlVal != null ? pnlClass : ''}">${pnlCell}</td>
       </tr>
     `;
     }).join('');
@@ -633,6 +639,12 @@
     const intervalText = intervalLabel.get(String(key)) || (unitMin != null ? `${unitMin}분` : '-');
     intervalSnap.textContent = intervalText;
 
+    // Update status bar mode/interval
+    var sbMode = document.getElementById('statusBarMode');
+    var sbInterval = document.getElementById('statusBarInterval');
+    if (sbMode) sbMode.textContent = s.mode || '-';
+    if (sbInterval) sbInterval.textContent = intervalText;
+
     // Restore strategy interval overrides for chart candle unit logic
     {
       const csv = s.strategyIntervalsCsv || '';
@@ -649,6 +661,9 @@
     // Render open positions
     renderPositions(s.markets);
 
+    // Re-bind tooltips for dynamically-set data-tooltip attributes
+    try { AutoTrade.normalizeTooltips(document); } catch(e) {}
+
     return s;
   }
 
@@ -663,13 +678,224 @@
     renderLogs();
   }
 
+  // ─── Portfolio Chart ───
+  var portfolioChart = null;
+  var allTradesForChart = [];
+  var activePeriod = '1W';
+
+  function renderPortfolioChart(allLogs) {
+    var container = document.getElementById('portfolioChartArea');
+    if (!container) return;
+
+    if (!allLogs || allLogs.length === 0) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">거래 데이터가 없습니다</div>';
+      return;
+    }
+
+    // Build equity curve from SELL trades (they have PnL)
+    var sells = allLogs.filter(function(x) { return /SELL/i.test(x.action) && x.pnlKrw != null; });
+    sells.sort(function(a, b) { return (a.tsEpochMs || 0) - (b.tsEpochMs || 0); });
+
+    if (sells.length === 0) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">청산 거래가 없습니다</div>';
+      return;
+    }
+
+    var capital = 100000; // default
+    try { capital = parseInt(String(document.getElementById('capitalSnap').textContent).replace(/[^0-9]/g, '')) || 100000; } catch(e) {}
+    var equity = capital;
+    var data = [{ time: Math.floor(sells[0].tsEpochMs / 1000) - 86400, value: capital }];
+    sells.forEach(function(s) {
+      equity += (s.pnlKrw || 0);
+      data.push({ time: Math.floor(s.tsEpochMs / 1000), value: Math.round(equity) });
+    });
+
+    container.innerHTML = '';
+    if (portfolioChart) { try { portfolioChart.remove(); } catch(e) {} }
+
+    var isDark = !document.body.hasAttribute('data-theme') || document.body.getAttribute('data-theme') !== 'light';
+    portfolioChart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: 260,
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: isDark ? '#5a6478' : '#8892a8' },
+      grid: { vertLines: { visible: false }, horzLines: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)' } },
+      rightPriceScale: { borderVisible: false },
+      timeScale: { borderVisible: false, timeVisible: true },
+      crosshair: { mode: 0 },
+      handleScroll: false,
+      handleScale: false
+    });
+
+    var series = portfolioChart.addAreaSeries({
+      topColor: 'rgba(32, 201, 151, 0.3)',
+      bottomColor: 'rgba(32, 201, 151, 0.02)',
+      lineColor: '#20c997',
+      lineWidth: 2
+    });
+    series.setData(data);
+
+    // Apply period filter
+    applyPeriodFilter(data);
+
+    new ResizeObserver(function() {
+      portfolioChart.applyOptions({ width: container.clientWidth });
+    }).observe(container);
+  }
+
+  function applyPeriodFilter(data) {
+    if (!portfolioChart || !data || data.length === 0) return;
+    var now = Math.floor(Date.now() / 1000);
+    var from;
+    switch(activePeriod) {
+      case '1D': from = now - 86400; break;
+      case '1W': from = now - 7 * 86400; break;
+      case '1M': from = now - 30 * 86400; break;
+      default: portfolioChart.timeScale().fitContent(); return;
+    }
+    portfolioChart.timeScale().setVisibleRange({ from: from, to: now });
+  }
+
+  // Period tab click
+  var periodTabsEl = document.getElementById('periodTabs');
+  if (periodTabsEl) {
+    periodTabsEl.addEventListener('click', function(e) {
+      var btn = e.target.closest('.period-tab');
+      if (!btn) return;
+      periodTabsEl.querySelectorAll('.period-tab').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      activePeriod = btn.getAttribute('data-period') || 'ALL';
+
+      // Rebuild chart data for period filter
+      var sells = allTradesForChart.filter(function(x) { return /SELL/i.test(x.action) && x.pnlKrw != null; });
+      sells.sort(function(a, b) { return (a.tsEpochMs || 0) - (b.tsEpochMs || 0); });
+      var capital = 100000;
+      try { capital = parseInt(String(document.getElementById('capitalSnap').textContent).replace(/[^0-9]/g, '')) || 100000; } catch(e) {}
+      var equity = capital;
+      var data = [{ time: Math.floor((sells[0] ? sells[0].tsEpochMs : Date.now()) / 1000) - 86400, value: capital }];
+      sells.forEach(function(s) {
+        equity += (s.pnlKrw || 0);
+        data.push({ time: Math.floor(s.tsEpochMs / 1000), value: Math.round(equity) });
+      });
+      applyPeriodFilter(data);
+    });
+  }
+
+  // ─── Strategy Performance ───
+  var STRAT_COLORS = ['blue', 'green', 'orange', 'red'];
+  function stratAbbrev(key) {
+    var name = String(key || '').replace(/Strategy$/, '');
+    var caps = name.match(/[A-Z]/g);
+    return (caps && caps.length >= 2) ? caps[0] + caps[1] : name.substring(0, 2).toUpperCase();
+  }
+
+  function renderStrategyPerf(allLogs) {
+    var container = document.getElementById('strategyList');
+    var countEl = document.getElementById('stratPerfCount');
+    if (!container) return;
+
+    // Aggregate SELL trades by strategy
+    var map = {};
+    (allLogs || []).forEach(function(x) {
+      if (!/SELL/i.test(x.action)) return;
+      var key = x.patternType || x.orderType || 'UNKNOWN';
+      // Skip system types
+      if (['TAKE_PROFIT','STOP_LOSS','TIME_STOP','STRATEGY_LOCK','LOW_CONFIDENCE'].indexOf(key) >= 0) return;
+      if (!map[key]) map[key] = { pnl: 0, wins: 0, total: 0 };
+      map[key].pnl += (x.pnlKrw || 0);
+      map[key].total++;
+      if ((x.pnlKrw || 0) > 0) map[key].wins++;
+    });
+
+    var entries = Object.keys(map).map(function(k) {
+      return { key: k, pnl: map[k].pnl, wins: map[k].wins, total: map[k].total };
+    });
+    entries.sort(function(a, b) { return b.pnl - a.pnl; });
+
+    if (countEl) countEl.textContent = entries.length + '개 활성';
+
+    if (entries.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px">전략 거래 데이터가 없습니다</div>';
+      return;
+    }
+
+    container.innerHTML = entries.map(function(e, i) {
+      var label = strategyLabel.get(String(e.key)) || e.key;
+      var abbr = stratAbbrev(e.key);
+      var color = STRAT_COLORS[i % STRAT_COLORS.length];
+      var pnlClass = e.pnl >= 0 ? 'profit' : 'loss';
+      var pnlText = (e.pnl >= 0 ? '+' : '') + fmt(Math.round(e.pnl));
+      var winRate = e.total > 0 ? Math.round(e.wins / e.total * 100) : 0;
+      return '<div class="strategy-item">' +
+        '<div class="strategy-item-left">' +
+          '<div class="strategy-icon ' + color + '">' + abbr + '</div>' +
+          '<div><div class="strategy-name">' + label + '</div>' +
+          '<div class="strategy-markets">' + e.total + '건 체결</div></div>' +
+        '</div>' +
+        '<div class="strategy-item-right">' +
+          '<div class="strategy-pnl ' + pnlClass + '">' + pnlText + '원</div>' +
+          '<div class="strategy-trades">' + winRate + '% 승률</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  // ─── Dashboard Groups ───
+  function renderDashGroups(groups) {
+    var section = document.getElementById('dashGroupsSection');
+    var grid = document.getElementById('dashGroupsGrid');
+    if (!section || !grid) return;
+
+    if (!Array.isArray(groups) || groups.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = '';
+    grid.innerHTML = groups.map(function(g, gi) {
+      var markets = (g.markets || []).map(function(m) {
+        var label = marketLabel.get(String(m)) || m;
+        return '<span class="group-market-badge">' + label + '</span>';
+      }).join(' ');
+
+      var stratRows = (g.strategies || []).map(function(sKey) {
+        var cat = (strategyCatalog || []).find(function(c) { return c.key === sKey; });
+        var label = strategyLabel.get(String(sKey)) || sKey;
+        var role = (cat && cat.role) || 'BUY';
+        var roleClass = role === 'SELL' ? 'type-sell' : 'type-buy';
+        return '<div class="group-strategy-row">' +
+          '<span class="group-strategy-name">' + label +
+            ' <span class="group-strategy-type ' + roleClass + '">' + role + '</span></span>' +
+          '<span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">—</span>' +
+        '</div>';
+      }).join('');
+
+      return '<div class="group-card">' +
+        '<div class="group-header" onclick="this.parentElement.querySelector(\'.group-body\').style.display=this.parentElement.querySelector(\'.group-body\').style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.group-toggle\').textContent=this.parentElement.querySelector(\'.group-body\').style.display===\'none\'?\'▶\':\'▼\'">' +
+          '<div class="group-name">' + markets + ' ' + (g.groupName || 'Group ' + (gi+1)) + '</div>' +
+          '<span class="group-toggle">▼</span>' +
+        '</div>' +
+        '<div class="group-body">' + (stratRows || '<div style="color:var(--text-muted);font-size:12px">전략 없음</div>') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
   async function refreshAll(){
     try{
       refreshBtn.disabled = true;
-      await loadStatus();
+      var s = await loadStatus();
       await loadTrades();
       await fetchAssetSummary(true);
       await fetchGuardLogs(true);
+
+      // Render new dashboard sections
+      if (s && Array.isArray(s.groups)) renderDashGroups(s.groups);
+
+      // Fetch all trades for chart + strategy perf (separate from paginated logs)
+      try {
+        var allData = await req(API.botTrades + '?page=1&size=9999', { method: 'GET' });
+        allTradesForChart = allData.items || [];
+        renderPortfolioChart(allTradesForChart);
+        renderStrategyPerf(allTradesForChart);
+      } catch(e) { console.warn('Chart/Perf data load failed:', e); }
     }catch(e){
       showToast(e.message || 'Refresh 실패', 'error');
       console.error(e);
