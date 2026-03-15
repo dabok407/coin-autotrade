@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Upbit AutoTrade - Settings</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
-  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260315e)}">
+  <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260316a)}">
 </head>
 <body>
 
@@ -97,7 +97,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;color:var(--text-muted)">Enabled</span>
-          <button class="bot-toggle" id="scannerEnabledToggle" aria-pressed="false" style="width:70px;transform:scale(0.85)">
+          <button class="bot-toggle" id="scannerEnabledToggle" aria-pressed="false" style="width:100px">
             <span class="bot-toggle-knob"></span>
             <span class="bot-toggle-label">OFF</span>
           </button>
@@ -108,19 +108,19 @@
         <!-- Row 1: Mode, Capital, Order Sizing -->
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
-            <label>Mode</label>
+            <label>Mode <span class="help-icon" data-tooltip="PAPER: 모의매매 (실제 주문 없음)&#10;LIVE: 실거래 (업비트 실제 주문)" aria-label="Mode help"></span></label>
             <select class="select" id="scMode"><option value="PAPER" selected>PAPER</option><option value="LIVE">LIVE</option></select>
           </div>
           <div class="config-field">
-            <label>Capital (KRW)</label>
+            <label>Capital (KRW) <span class="help-icon" data-tooltip="오프닝 스캐너 전용 자본금(원화)입니다.&#10;메인 봇 자본금과 별도로 운용됩니다." aria-label="Capital help"></span></label>
             <input class="input" type="text" id="scCapital" value="100,000"/>
           </div>
           <div class="config-field">
-            <label>Order Sizing</label>
+            <label>Order Sizing <span class="help-icon" data-tooltip="PCT: 자본금 대비 비율(%)로 주문&#10;FIXED: 고정 금액(KRW)으로 주문" aria-label="Order sizing help"></span></label>
             <select class="select" id="scOrderMode"><option value="PCT" selected>PCT (%)</option><option value="FIXED">FIXED (KRW)</option></select>
           </div>
           <div class="config-field">
-            <label>Order Value</label>
+            <label>Order Value <span class="help-icon" data-tooltip="PCT 모드: 자본금의 N% (예: 30 = 30%)&#10;FIXED 모드: 고정 주문 금액(KRW)" aria-label="Order value help"></span></label>
             <input class="input" type="number" id="scOrderValue" value="30" step="1"/>
           </div>
         </div>
@@ -129,23 +129,23 @@
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
-            <label>Range Start</label>
+            <label>Range Start <span class="help-icon" data-tooltip="오프닝 레인지 수집 시작 시각 (KST)&#10;이 시간부터 고가/저가를 추적합니다." aria-label="Range start help"></span></label>
             <input class="input" type="text" id="scRangeStart" value="08:00" placeholder="HH:MM"/>
           </div>
           <div class="config-field">
-            <label>Range End</label>
+            <label>Range End <span class="help-icon" data-tooltip="오프닝 레인지 수집 종료 시각 (KST)&#10;이 시점까지의 고가/저가가 돌파 기준이 됩니다." aria-label="Range end help"></span></label>
             <input class="input" type="text" id="scRangeEnd" value="08:59" placeholder="HH:MM"/>
           </div>
           <div class="config-field">
-            <label>Entry Start</label>
+            <label>Entry Start <span class="help-icon" data-tooltip="돌파 진입 허용 시작 시각 (KST)&#10;이 시간부터 매수 시그널을 실행합니다." aria-label="Entry start help"></span></label>
             <input class="input" type="text" id="scEntryStart" value="09:05" placeholder="HH:MM"/>
           </div>
           <div class="config-field">
-            <label>Entry End</label>
+            <label>Entry End <span class="help-icon" data-tooltip="돌파 진입 마감 시각 (KST)&#10;이후에는 새 진입을 차단합니다." aria-label="Entry end help"></span></label>
             <input class="input" type="text" id="scEntryEnd" value="10:30" placeholder="HH:MM"/>
           </div>
           <div class="config-field">
-            <label>Session End</label>
+            <label>Session End <span class="help-icon" data-tooltip="강제 청산 시각 (KST)&#10;보유 중인 모든 포지션을 이 시간에 청산합니다." aria-label="Session end help"></span></label>
             <input class="input" type="text" id="scSessionEnd" value="12:00" placeholder="HH:MM"/>
           </div>
         </div>
@@ -154,19 +154,19 @@
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
-            <label>TP (ATR x)</label>
+            <label>TP (ATR x) <span class="help-icon" data-tooltip="익절 목표 = ATR x 배수&#10;예: 1.2 = 현재 ATR의 1.2배 상승 시 익절" aria-label="TP help"></span></label>
             <input class="input" type="number" id="scTpAtr" value="1.2" step="0.1"/>
           </div>
           <div class="config-field">
-            <label>SL (%)</label>
+            <label>SL (%) <span class="help-icon" data-tooltip="손절 한도 (진입가 대비 하락 %)&#10;예: 10 = -10% 하락 시 손절" aria-label="SL help"></span></label>
             <input class="input" type="number" id="scSlPct" value="10" step="0.5"/>
           </div>
           <div class="config-field">
-            <label>Trail (ATR x)</label>
+            <label>Trail (ATR x) <span class="help-icon" data-tooltip="트레일링 스탑 = 고점 - ATR x 배수&#10;수익 구간에서 이익을 보호합니다." aria-label="Trail help"></span></label>
             <input class="input" type="number" id="scTrailAtr" value="0.8" step="0.1"/>
           </div>
           <div class="config-field">
-            <label>Candle Interval</label>
+            <label>Candle Interval <span class="help-icon" data-tooltip="분석에 사용하는 캔들 간격 (분)&#10;기본 5분봉 권장" aria-label="Candle help"></span></label>
             <select class="select" id="scCandleUnit">
               <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
             </select>
@@ -177,30 +177,26 @@
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Scan &amp; Filter</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:8px">
           <div class="config-field">
-            <label>Top N</label>
+            <label>Top N <span class="help-icon" data-tooltip="거래대금 상위 N개 코인을 스캔합니다.&#10;매 틱마다 실시간 거래대금 기준으로 선정" aria-label="Top N help"></span></label>
             <input class="input" type="number" id="scTopN" value="15" min="1" max="50"/>
           </div>
           <div class="config-field">
-            <label>Max Positions</label>
+            <label>Max Positions <span class="help-icon" data-tooltip="동시에 보유할 수 있는 최대 포지션 수&#10;초과 시 새 진입을 차단합니다." aria-label="Max positions help"></span></label>
             <input class="input" type="number" id="scMaxPos" value="3" min="1" max="15"/>
           </div>
           <div class="config-field">
-            <label>BTC Filter</label>
+            <label>BTC Filter <span class="help-icon" data-tooltip="BTC 방향 필터 (EMA 20 기준)&#10;ON: BTC가 EMA(20) 위일 때만 롱 진입" aria-label="BTC filter help"></span></label>
             <select class="select" id="scBtcFilter"><option value="true" selected>ON</option><option value="false">OFF</option></select>
           </div>
           <div class="config-field">
-            <label>Volume Mult</label>
+            <label>Volume Mult <span class="help-icon" data-tooltip="진입 조건: 현재 거래량 > 평균 x 배수&#10;예: 1.5 = 평균의 1.5배 이상 거래량 필요" aria-label="Volume mult help"></span></label>
             <input class="input" type="number" id="scVolMult" value="1.5" step="0.1"/>
           </div>
           <div class="config-field">
-            <label>Min Body %</label>
+            <label>Min Body % <span class="help-icon" data-tooltip="진입 조건: 캔들 몸통 비율 최소값&#10;예: 0.40 = 전체 캔들 길이의 40% 이상 몸통" aria-label="Min body help"></span></label>
             <input class="input" type="number" id="scBodyRatio" value="0.40" step="0.05" min="0" max="1"/>
           </div>
         </div>
-      </div>
-
-      <div style="padding:0 20px 16px;text-align:right">
-        <button class="btn primary" id="scApplyBtn" style="font-size:13px;padding:8px 24px">Apply Scanner Settings</button>
       </div>
     </div>
 
@@ -249,7 +245,7 @@
   <a class="mobile-nav-item" th:href="@{/backtest}"><span class="mnav-icon">&#x1F9EA;</span>백테스트</a>
 </nav>
 
-<script th:src="@{/js/autotrade-common.js(v=20260315e)}"></script>
-<script th:src="@{/js/settings.js(v=20260315e)}"></script>
+<script th:src="@{/js/autotrade-common.js(v=20260316a)}"></script>
+<script th:src="@{/js/settings.js(v=20260316a)}"></script>
 </body>
 </html>

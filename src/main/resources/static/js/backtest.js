@@ -6,6 +6,7 @@
   var fmt = window.AutoTrade.fmt;
   var initMultiSelect = window.AutoTrade.initMultiSelect;
   var initTheme = window.AutoTrade.initTheme;
+  var showToast = window.AutoTrade.showToast;
 
   // Dark/Light toggle
   initTheme();
@@ -62,6 +63,8 @@
   var allMarketOpts = [];
   var btGroupInstances = [];
   var btGroupCounter = 0;
+  var activeTab = 'basic'; // 'basic' or 'opening'
+  var obMarketsMs = null;  // opening markets multi-select instance
 
   function el(id) { return document.getElementById(id); }
 
@@ -1098,12 +1101,39 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
+  //  Tab Switching
+  // ═══════════════════════════════════════════════════════════════
+
+  var btTabs = document.querySelectorAll('.bt-tab');
+  var btTabBasic = el('btTabBasic');
+  var btTabOpening = el('btTabOpening');
+
+  for (var ti = 0; ti < btTabs.length; ti++) {
+    (function(tab) {
+      tab.addEventListener('click', function() {
+        var target = tab.getAttribute('data-tab');
+        activeTab = target;
+        for (var j = 0; j < btTabs.length; j++) {
+          btTabs[j].classList.toggle('active', btTabs[j].getAttribute('data-tab') === target);
+        }
+        if (btTabBasic) btTabBasic.style.display = target === 'basic' ? '' : 'none';
+        if (btTabOpening) btTabOpening.style.display = target === 'opening' ? '' : 'none';
+      });
+    })(btTabs[ti]);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   //  Event Handlers
   // ═══════════════════════════════════════════════════════════════
 
   btRun.addEventListener('click', function() {
     setError('');
     btRun.disabled = true;
+
+    if (activeTab === 'opening') {
+      runOpeningBacktest();
+      return;
+    }
 
     // Guard: From <= To
     normalizeDateRange();
@@ -1363,6 +1393,15 @@
         for (var i = 0; i < all.length; i++) {
           marketLabel.set(String(all[i].market), String(all[i].displayName || all[i].market));
         }
+        // Init opening markets multi-select
+        var obMsRoot = document.getElementById('obMarketsMs');
+        if (obMsRoot) {
+          obMarketsMs = initMultiSelect(obMsRoot, {
+            placeholder: 'Select markets...',
+            options: allMarketOpts,
+            initial: ['KRW-SOL', 'KRW-ADA']
+          });
+        }
       }).catch(function(e) { /* ignore */ });
     });
 
@@ -1449,10 +1488,9 @@
   })();
 
   // ═══════════════════════════════════════════
-  //  Opening Strategy Backtest
+  //  Opening Strategy Backtest (tab-integrated)
   // ═══════════════════════════════════════════
 
-  var obRun = document.getElementById('obRun');
   var obLoadSettings = document.getElementById('obLoadSettings');
 
   function parseHHMM(str) {
@@ -1483,107 +1521,119 @@
     });
   }
 
-  if (obRun) {
-    obRun.addEventListener('click', function() {
-      setError('');
-      obRun.disabled = true;
+  function runOpeningBacktest() {
+    var e = function(id) { return document.getElementById(id); };
+    var markets = obMarketsMs ? obMarketsMs.getSelected() : [];
+    if (markets.length === 0) {
+      setError('Opening Backtest: Market을 선택해주세요.');
+      btRun.disabled = false;
+      return;
+    }
 
-      var e = function(id) { return document.getElementById(id); };
-      var marketsStr = e('obMarkets') ? e('obMarkets').value : 'KRW-SOL';
-      var markets = marketsStr.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
-      if (markets.length === 0) {
-        setError('Opening Backtest: Market is required.');
-        obRun.disabled = false;
-        return;
+    var rs = parseHHMM(e('obRangeStart') ? e('obRangeStart').value : '08:00');
+    var re = parseHHMM(e('obRangeEnd') ? e('obRangeEnd').value : '08:59');
+    var es = parseHHMM(e('obEntryStart') ? e('obEntryStart').value : '09:05');
+    var ee = parseHHMM(e('obEntryEnd') ? e('obEntryEnd').value : '10:30');
+    var se = parseHHMM(e('obSessionEnd') ? e('obSessionEnd').value : '12:00');
+    var candleUnit = parseInt(e('obCandleUnit') ? e('obCandleUnit').value : '5') || 5;
+
+    normalizeDateRange();
+
+    var params = {
+      strategies: ['SCALP_OPENING_BREAK'],
+      markets: markets,
+      market: markets[0],
+      period: el('btPeriod').value,
+      fromDate: getDateTimeLocalValue(btFromDate, btFromTime),
+      toDate: getDateTimeLocalValue(btToDate, btToTime),
+      capitalKrw: parseNum(el('btCapital').value),
+      candleUnitMin: candleUnit,
+      takeProfitPct: 0,
+      stopLossPct: 0,
+      maxAddBuysGlobal: 0,
+      timeStopMinutes: 0,
+      openingParams: {
+        rangeStartHour: rs[0], rangeStartMin: rs[1],
+        rangeEndHour: re[0], rangeEndMin: re[1],
+        entryStartHour: es[0], entryStartMin: es[1],
+        entryEndHour: ee[0], entryEndMin: ee[1],
+        sessionEndHour: se[0], sessionEndMin: se[1],
+        tpAtrMult: parseFloat(e('obTpAtr') ? e('obTpAtr').value : '1.2') || 1.2,
+        slPct: parseFloat(e('obSlPct') ? e('obSlPct').value : '10') || 10,
+        trailAtrMult: parseFloat(e('obTrailAtr') ? e('obTrailAtr').value : '0.8') || 0.8,
+        volumeMult: parseFloat(e('obVolMult') ? e('obVolMult').value : '1.5') || 1.5,
+        minBodyRatio: 0.40
+      }
+    };
+
+    req(API.backtestRun, {
+      method: 'POST',
+      body: JSON.stringify(params),
+      cache: 'no-store'
+    }).then(function(res) {
+      if (btResultsHeader) btResultsHeader.style.display = '';
+      if (btKpiGrid) btKpiGrid.style.display = '';
+
+      var roiVal = res.roi == null ? 0 : Number(res.roi);
+      btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
+      btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+      btTotalReturn.textContent = fmt(res.totalReturn);
+      if (res.totalReturn != null) btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+      btTrades.textContent = fmt(res.tradesCount);
+
+      var wr = res.winRate == null ? 0 : Number(res.winRate);
+      btWinRate.textContent = wr.toFixed(1) + '%';
+      if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
+      if (btWinRateCircle) {
+        var circleFg = btWinRateCircle.querySelector('.circle-fg');
+        if (circleFg) {
+          var c = 2 * Math.PI * 25;
+          circleFg.style.strokeDasharray = c;
+          circleFg.style.strokeDashoffset = c * (1 - wr / 100);
+        }
+      }
+      if (btFinalCapital) {
+        var initialCap = parseNum(el('btCapital').value);
+        var finalCap = initialCap + (res.totalReturn || 0);
+        btFinalCapital.textContent = fmt(Math.round(finalCap));
       }
 
-      var rs = parseHHMM(e('obRangeStart') ? e('obRangeStart').value : '08:00');
-      var re = parseHHMM(e('obRangeEnd') ? e('obRangeEnd').value : '08:59');
-      var es = parseHHMM(e('obEntryStart') ? e('obEntryStart').value : '09:05');
-      var ee = parseHHMM(e('obEntryEnd') ? e('obEntryEnd').value : '10:30');
-      var se = parseHHMM(e('obSessionEnd') ? e('obSessionEnd').value : '12:00');
-      var candleUnit = parseInt(e('obCandleUnit') ? e('obCandleUnit').value : '5') || 5;
-
-      var params = {
-        strategies: ['SCALP_OPENING_BREAK'],
-        markets: markets,
-        market: markets[0],
-        period: el('btPeriod').value,
-        fromDate: getDateTimeLocalValue(btFromDate, btFromTime),
-        toDate: getDateTimeLocalValue(btToDate, btToTime),
-        capitalKrw: parseNum(el('btCapital').value),
-        candleUnitMin: candleUnit,
-        takeProfitPct: 0,
-        stopLossPct: 0,
-        maxAddBuysGlobal: 0,
-        timeStopMinutes: 0,
-        openingParams: {
-          rangeStartHour: rs[0], rangeStartMin: rs[1],
-          rangeEndHour: re[0], rangeEndMin: re[1],
-          entryStartHour: es[0], entryStartMin: es[1],
-          entryEndHour: ee[0], entryEndMin: ee[1],
-          sessionEndHour: se[0], sessionEndMin: se[1],
-          tpAtrMult: parseFloat(e('obTpAtr') ? e('obTpAtr').value : '1.2') || 1.2,
-          slPct: parseFloat(e('obSlPct') ? e('obSlPct').value : '10') || 10,
-          trailAtrMult: parseFloat(e('obTrailAtr') ? e('obTrailAtr').value : '0.8') || 0.8,
-          volumeMult: parseFloat(e('obVolMult') ? e('obVolMult').value : '1.5') || 1.5,
-          minBodyRatio: 0.40
+      var trades = res.trades || [];
+      var tpCount = 0, slCount = 0, patternCount = 0;
+      for (var ti = 0; ti < trades.length; ti++) {
+        var t = trades[ti];
+        if (t.action === 'SELL' || t.action === 'sell') {
+          var ot = (t.orderType || t.patternType || '').toUpperCase();
+          if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
+          else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
+          else patternCount++;
         }
-      };
+      }
+      var distTotal = Math.max(tpCount + slCount + patternCount, 1);
+      if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
+      if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
+      if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
+      if (btDistTpCount) btDistTpCount.textContent = tpCount;
+      if (btDistSlCount) btDistSlCount.textContent = slCount;
+      if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
 
-      req(API.backtestRun, {
-        method: 'POST',
-        body: JSON.stringify(params),
-        cache: 'no-store'
-      }).then(function(res) {
-        if (btResultsHeader) btResultsHeader.style.display = '';
-        if (btKpiGrid) btKpiGrid.style.display = '';
+      if (btResultsBadge) {
+        btResultsBadge.textContent = 'Opening | ' + (res.candleUnitMin || 5) + 'min | ' + markets.join(',');
+        btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
+        btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+        btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
+        btResultsBadge.style.display = '';
+      }
 
-        var roiVal = res.roi == null ? 0 : Number(res.roi);
-        btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
-        btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
-        btTotalReturn.textContent = fmt(res.totalReturn);
-        if (res.totalReturn != null) btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
-        btTrades.textContent = fmt(res.tradesCount);
+      logs = trades;
+      page = 1;
+      render();
+      renderEquityCurve(trades, parseNum(el('btCapital').value));
 
-        var wr = res.winRate == null ? 0 : Number(res.winRate);
-        btWinRate.textContent = wr.toFixed(1) + '%';
-        if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
-        if (btWinRateCircle) {
-          var circleFg = btWinRateCircle.querySelector('.circle-fg');
-          if (circleFg) {
-            var c = 2 * Math.PI * 25;
-            circleFg.style.strokeDasharray = c;
-            circleFg.style.strokeDashoffset = c * (1 - wr / 100);
-          }
-        }
-        btFinalCapital.textContent = fmt(res.finalCapital);
-
-        var totalSells = (res.tpSellCount || 0) + (res.slSellCount || 0) + (res.patternSellCount || 0);
-        if (totalSells > 0) {
-          el('btDistTp').style.width = ((res.tpSellCount / totalSells) * 100) + '%';
-          el('btDistSl').style.width = ((res.slSellCount / totalSells) * 100) + '%';
-          el('btDistPattern').style.width = ((res.patternSellCount / totalSells) * 100) + '%';
-        }
-        el('btDistTpCount').textContent = res.tpSellCount || 0;
-        el('btDistSlCount').textContent = res.slSellCount || 0;
-        el('btDistPatternCount').textContent = res.patternSellCount || 0;
-
-        if (btResultsBadge) {
-          btResultsBadge.textContent = 'Opening | ' + (res.candleUnitMin || 5) + 'min | ' + markets.join(',');
-          btResultsBadge.style.display = '';
-        }
-
-        logs = res.trades || [];
-        page = 1;
-        render();
-        renderEquityCurve(res.trades || [], parseNum(el('btCapital').value));
-
-      }).catch(function(err) {
-        setError(err.message || 'Opening backtest failed');
-      }).then(function() {
-        obRun.disabled = false;
-      });
+    }).catch(function(err) {
+      setError(err.message || 'Opening backtest failed');
+    }).then(function() {
+      btRun.disabled = false;
     });
   }
 

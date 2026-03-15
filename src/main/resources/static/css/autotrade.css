@@ -390,7 +390,15 @@ body[data-theme="light"] .card:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%239fb0d6' d='M5.6 7.4a1 1 0 0 1 1.4 0L10 10.4l3-3a1 1 0 1 1 1.4 1.4l-3.7 3.7a1 1 0 0 1-1.4 0L5.6 8.8a1 1 0 0 1 0-1.4Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
 }
+body[data-theme="light"] .select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%234a5b86' d='M5.6 7.4a1 1 0 0 1 1.4 0L10 10.4l3-3a1 1 0 1 1 1.4 1.4l-3.7 3.7a1 1 0 0 1-1.4 0L5.6 8.8a1 1 0 0 1 0-1.4Z'/%3E%3C/svg%3E");
+}
+.select-wrap .select { background-image: none; }
 body[data-theme="light"] .input,
 body[data-theme="light"] .select {
   background: rgba(255,255,255,.92);
@@ -886,6 +894,25 @@ body[data-theme="light"] .badge {
   background: linear-gradient(90deg, transparent, var(--card-border), transparent);
   margin: 40px 0;
 }
+
+/* Backtest strategy tabs */
+.bt-tabs {
+  display: flex; gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+.bt-tab {
+  padding: 10px 24px; cursor: pointer;
+  font-size: 14px; font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color .2s, border-color .2s;
+  user-select: none;
+}
+.bt-tab:hover { color: var(--text); }
+.bt-tab.active { border-color: var(--primary); color: var(--primary); }
+body[data-theme="light"] .bt-tab.active { color: var(--primary); }
 
 /* ===== KPI Cards (backtest — 5 col) ===== */
 .kpi-grid {

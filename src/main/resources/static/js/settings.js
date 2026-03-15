@@ -718,8 +718,12 @@
       });
 
       var result = await req('/api/bot/groups', { method: 'POST', body: JSON.stringify(groups) });
+
+      // Save scanner config together
+      await saveScannerConfig();
+
       if (result && result.success) {
-        showToast('Settings applied! (' + result.groupCount + ' groups)', 'success');
+        showToast('Settings applied! (' + result.groupCount + ' groups + scanner)', 'success');
       } else {
         showToast('Error: ' + (result.error || 'Unknown'), 'error');
       }
@@ -763,7 +767,6 @@
   //  Opening Scanner Settings
   // ═══════════════════════════════════════════
 
-  var scApplyBtn = document.getElementById('scApplyBtn');
   var scannerEnabledToggle = document.getElementById('scannerEnabledToggle');
   var scEnabled = false;
 
@@ -820,47 +823,37 @@
     }
   }
 
-  if (scApplyBtn) {
-    scApplyBtn.addEventListener('click', async function() {
-      var el = function(id) { return document.getElementById(id); };
-      var rs = parseHHMM(el('scRangeStart') ? el('scRangeStart').value : '08:00');
-      var re = parseHHMM(el('scRangeEnd') ? el('scRangeEnd').value : '08:59');
-      var es = parseHHMM(el('scEntryStart') ? el('scEntryStart').value : '09:05');
-      var ee = parseHHMM(el('scEntryEnd') ? el('scEntryEnd').value : '10:30');
-      var se = parseHHMM(el('scSessionEnd') ? el('scSessionEnd').value : '12:00');
+  async function saveScannerConfig() {
+    var el = function(id) { return document.getElementById(id); };
+    var rs = parseHHMM(el('scRangeStart') ? el('scRangeStart').value : '08:00');
+    var re = parseHHMM(el('scRangeEnd') ? el('scRangeEnd').value : '08:59');
+    var es = parseHHMM(el('scEntryStart') ? el('scEntryStart').value : '09:05');
+    var ee = parseHHMM(el('scEntryEnd') ? el('scEntryEnd').value : '10:30');
+    var se = parseHHMM(el('scSessionEnd') ? el('scSessionEnd').value : '12:00');
 
-      var body = {
-        enabled: scEnabled,
-        mode: el('scMode') ? el('scMode').value : 'PAPER',
-        capitalKrw: parseFloat(String(el('scCapital') ? el('scCapital').value : '100000').replace(/[,\s]/g, '')) || 100000,
-        orderSizingMode: el('scOrderMode') ? el('scOrderMode').value : 'PCT',
-        orderSizingValue: parseFloat(el('scOrderValue') ? el('scOrderValue').value : '30') || 30,
-        rangeStartHour: rs[0], rangeStartMin: rs[1],
-        rangeEndHour: re[0], rangeEndMin: re[1],
-        entryStartHour: es[0], entryStartMin: es[1],
-        entryEndHour: ee[0], entryEndMin: ee[1],
-        sessionEndHour: se[0], sessionEndMin: se[1],
-        tpAtrMult: parseFloat(el('scTpAtr') ? el('scTpAtr').value : '1.2') || 1.2,
-        slPct: parseFloat(el('scSlPct') ? el('scSlPct').value : '10') || 10,
-        trailAtrMult: parseFloat(el('scTrailAtr') ? el('scTrailAtr').value : '0.8') || 0.8,
-        candleUnitMin: parseInt(el('scCandleUnit') ? el('scCandleUnit').value : '5') || 5,
-        topN: parseInt(el('scTopN') ? el('scTopN').value : '15') || 15,
-        maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
-        btcFilterEnabled: (el('scBtcFilter') ? el('scBtcFilter').value : 'true') === 'true',
-        volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
-        minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40
-      };
+    var body = {
+      enabled: scEnabled,
+      mode: el('scMode') ? el('scMode').value : 'PAPER',
+      capitalKrw: parseFloat(String(el('scCapital') ? el('scCapital').value : '100000').replace(/[,\s]/g, '')) || 100000,
+      orderSizingMode: el('scOrderMode') ? el('scOrderMode').value : 'PCT',
+      orderSizingValue: parseFloat(el('scOrderValue') ? el('scOrderValue').value : '30') || 30,
+      rangeStartHour: rs[0], rangeStartMin: rs[1],
+      rangeEndHour: re[0], rangeEndMin: re[1],
+      entryStartHour: es[0], entryStartMin: es[1],
+      entryEndHour: ee[0], entryEndMin: ee[1],
+      sessionEndHour: se[0], sessionEndMin: se[1],
+      tpAtrMult: parseFloat(el('scTpAtr') ? el('scTpAtr').value : '1.2') || 1.2,
+      slPct: parseFloat(el('scSlPct') ? el('scSlPct').value : '10') || 10,
+      trailAtrMult: parseFloat(el('scTrailAtr') ? el('scTrailAtr').value : '0.8') || 0.8,
+      candleUnitMin: parseInt(el('scCandleUnit') ? el('scCandleUnit').value : '5') || 5,
+      topN: parseInt(el('scTopN') ? el('scTopN').value : '15') || 15,
+      maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
+      btcFilterEnabled: (el('scBtcFilter') ? el('scBtcFilter').value : 'true') === 'true',
+      volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
+      minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40
+    };
 
-      try {
-        scApplyBtn.disabled = true;
-        await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
-        showToast('Scanner settings saved', 'success');
-      } catch(e) {
-        showToast(e.message || 'Scanner config save failed', 'error');
-      } finally {
-        scApplyBtn.disabled = false;
-      }
-    });
+    await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
   }
 
   // Load scanner config on page load
