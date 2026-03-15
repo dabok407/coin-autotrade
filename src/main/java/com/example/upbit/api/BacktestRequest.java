@@ -51,6 +51,30 @@ public class BacktestRequest {
     public Map<String, List<String>> marketStrategies;
 
     /**
+     * 오프닝 전략 파라미터 오버라이드 (optional).
+     * backtest.html 오프닝 섹션에서 전송. null이면 기본값 사용.
+     */
+    public OpeningParams openingParams;
+
+    public static class OpeningParams {
+        public int rangeStartHour = 8;
+        public int rangeStartMin = 0;
+        public int rangeEndHour = 8;
+        public int rangeEndMin = 59;
+        public int entryStartHour = 9;
+        public int entryStartMin = 5;
+        public int entryEndHour = 10;
+        public int entryEndMin = 30;
+        public int sessionEndHour = 12;
+        public int sessionEndMin = 0;
+        public double tpAtrMult = 1.2;
+        public double slPct = 10.0;
+        public double trailAtrMult = 0.8;
+        public double volumeMult = 1.5;
+        public double minBodyRatio = 0.40;
+    }
+
+    /**
      * 전략 그룹 리스트 (optional).
      * null/empty이면 기존 flat 필드(strategies, markets, takeProfitPct 등)를 사용 (하위호환).
      * 제공되면 각 그룹이 독립적인 마켓+전략+리스크 설정을 가짐.

@@ -88,6 +88,122 @@
       <!-- Group cards rendered by JS -->
     </div>
 
+    <!-- ── Opening Scanner Settings ── -->
+    <div class="card" style="margin-top:32px;margin-bottom:24px">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div class="card-title">
+          <div class="card-icon" style="background:rgba(255,165,0,.15);color:#ffa500">&#x1F305;</div>
+          Opening Scanner Settings
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--text-muted)">Enabled</span>
+          <button class="bot-toggle" id="scannerEnabledToggle" aria-pressed="false" style="width:70px;transform:scale(0.85)">
+            <span class="bot-toggle-knob"></span>
+            <span class="bot-toggle-label">OFF</span>
+          </button>
+        </div>
+      </div>
+
+      <div style="padding:16px 20px">
+        <!-- Row 1: Mode, Capital, Order Sizing -->
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Mode</label>
+            <select class="select" id="scMode"><option value="PAPER" selected>PAPER</option><option value="LIVE">LIVE</option></select>
+          </div>
+          <div class="config-field">
+            <label>Capital (KRW)</label>
+            <input class="input" type="text" id="scCapital" value="100,000"/>
+          </div>
+          <div class="config-field">
+            <label>Order Sizing</label>
+            <select class="select" id="scOrderMode"><option value="PCT" selected>PCT (%)</option><option value="FIXED">FIXED (KRW)</option></select>
+          </div>
+          <div class="config-field">
+            <label>Order Value</label>
+            <input class="input" type="number" id="scOrderValue" value="30" step="1"/>
+          </div>
+        </div>
+
+        <!-- Row 2: Timing -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Range Start</label>
+            <input class="input" type="text" id="scRangeStart" value="08:00" placeholder="HH:MM"/>
+          </div>
+          <div class="config-field">
+            <label>Range End</label>
+            <input class="input" type="text" id="scRangeEnd" value="08:59" placeholder="HH:MM"/>
+          </div>
+          <div class="config-field">
+            <label>Entry Start</label>
+            <input class="input" type="text" id="scEntryStart" value="09:05" placeholder="HH:MM"/>
+          </div>
+          <div class="config-field">
+            <label>Entry End</label>
+            <input class="input" type="text" id="scEntryEnd" value="10:30" placeholder="HH:MM"/>
+          </div>
+          <div class="config-field">
+            <label>Session End</label>
+            <input class="input" type="text" id="scSessionEnd" value="12:00" placeholder="HH:MM"/>
+          </div>
+        </div>
+
+        <!-- Row 3: Risk -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>TP (ATR x)</label>
+            <input class="input" type="number" id="scTpAtr" value="1.2" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>SL (%)</label>
+            <input class="input" type="number" id="scSlPct" value="10" step="0.5"/>
+          </div>
+          <div class="config-field">
+            <label>Trail (ATR x)</label>
+            <input class="input" type="number" id="scTrailAtr" value="0.8" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Candle Interval</label>
+            <select class="select" id="scCandleUnit">
+              <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 4: Scan/Filter -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Scan &amp; Filter</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:8px">
+          <div class="config-field">
+            <label>Top N</label>
+            <input class="input" type="number" id="scTopN" value="15" min="1" max="50"/>
+          </div>
+          <div class="config-field">
+            <label>Max Positions</label>
+            <input class="input" type="number" id="scMaxPos" value="3" min="1" max="15"/>
+          </div>
+          <div class="config-field">
+            <label>BTC Filter</label>
+            <select class="select" id="scBtcFilter"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+          </div>
+          <div class="config-field">
+            <label>Volume Mult</label>
+            <input class="input" type="number" id="scVolMult" value="1.5" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Min Body %</label>
+            <input class="input" type="number" id="scBodyRatio" value="0.40" step="0.05" min="0" max="1"/>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:0 20px 16px;text-align:right">
+        <button class="btn primary" id="scApplyBtn" style="font-size:13px;padding:8px 24px">Apply Scanner Settings</button>
+      </div>
+    </div>
+
     <!-- ── Apply Button ── -->
     <div class="run-section" style="margin-top:32px;margin-bottom:0">
       <button class="run-btn" id="applyBtn">

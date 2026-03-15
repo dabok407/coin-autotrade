@@ -172,7 +172,7 @@ window.AutoTrade = (() => {
     const btn = document.getElementById('themeToggle');
     if(btn){
       btn.setAttribute('aria-pressed', String(t === 'light'));
-      btn.textContent = (t === 'light') ? '🌙 Dark' : '🌞 Light';
+      btn.textContent = (t === 'light') ? '\u263E' : '\u2600';
     }
   }
   function toggleTheme(){
@@ -467,16 +467,69 @@ window.AutoTrade = (() => {
   };
 }
 
-  // Replace literal "\\n" sequences in data-tooltip with real newlines so CSS pre-wrap works.
-  function normalizeTooltips(root=document){
-    try{
-      (root.querySelectorAll ? root.querySelectorAll('[data-tooltip]') : []).forEach(elm => {
-        const t = elm.getAttribute('data-tooltip');
-        if(t && t.indexOf('\\n') >= 0){
+  // Replace literal "\\n" sequences in data-tooltip with real newlines
+  // AND set up floating tooltip (fixed-position, never clipped by overflow)
+  var _tooltipEl = null;
+  var _tooltipHideTimer = null;
+
+  function _ensureTooltipEl() {
+    if (_tooltipEl) return _tooltipEl;
+    _tooltipEl = document.createElement('div');
+    _tooltipEl.className = 'tooltip-float';
+    document.body.appendChild(_tooltipEl);
+    return _tooltipEl;
+  }
+
+  function _showTooltip(e) {
+    var el = e.currentTarget || e.target;
+    var text = el.getAttribute('data-tooltip');
+    if (!text) return;
+    if (_tooltipHideTimer) { clearTimeout(_tooltipHideTimer); _tooltipHideTimer = null; }
+    var tip = _ensureTooltipEl();
+    tip.textContent = text;
+    tip.classList.add('visible');
+    // Position: above the element, centered
+    var rect = el.getBoundingClientRect();
+    tip.style.left = '0px'; tip.style.top = '0px';
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var left = rect.left + rect.width / 2 - tw / 2;
+    var top = rect.top - th - 8;
+    // Clamp to viewport
+    if (left < 8) left = 8;
+    if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+    if (top < 8) { top = rect.bottom + 8; } // flip below if no space above
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+
+  function _hideTooltip() {
+    if (_tooltipHideTimer) clearTimeout(_tooltipHideTimer);
+    _tooltipHideTimer = setTimeout(function() {
+      if (_tooltipEl) _tooltipEl.classList.remove('visible');
+    }, 80);
+  }
+
+  function normalizeTooltips(root) {
+    root = root || document;
+    try {
+      var elms = root.querySelectorAll ? root.querySelectorAll('[data-tooltip]') : [];
+      for (var i = 0; i < elms.length; i++) {
+        var elm = elms[i];
+        // Normalize \\n → real newlines
+        var t = elm.getAttribute('data-tooltip');
+        if (t && t.indexOf('\\n') >= 0) {
           elm.setAttribute('data-tooltip', t.replace(/\\n/g, '\n'));
         }
-      });
-    }catch(e){ /* ignore */ }
+        // Bind hover events (only once)
+        if (!elm._ttBound) {
+          elm._ttBound = true;
+          elm.addEventListener('mouseenter', _showTooltip);
+          elm.addEventListener('mouseleave', _hideTooltip);
+          elm.addEventListener('focus', _showTooltip);
+          elm.addEventListener('blur', _hideTooltip);
+        }
+      }
+    } catch(e) { /* ignore */ }
   }
 
   // ===== Toast Notification System =====
@@ -598,6 +651,56 @@ window.AutoTrade = (() => {
       takeProfitPct: 5, stopLossPct: 2, minConfidence: 8,
       maxAddBuys: 0, timeStopMinutes: 1440, strategyLock: false,
       orderSizingMode: 'PCT', orderSizingValue: 90
+    },
+    // ===== 단타(스캘핑) 프리셋 =====
+    SCALP_AGG: {
+      label: '단타 · 공격형',
+      desc: '자급자족 · 3전략 · 5분봉 · 추매1',
+      condition: 'SCALP', style: 'AGG',
+      strategies: ['SCALP_RSI_BOUNCE','SCALP_EMA_PULLBACK','SCALP_BREAKOUT_RANGE'],
+      candleUnitMin: 5,
+      strategyIntervals: {SCALP_BREAKOUT_RANGE: 15},
+      emaMap: {},
+      takeProfitPct: 0, stopLossPct: 0, minConfidence: 5,
+      maxAddBuys: 1, timeStopMinutes: 0, strategyLock: true,
+      orderSizingMode: 'PCT', orderSizingValue: 50
+    },
+    SCALP_STB: {
+      label: '단타 · 안정형',
+      desc: '자급자족 · 2전략 · 15분봉 · 추매0',
+      condition: 'SCALP', style: 'STB',
+      strategies: ['SCALP_EMA_PULLBACK','SCALP_BREAKOUT_RANGE'],
+      candleUnitMin: 15,
+      strategyIntervals: {},
+      emaMap: {},
+      takeProfitPct: 0, stopLossPct: 0, minConfidence: 6,
+      maxAddBuys: 0, timeStopMinutes: 0, strategyLock: true,
+      orderSizingMode: 'PCT', orderSizingValue: 30
+    },
+    // ===== 오프닝 레인지 돌파 프리셋 =====
+    OPEN_AGG: {
+      label: '오프닝 · 공격형',
+      desc: '자급자족 · 3전략 · 5분봉 · 추매1',
+      condition: 'OPEN', style: 'AGG',
+      strategies: ['SCALP_OPENING_BREAK','SCALP_EMA_PULLBACK','SCALP_RSI_BOUNCE'],
+      candleUnitMin: 5,
+      strategyIntervals: {},
+      emaMap: {},
+      takeProfitPct: 0, stopLossPct: 0, minConfidence: 5,
+      maxAddBuys: 1, timeStopMinutes: 0, strategyLock: true,
+      orderSizingMode: 'PCT', orderSizingValue: 50
+    },
+    OPEN_STB: {
+      label: '오프닝 · 안정형',
+      desc: '자급자족 · 1전략 · 5분봉 · 추매0',
+      condition: 'OPEN', style: 'STB',
+      strategies: ['SCALP_OPENING_BREAK'],
+      candleUnitMin: 5,
+      strategyIntervals: {},
+      emaMap: {},
+      takeProfitPct: 0, stopLossPct: 0, minConfidence: 6,
+      maxAddBuys: 0, timeStopMinutes: 0, strategyLock: true,
+      orderSizingMode: 'PCT', orderSizingValue: 30
     }
   };
 
@@ -612,6 +715,8 @@ window.AutoTrade = (() => {
           '<button type="button" class="preset-cond-chip" data-cond="BULL"><span class="preset-dot bull"></span>상승장</button>' +
           '<button type="button" class="preset-cond-chip" data-cond="SIDE"><span class="preset-dot side"></span>횡보장</button>' +
           '<button type="button" class="preset-cond-chip" data-cond="BEAR"><span class="preset-dot bear"></span>하락장</button>' +
+          '<button type="button" class="preset-cond-chip" data-cond="SCALP"><span class="preset-dot scalp"></span>단타</button>' +
+          '<button type="button" class="preset-cond-chip" data-cond="OPEN"><span class="preset-dot open"></span>오프닝</button>' +
         '</div>' +
         '<span class="preset-sep">|</span>' +
         '<div class="preset-chip-group">' +
@@ -637,9 +742,14 @@ window.AutoTrade = (() => {
       inst.stratMs.setSelected(p.strategies, false);
     }
 
-    // Interval
+    // Interval — update chips + hidden input
+    var intVal = String(p.candleUnitMin || 240);
     var intv = card.querySelector('.grp-interval');
-    if (intv) intv.value = String(p.candleUnitMin || 60);
+    if (intv) intv.value = intVal;
+    var chips = card.querySelectorAll('.interval-chip');
+    for (var ci = 0; ci < chips.length; ci++) {
+      chips[ci].classList.toggle('active', chips[ci].getAttribute('data-val') === intVal);
+    }
 
     // Order sizing
     var om = card.querySelector('.grp-orderMode');
@@ -659,7 +769,7 @@ window.AutoTrade = (() => {
     var ts = card.querySelector('.grp-timeStop');
     if (ts) ts.value = p.timeStopMinutes;
 
-    // Strategy Lock
+    // Strategy Lock — toggle switch
     var lockBtn = card.querySelector('.grp-stratLock');
     var lockLbl = card.querySelector('.grp-stratLockLabel');
     if (lockBtn) {

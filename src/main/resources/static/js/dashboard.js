@@ -885,6 +885,7 @@
       await loadTrades();
       await fetchAssetSummary(true);
       await fetchGuardLogs(true);
+      await fetchScannerStatus(true);
 
       // Render new dashboard sections
       if (s && Array.isArray(s.groups)) renderDashGroups(s.groups);
@@ -902,6 +903,77 @@
     }finally{
       refreshBtn.disabled = false;
     }
+  }
+
+  // ─── Opening Scanner ───
+  var scannerSwitch = document.getElementById('scannerSwitch');
+  var scannerStateBadge = document.getElementById('scannerStateBadge');
+  var scannerMode = document.getElementById('scannerMode');
+  var scannerStatus = document.getElementById('scannerStatus');
+  var scannerScanCount = document.getElementById('scannerScanCount');
+  var scannerPositions = document.getElementById('scannerPositions');
+  var scannerLastTick = document.getElementById('scannerLastTick');
+  var scannerMarkets = document.getElementById('scannerMarkets');
+
+  function setScannerRunningUI(running) {
+    if (!scannerSwitch) return;
+    scannerSwitch.classList.toggle('on', !!running);
+    scannerSwitch.setAttribute('aria-pressed', String(!!running));
+    var label = scannerSwitch.querySelector('.bot-toggle-label');
+    if (label) label.textContent = running ? 'ON' : 'OFF';
+    if (scannerStateBadge) {
+      scannerStateBadge.textContent = running ? 'RUNNING' : 'STOPPED';
+      scannerStateBadge.className = 'badge ' + (running ? 'running' : 'stopped');
+    }
+  }
+
+  async function fetchScannerStatus(silent) {
+    try {
+      var s = await req('/api/scanner/status', { method: 'GET' });
+      setScannerRunningUI(!!s.running);
+      if (scannerMode) scannerMode.textContent = (s.config && s.config.mode) || '-';
+      if (scannerStatus) scannerStatus.textContent = s.status || '-';
+      if (scannerScanCount) scannerScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+      if (scannerPositions) {
+        var maxPos = (s.config && s.config.maxPositions) || '?';
+        scannerPositions.textContent = (s.activePositions != null ? s.activePositions + '/' + maxPos : '-');
+      }
+      if (scannerLastTick) {
+        scannerLastTick.textContent = (s.lastTickEpochMs && s.lastTickEpochMs > 0)
+          ? fmtTime(s.lastTickEpochMs) : '-';
+      }
+      if (scannerMarkets) {
+        var mkts = s.lastScannedMarkets || [];
+        if (mkts.length === 0) {
+          scannerMarkets.innerHTML = '<span style="color:var(--text-muted)">-</span>';
+        } else {
+          scannerMarkets.innerHTML = mkts.map(function(m) {
+            var label = marketLabel.get(String(m)) || m;
+            return '<span style="background:var(--surface-alt,rgba(255,255,255,.06));padding:2px 8px;border-radius:4px;font-family:var(--font-mono)">' + label + '</span>';
+          }).join('');
+        }
+      }
+    } catch(e) {
+      if (!silent) console.error('Scanner status fetch failed:', e);
+    }
+  }
+
+  if (scannerSwitch) {
+    scannerSwitch.addEventListener('click', async function() {
+      var next = !scannerSwitch.classList.contains('on');
+      var ok = confirm(next ? '오프닝 스캐너를 시작하시겠습니까?' : '오프닝 스캐너를 중지하시겠습니까?');
+      if (!ok) return;
+      try {
+        scannerSwitch.disabled = true;
+        await req(next ? '/api/scanner/start' : '/api/scanner/stop', { method: 'POST' });
+        setScannerRunningUI(next);
+        await fetchScannerStatus(true);
+      } catch(e) {
+        showToast(e.message || '스캐너 요청 실패', 'error');
+      } finally {
+        scannerSwitch.disabled = false;
+      }
+    });
   }
 
   botSwitch.addEventListener('click', async () => {
@@ -989,6 +1061,6 @@
 
     // 첫 화면 렌더
     await refreshAll();
-    setInterval(() => { fetchAssetSummary(true); fetchGuardLogs(true); }, 10000);
+    setInterval(() => { fetchAssetSummary(true); fetchGuardLogs(true); fetchScannerStatus(true); }, 10000);
   })();
 })();

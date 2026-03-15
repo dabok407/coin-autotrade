@@ -88,10 +88,50 @@ public String displayLabel(String marketCode) {
         }
     }
 
+    /**
+     * 지정 마켓들의 24시간 거래대금(KRW) 조회.
+     * 업비트 ticker API: GET /v1/ticker?markets=KRW-BTC,KRW-ETH,...
+     * @return Map<마켓코드, 24h거래대금>
+     */
+    public Map<String, Double> get24hTradePrice(List<String> markets) {
+        Map<String, Double> result = new HashMap<String, Double>();
+        if (markets == null || markets.isEmpty()) return result;
+
+        // 업비트 ticker API는 한번에 최대 100개 마켓 처리
+        int batchSize = 100;
+        for (int i = 0; i < markets.size(); i += batchSize) {
+            List<String> batch = markets.subList(i, Math.min(i + batchSize, markets.size()));
+            StringBuilder sb = new StringBuilder();
+            for (int j = 0; j < batch.size(); j++) {
+                if (j > 0) sb.append(",");
+                sb.append(batch.get(j));
+            }
+            try {
+                String url = "https://api.upbit.com/v1/ticker?markets=" + sb.toString();
+                TickerItem[] tickers = restTemplate.getForObject(url, TickerItem[].class);
+                if (tickers != null) {
+                    for (TickerItem t : tickers) {
+                        if (t != null && t.market != null) {
+                            result.put(t.market, t.acc_trade_price_24h);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // partial failure OK
+            }
+        }
+        return result;
+    }
+
     // Jackson maps snake_case to same field names when declared as-is.
     public static class UpbitMarketItem {
         public String market;
         public String korean_name;
         public String english_name;
+    }
+
+    public static class TickerItem {
+        public String market;
+        public double acc_trade_price_24h;
     }
 }

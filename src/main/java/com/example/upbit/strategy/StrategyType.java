@@ -65,7 +65,21 @@ public enum StrategyType {
     BOLLINGER_SQUEEZE_BREAKOUT,
 
     // [15] 삼각수렴 돌파 (삼각형 수렴 → 거래량 동반 돌파 진입, 자급자족)
-    TRIANGLE_CONVERGENCE;
+    TRIANGLE_CONVERGENCE,
+
+    // ===== 단타(스캘핑) 전략 =====
+
+    // [16] RSI 과매도 반등 스캘핑 (5분봉, 자급자족)
+    SCALP_RSI_BOUNCE,
+
+    // [17] EMA 눌림 스캘핑 (5분봉, 자급자족)
+    SCALP_EMA_PULLBACK,
+
+    // [18] 레인지 돌파 스캘핑 (15분봉, 자급자족)
+    SCALP_BREAKOUT_RANGE,
+
+    // [19] 9시 오프닝 레인지 돌파 스캘핑 (5분봉, 자급자족)
+    SCALP_OPENING_BREAK;
 
     /**
      * 매도 전용 전략인지 판별.
@@ -96,6 +110,10 @@ public enum StrategyType {
             case THREE_MARKET_PATTERN:
             case BOLLINGER_SQUEEZE_BREAKOUT:
             case TRIANGLE_CONVERGENCE:
+            case SCALP_RSI_BOUNCE:
+            case SCALP_EMA_PULLBACK:
+            case SCALP_BREAKOUT_RANGE:
+            case SCALP_OPENING_BREAK:
                 return true;
             // SCALP_MOMENTUM, EMA_RSI_TREND는 BUY-ONLY (isBuyOnly=true)
             default:
@@ -154,6 +172,10 @@ public enum StrategyType {
             case THREE_MARKET_PATTERN:
             case BOLLINGER_SQUEEZE_BREAKOUT:
             case TRIANGLE_CONVERGENCE:
+            case SCALP_RSI_BOUNCE:
+            case SCALP_EMA_PULLBACK:
+            case SCALP_BREAKOUT_RANGE:
+            case SCALP_OPENING_BREAK:
                 return "INTERNAL";
             default:
                 return "NONE";
@@ -202,9 +224,16 @@ public enum StrategyType {
             case TRIANGLE_CONVERGENCE:
                 return 60;
 
-            // 스캘핑 전략: 15분봉 권장 (5분봉은 ATR 대비 비용이 높음)
+            // 스캘핑 전략
             case SCALP_MOMENTUM:
                 return 15;
+            case SCALP_RSI_BOUNCE:
+            case SCALP_EMA_PULLBACK:
+                return 5;
+            case SCALP_BREAKOUT_RANGE:
+                return 15;
+            case SCALP_OPENING_BREAK:
+                return 5;
 
             default:
                 return 60;

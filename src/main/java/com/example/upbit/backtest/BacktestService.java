@@ -299,7 +299,24 @@ public class BacktestService {
             params.marketGroupMap = simGroupMap;
         }
 
-        TradingEngine engine = new TradingEngine(strategyFactory, strategyCfg, tradeProps);
+        // 오프닝 파라미터 오버라이드: openingParams가 있으면 ScalpOpeningBreakStrategy를 재생성
+        StrategyFactory effectiveFactory = strategyFactory;
+        if (req.openingParams != null) {
+            BacktestRequest.OpeningParams op = req.openingParams;
+            com.example.upbit.strategy.ScalpOpeningBreakStrategy customOpening =
+                    new com.example.upbit.strategy.ScalpOpeningBreakStrategy()
+                            .withTiming(op.rangeStartHour, op.rangeStartMin,
+                                    op.rangeEndHour, op.rangeEndMin,
+                                    op.entryStartHour, op.entryStartMin,
+                                    op.entryEndHour, op.entryEndMin,
+                                    op.sessionEndHour, op.sessionEndMin)
+                            .withRisk(op.tpAtrMult, op.slPct, op.trailAtrMult)
+                            .withFilters(op.volumeMult, op.minBodyRatio);
+            effectiveFactory = strategyFactory.withOverride(
+                    com.example.upbit.strategy.StrategyType.SCALP_OPENING_BREAK, customOpening);
+        }
+
+        TradingEngine engine = new TradingEngine(effectiveFactory, strategyCfg, tradeProps);
         BacktestResponse coreRes = engine.simulate(params, candlesByMI);
 
         // TradingEngine 결과를 기존 res에 머지 (캔들 카운트/마켓/전략 정보는 이미 세팅됨)

@@ -98,6 +98,86 @@
     </div>
     <div id="btError" style="margin-top:12px;color:#ffd3db;display:none;text-align:center"></div>
 
+    <!-- ===== Opening Strategy Backtest Section ===== -->
+    <div class="card" style="margin-top:32px;overflow:visible">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-icon" style="background:rgba(255,165,0,.15);color:#ffa500">&#x1F305;</div>
+          Opening Strategy Backtest
+        </div>
+        <button class="btn" id="obLoadSettings" type="button" style="font-size:11px;padding:4px 10px;background:rgba(43,118,255,.12);border:1px solid rgba(43,118,255,.3);color:var(--primary);border-radius:6px;cursor:pointer">Load from Settings</button>
+      </div>
+
+      <div style="padding:16px 20px">
+        <!-- Market selection -->
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Markets (comma separated)</label>
+            <input class="input" type="text" id="obMarkets" value="KRW-SOL,KRW-XRP,KRW-ADA" placeholder="KRW-SOL,KRW-ADA,..."/>
+          </div>
+          <div class="config-field">
+            <label>Candle Interval</label>
+            <select class="select" id="obCandleUnit">
+              <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Timing -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Range Start</label>
+            <input class="input" type="text" id="obRangeStart" value="08:00"/>
+          </div>
+          <div class="config-field">
+            <label>Range End</label>
+            <input class="input" type="text" id="obRangeEnd" value="08:59"/>
+          </div>
+          <div class="config-field">
+            <label>Entry Start</label>
+            <input class="input" type="text" id="obEntryStart" value="09:05"/>
+          </div>
+          <div class="config-field">
+            <label>Entry End</label>
+            <input class="input" type="text" id="obEntryEnd" value="10:30"/>
+          </div>
+          <div class="config-field">
+            <label>Session End</label>
+            <input class="input" type="text" id="obSessionEnd" value="12:00"/>
+          </div>
+        </div>
+
+        <!-- Risk -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>TP (ATR x)</label>
+            <input class="input" type="number" id="obTpAtr" value="1.2" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>SL (%)</label>
+            <input class="input" type="number" id="obSlPct" value="10" step="0.5"/>
+          </div>
+          <div class="config-field">
+            <label>Trail (ATR x)</label>
+            <input class="input" type="number" id="obTrailAtr" value="0.8" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Volume Mult</label>
+            <input class="input" type="number" id="obVolMult" value="1.5" step="0.1"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="run-section" style="margin-top:0;padding:0 20px 16px">
+        <button class="run-btn" id="obRun" style="background:linear-gradient(135deg,#ffa500,#ff6b00)">
+          <span class="run-icon">&#9654;</span>
+          Opening Backtest
+        </button>
+      </div>
+    </div>
+
     <!-- ===== Section Divider ===== -->
     <div class="section-divider"></div>
 

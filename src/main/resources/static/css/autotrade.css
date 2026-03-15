@@ -531,7 +531,7 @@ body[data-theme="light"] .pill {
   flex-wrap: wrap;
   padding: 12px 16px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   border-bottom: 1px solid var(--border-subtle);
 }
 .preset-btn {
@@ -578,9 +578,13 @@ body[data-theme="light"] .pill {
 .preset-dot.bull { background: var(--success); }
 .preset-dot.side { background: var(--warn); }
 .preset-dot.bear { background: var(--danger); }
+.preset-dot.scalp { background: #a855f7; }
+.preset-dot.open  { background: #f59e0b; }
 .preset-cond-chip[data-cond="BULL"].active { border-color: var(--success); background: rgba(32,201,151,.15); color: var(--success); }
 .preset-cond-chip[data-cond="SIDE"].active { border-color: var(--warn); background: rgba(255,193,7,.15); color: var(--warn); }
 .preset-cond-chip[data-cond="BEAR"].active { border-color: var(--danger); background: rgba(255,77,109,.15); color: var(--danger); }
+.preset-cond-chip[data-cond="SCALP"].active { border-color: #a855f7; background: rgba(168,85,247,.15); color: #a855f7; }
+.preset-cond-chip[data-cond="OPEN"].active { border-color: #f59e0b; background: rgba(245,158,11,.15); color: #f59e0b; }
 .preset-style-chip[data-style="AGG"].active { border-color: #ff922b; background: rgba(255,146,43,.15); color: #ff922b; }
 .preset-style-chip[data-style="STB"].active { border-color: #4dabf7; background: rgba(77,171,247,.15); color: #4dabf7; }
 
@@ -845,6 +849,36 @@ body[data-theme="light"] .badge {
   padding: 4px 8px !important; cursor: pointer;
 }
 .group-delete-btn:hover { background: rgba(255,77,109,.1); border-radius: var(--radius); }
+
+/* ===== Interval Chip Buttons ===== */
+.interval-chips { display:flex; gap:6px; flex-wrap:wrap; }
+.interval-chip {
+  padding:8px 16px; border:1px solid var(--card-border); border-radius:var(--radius-sm);
+  background:transparent; color:var(--text); font-size:13px; font-weight:600;
+  cursor:pointer; transition: all .15s ease; line-height:1;
+}
+.interval-chip:hover { border-color:var(--primary); background:rgba(43,118,255,.08); }
+.interval-chip.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+/* ===== Risk Section Collapsible ===== */
+.risk-toggle {
+  cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px;
+  margin-top:16px; padding-bottom:8px; border-bottom:1px solid var(--border);
+}
+.risk-toggle .risk-icon { font-size:12px; color:var(--danger); transition: transform .2s; }
+.risk-toggle .risk-label {
+  font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--danger);
+}
+.risk-body { margin-top:10px; }
+.risk-body.collapsed { display:none; }
+
+/* ===== Risk 3-Column Grid ===== */
+.risk-grid {
+  display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px 16px;
+}
+@media (max-width: 640px) {
+  .risk-grid { grid-template-columns:1fr 1fr; }
+}
 
 /* ===== Section Divider ===== */
 .section-divider {

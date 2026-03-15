@@ -61,6 +61,14 @@ public class StrategyFactory {
 
         // 삼각수렴 돌파
         strategies.put(StrategyType.TRIANGLE_CONVERGENCE, new TriangleConvergenceStrategy());
+
+        // 단타(스캘핑) 전략
+        strategies.put(StrategyType.SCALP_RSI_BOUNCE, new ScalpRsiBounceStrategy());
+        strategies.put(StrategyType.SCALP_EMA_PULLBACK, new ScalpEmaPullbackStrategy());
+        strategies.put(StrategyType.SCALP_BREAKOUT_RANGE, new ScalpBreakoutRangeStrategy());
+
+        // 오프닝 레인지 돌파 전략
+        strategies.put(StrategyType.SCALP_OPENING_BREAK, new ScalpOpeningBreakStrategy());
     }
 
     public TradingStrategy get(StrategyType type) {
@@ -75,5 +83,20 @@ public class StrategyFactory {
      */
     public boolean isRegistered(StrategyType type) {
         return strategies.containsKey(type);
+    }
+
+    /**
+     * 특정 전략을 오버라이드한 새 팩토리를 반환.
+     * 원본은 변경하지 않음 (백테스트 파라미터 오버라이드용).
+     */
+    public StrategyFactory withOverride(StrategyType type, TradingStrategy override) {
+        StrategyFactory copy = new StrategyFactory();
+        copy.strategies.putAll(this.strategies);
+        copy.strategies.put(type, override);
+        return copy;
+    }
+
+    /** 내부 복사용 (Spring이 아닌 withOverride에서만 사용) */
+    private StrategyFactory() {
     }
 }

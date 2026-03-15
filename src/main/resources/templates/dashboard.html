@@ -145,6 +145,48 @@
     <div class="groups-grid" id="dashGroupsGrid"></div>
   </div>
 
+  <!-- Opening Scanner Status Card -->
+  <div class="card" id="scannerCard" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">&#x1F305;</span>
+        <span style="font-weight:700;font-size:14px">Opening Scanner</span>
+        <span class="badge" id="scannerStateBadge" style="font-size:11px">STOPPED</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text-muted)" id="scannerMode">-</span>
+        <button class="bot-toggle" id="scannerSwitch" aria-pressed="false" title="Start/Stop Scanner" style="width:90px;flex-shrink:0;transform:scale(0.85)">
+          <span class="bot-toggle-knob"></span>
+          <span class="bot-toggle-label">OFF</span>
+        </button>
+      </div>
+    </div>
+    <div style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;font-size:13px">
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Status</div>
+        <div style="font-weight:700;font-family:var(--font-mono)" id="scannerStatus">-</div>
+      </div>
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Scan Target</div>
+        <div style="font-weight:700;font-family:var(--font-mono)" id="scannerScanCount">-</div>
+      </div>
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
+        <div style="font-weight:700;font-family:var(--font-mono)" id="scannerPositions">-</div>
+      </div>
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Last Tick</div>
+        <div style="font-weight:700;font-family:var(--font-mono);font-size:12px" id="scannerLastTick">-</div>
+      </div>
+    </div>
+    <div style="padding:0 20px 12px">
+      <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Scanning Markets</div>
+      <div id="scannerMarkets" style="display:flex;flex-wrap:wrap;gap:4px;font-size:12px">
+        <span style="color:var(--text-muted)">-</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Open Positions -->
   <div class="trades-card" id="positionsCard" style="margin-bottom:16px">
     <div class="trades-header">

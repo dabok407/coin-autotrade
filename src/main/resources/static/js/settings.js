@@ -198,12 +198,18 @@
             '</div>' +
           '</div>' +
           '<div class="field">' +
-            '<label>Interval <span class="help-icon" data-tooltip="기본 캔들 인터벌(분)입니다.\\n⚙ 상세에서 전략별 개별 인터벌을 설정할 수 있습니다." aria-label="Interval help"></span></label>' +
-            '<div class="select-wrap"><select class="select grp-interval">' +
-              '<option value="1">1m</option><option value="3">3m</option><option value="5">5m</option>' +
-              '<option value="10">10m</option><option value="15">15m</option><option value="30">30m</option>' +
-              '<option value="60" selected>1h(60m)</option><option value="240">4h(240m)</option>' +
-            '</select></div>' +
+            '<label>캔들 간격 <span class="help-icon" data-tooltip="기본 캔들 인터벌(분)입니다.\\n⚙ 상세에서 전략별 개별 인터벌을 설정할 수 있습니다." aria-label="Interval help"></span></label>' +
+            '<div class="interval-chips grp-interval-chips">' +
+              '<button type="button" class="interval-chip" data-val="1">1m</button>' +
+              '<button type="button" class="interval-chip" data-val="3">3m</button>' +
+              '<button type="button" class="interval-chip" data-val="5">5m</button>' +
+              '<button type="button" class="interval-chip" data-val="10">10m</button>' +
+              '<button type="button" class="interval-chip" data-val="15">15m</button>' +
+              '<button type="button" class="interval-chip" data-val="30">30m</button>' +
+              '<button type="button" class="interval-chip" data-val="60">60m</button>' +
+              '<button type="button" class="interval-chip active" data-val="240">240m</button>' +
+            '</div>' +
+            '<input type="hidden" class="grp-interval" value="240"/>' +
           '</div>' +
           '<div class="field" style="min-width:200px">' +
             '<label>Order Size <span class="help-icon" data-tooltip="PCT: 자본금의 비율(%) / Fixed: 고정 금액(KRW)" aria-label="Order Size help"></span></label>' +
@@ -213,20 +219,26 @@
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--danger);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:16px">Risk Management</div>' +
-        '<div class="toolbar">' +
-          '<div class="field"><label>TP (%) <span class="help-icon" data-tooltip="이익실현 비율. 평균매수가 대비 이 비율 이상 상승 시 매도" aria-label="TP help"></span></label><input class="input grp-tp" type="text" value="3.0" style="width:80px"/></div>' +
-          '<div class="field"><label>SL (%) <span class="help-icon" data-tooltip="손절 비율. 평균매수가 대비 이 비율 이상 하락 시 매도" aria-label="SL help"></span></label><input class="input grp-sl" type="text" value="2.0" style="width:80px"/></div>' +
-          '<div class="field"><label>Max Add Buys <span class="help-icon" data-tooltip="최대 추가매수 횟수. 0이면 추가매수 안함" aria-label="Max Add Buys help"></span></label><input class="input grp-maxAdd" type="number" min="0" max="10" value="2" style="width:70px"/></div>' +
-          '<div class="field"><label>Min Confidence <span class="help-icon" data-tooltip="최소 신뢰도 점수. 이 값 미만 신호 무시. 0=모두 수용" aria-label="Min Confidence help"></span></label><input class="input grp-minConf" type="number" min="0" max="10" step="0.5" value="0" style="width:70px"/></div>' +
-          '<div class="field">' +
-            '<label>Strategy Lock <span class="help-icon" data-tooltip="ON: 진입 전략만 청산 가능\\nOFF: 어떤 전략이든 매도 신호 시 청산" aria-label="Strategy Lock help"></span></label>' +
-            '<div style="display:flex;align-items:center;gap:8px;height:42px">' +
-              '<button class="switch grp-stratLock" aria-pressed="false"><span class="knob"></span></button>' +
-              '<span class="grp-stratLockLabel" style="font-size:13px;color:var(--muted)">OFF</span>' +
+        /* Risk Parameters — collapsible */
+        '<div class="risk-toggle">' +
+          '<span class="risk-icon">&#9660;</span>' +
+          '<span class="risk-label">리스크 파라미터</span>' +
+        '</div>' +
+        '<div class="risk-body">' +
+          '<div class="risk-grid">' +
+            '<div class="field"><label>TP (%) <span class="help-icon" data-tooltip="이익실현 비율. 평균매수가 대비 이 비율 이상 상승 시 매도" aria-label="TP help"></span></label><input class="input grp-tp" type="text" value="3.0"/></div>' +
+            '<div class="field"><label>SL (%) <span class="help-icon" data-tooltip="손절 비율. 평균매수가 대비 이 비율 이상 하락 시 매도" aria-label="SL help"></span></label><input class="input grp-sl" type="text" value="2.0"/></div>' +
+            '<div class="field"><label>최대 추가매수 <span class="help-icon" data-tooltip="최대 추가매수 횟수. 0이면 추가매수 안함" aria-label="Max Add Buys help"></span></label><input class="input grp-maxAdd" type="number" min="0" max="10" value="2"/></div>' +
+            '<div class="field"><label>Min Confidence <span class="help-icon" data-tooltip="최소 신뢰도 점수. 이 값 미만 신호 무시. 0=모두 수용" aria-label="Min Confidence help"></span></label><input class="input grp-minConf" type="number" min="0" max="10" step="0.5" value="0"/></div>' +
+            '<div class="field">' +
+              '<label>전략 락 <span class="help-icon" data-tooltip="ON: 진입 전략만 청산 가능\\nOFF: 어떤 전략이든 매도 신호 시 청산" aria-label="Strategy Lock help"></span></label>' +
+              '<div style="display:flex;align-items:center;gap:8px;height:42px">' +
+                '<button class="switch grp-stratLock" aria-pressed="false"><span class="knob"></span></button>' +
+                '<span class="grp-stratLockLabel" style="font-size:13px;color:var(--muted)">OFF</span>' +
+              '</div>' +
             '</div>' +
+            '<div class="field"><label>타임스탑 (min) <span class="help-icon" data-tooltip="시간 기반 손절(분). 보유시간 초과+손실 시 청산. 0=미사용" aria-label="Time Stop help"></span></label><input class="input grp-timeStop" type="number" min="0" step="30" value="0"/></div>' +
           '</div>' +
-          '<div class="field"><label>Time Stop (min) <span class="help-icon" data-tooltip="시간 기반 손절(분). 보유시간 초과+손실 시 청산. 0=미사용" aria-label="Time Stop help"></span></label><input class="input grp-timeStop" type="number" min="0" step="30" value="0" style="width:80px"/></div>' +
         '</div>' +
       '</div>';
 
@@ -253,10 +265,36 @@
       }
     );
 
+    // ── Interval Chips ──
+    var intervalChips = card.querySelectorAll('.interval-chip');
+    var intervalHidden = card.querySelector('.grp-interval');
+    for (var ci = 0; ci < intervalChips.length; ci++) {
+      intervalChips[ci].addEventListener('click', function() {
+        for (var cj = 0; cj < intervalChips.length; cj++) intervalChips[cj].classList.remove('active');
+        this.classList.add('active');
+        intervalHidden.value = this.getAttribute('data-val');
+      });
+    }
+
+    // ── Risk Section Toggle ──
+    var riskToggle = card.querySelector('.risk-toggle');
+    var riskBody = card.querySelector('.risk-body');
+    var riskIcon = card.querySelector('.risk-icon');
+    if (riskToggle && riskBody) {
+      riskToggle.addEventListener('click', function() {
+        var isCollapsed = riskBody.classList.toggle('collapsed');
+        if (riskIcon) riskIcon.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
+      });
+    }
+
     // Populate values from groupData
     if (groupData) {
-      var intervalSel = card.querySelector('.grp-interval');
-      if (intervalSel) intervalSel.value = String(groupData.candleUnitMin || 60);
+      // Interval chips
+      var intVal = String(groupData.candleUnitMin || 240);
+      intervalHidden.value = intVal;
+      for (var ci2 = 0; ci2 < intervalChips.length; ci2++) {
+        intervalChips[ci2].classList.toggle('active', intervalChips[ci2].getAttribute('data-val') === intVal);
+      }
       var orderMode = card.querySelector('.grp-orderMode');
       if (orderMode) orderMode.value = groupData.orderSizingMode || 'PCT';
       var orderVal = card.querySelector('.grp-orderValue');
@@ -720,5 +758,112 @@
       }
     });
   }
+
+  // ═══════════════════════════════════════════
+  //  Opening Scanner Settings
+  // ═══════════════════════════════════════════
+
+  var scApplyBtn = document.getElementById('scApplyBtn');
+  var scannerEnabledToggle = document.getElementById('scannerEnabledToggle');
+  var scEnabled = false;
+
+  function parseHHMM(str) {
+    if (!str) return [0, 0];
+    var parts = String(str).split(':');
+    return [parseInt(parts[0]) || 0, parseInt(parts[1]) || 0];
+  }
+
+  function fmtHHMM(h, m) {
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function setScannerToggleUI(enabled) {
+    scEnabled = !!enabled;
+    if (!scannerEnabledToggle) return;
+    scannerEnabledToggle.classList.toggle('on', scEnabled);
+    scannerEnabledToggle.setAttribute('aria-pressed', String(scEnabled));
+    var label = scannerEnabledToggle.querySelector('.bot-toggle-label');
+    if (label) label.textContent = scEnabled ? 'ON' : 'OFF';
+  }
+
+  if (scannerEnabledToggle) {
+    scannerEnabledToggle.addEventListener('click', function() {
+      setScannerToggleUI(!scEnabled);
+    });
+  }
+
+  async function loadScannerConfig() {
+    try {
+      var cfg = await req('/api/scanner/config', { method: 'GET' });
+      setScannerToggleUI(cfg.enabled);
+      var el = function(id) { return document.getElementById(id); };
+      if (el('scMode')) el('scMode').value = cfg.mode || 'PAPER';
+      if (el('scCapital')) el('scCapital').value = fmt(cfg.capitalKrw || 100000);
+      if (el('scOrderMode')) el('scOrderMode').value = cfg.orderSizingMode || 'PCT';
+      if (el('scOrderValue')) el('scOrderValue').value = cfg.orderSizingValue || 30;
+      if (el('scRangeStart')) el('scRangeStart').value = fmtHHMM(cfg.rangeStartHour, cfg.rangeStartMin);
+      if (el('scRangeEnd')) el('scRangeEnd').value = fmtHHMM(cfg.rangeEndHour, cfg.rangeEndMin);
+      if (el('scEntryStart')) el('scEntryStart').value = fmtHHMM(cfg.entryStartHour, cfg.entryStartMin);
+      if (el('scEntryEnd')) el('scEntryEnd').value = fmtHHMM(cfg.entryEndHour, cfg.entryEndMin);
+      if (el('scSessionEnd')) el('scSessionEnd').value = fmtHHMM(cfg.sessionEndHour, cfg.sessionEndMin);
+      if (el('scTpAtr')) el('scTpAtr').value = cfg.tpAtrMult || 1.2;
+      if (el('scSlPct')) el('scSlPct').value = cfg.slPct || 10;
+      if (el('scTrailAtr')) el('scTrailAtr').value = cfg.trailAtrMult || 0.8;
+      if (el('scCandleUnit')) el('scCandleUnit').value = String(cfg.candleUnitMin || 5);
+      if (el('scTopN')) el('scTopN').value = cfg.topN || 15;
+      if (el('scMaxPos')) el('scMaxPos').value = cfg.maxPositions || 3;
+      if (el('scBtcFilter')) el('scBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+      if (el('scVolMult')) el('scVolMult').value = cfg.volumeMult || 1.5;
+      if (el('scBodyRatio')) el('scBodyRatio').value = cfg.minBodyRatio || 0.40;
+    } catch(e) {
+      console.warn('Scanner config load failed:', e);
+    }
+  }
+
+  if (scApplyBtn) {
+    scApplyBtn.addEventListener('click', async function() {
+      var el = function(id) { return document.getElementById(id); };
+      var rs = parseHHMM(el('scRangeStart') ? el('scRangeStart').value : '08:00');
+      var re = parseHHMM(el('scRangeEnd') ? el('scRangeEnd').value : '08:59');
+      var es = parseHHMM(el('scEntryStart') ? el('scEntryStart').value : '09:05');
+      var ee = parseHHMM(el('scEntryEnd') ? el('scEntryEnd').value : '10:30');
+      var se = parseHHMM(el('scSessionEnd') ? el('scSessionEnd').value : '12:00');
+
+      var body = {
+        enabled: scEnabled,
+        mode: el('scMode') ? el('scMode').value : 'PAPER',
+        capitalKrw: parseFloat(String(el('scCapital') ? el('scCapital').value : '100000').replace(/[,\s]/g, '')) || 100000,
+        orderSizingMode: el('scOrderMode') ? el('scOrderMode').value : 'PCT',
+        orderSizingValue: parseFloat(el('scOrderValue') ? el('scOrderValue').value : '30') || 30,
+        rangeStartHour: rs[0], rangeStartMin: rs[1],
+        rangeEndHour: re[0], rangeEndMin: re[1],
+        entryStartHour: es[0], entryStartMin: es[1],
+        entryEndHour: ee[0], entryEndMin: ee[1],
+        sessionEndHour: se[0], sessionEndMin: se[1],
+        tpAtrMult: parseFloat(el('scTpAtr') ? el('scTpAtr').value : '1.2') || 1.2,
+        slPct: parseFloat(el('scSlPct') ? el('scSlPct').value : '10') || 10,
+        trailAtrMult: parseFloat(el('scTrailAtr') ? el('scTrailAtr').value : '0.8') || 0.8,
+        candleUnitMin: parseInt(el('scCandleUnit') ? el('scCandleUnit').value : '5') || 5,
+        topN: parseInt(el('scTopN') ? el('scTopN').value : '15') || 15,
+        maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
+        btcFilterEnabled: (el('scBtcFilter') ? el('scBtcFilter').value : 'true') === 'true',
+        volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
+        minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40
+      };
+
+      try {
+        scApplyBtn.disabled = true;
+        await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
+        showToast('Scanner settings saved', 'success');
+      } catch(e) {
+        showToast(e.message || 'Scanner config save failed', 'error');
+      } finally {
+        scApplyBtn.disabled = false;
+      }
+    });
+  }
+
+  // Load scanner config on page load
+  loadScannerConfig();
 
 })();

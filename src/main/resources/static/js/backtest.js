@@ -227,35 +227,47 @@
             '</div>' +
           '</div>' +
           '<div class="field">' +
-            '<label>Interval <span class="help-icon" data-tooltip="기본 캔들 인터벌(분)입니다.\\n⚙ 상세에서 전략별 개별 인터벌을 설정할 수 있습니다." aria-label="Interval help"></span></label>' +
-            '<div class="select-wrap"><select class="select grp-interval">' +
-              '<option value="1">1m</option><option value="3">3m</option><option value="5">5m</option>' +
-              '<option value="10">10m</option><option value="15">15m</option><option value="30">30m</option>' +
-              '<option value="60" selected>1h(60m)</option><option value="240">4h(240m)</option>' +
-            '</select></div>' +
+            '<label>캔들 간격 <span class="help-icon" data-tooltip="기본 캔들 인터벌(분)입니다.\\n⚙ 상세에서 전략별 개별 인터벌을 설정할 수 있습니다." aria-label="Interval help"></span></label>' +
+            '<div class="interval-chips grp-interval-chips">' +
+              '<button type="button" class="interval-chip" data-val="1">1m</button>' +
+              '<button type="button" class="interval-chip" data-val="3">3m</button>' +
+              '<button type="button" class="interval-chip" data-val="5">5m</button>' +
+              '<button type="button" class="interval-chip" data-val="10">10m</button>' +
+              '<button type="button" class="interval-chip" data-val="15">15m</button>' +
+              '<button type="button" class="interval-chip" data-val="30">30m</button>' +
+              '<button type="button" class="interval-chip" data-val="60">60m</button>' +
+              '<button type="button" class="interval-chip active" data-val="240">240m</button>' +
+            '</div>' +
+            '<input type="hidden" class="grp-interval" value="240"/>' +
           '</div>' +
           '<div class="field" style="min-width:200px">' +
-            '<label>Order Size <span class="help-icon" data-tooltip="주문 크기 설정입니다.\\nPCT: 자본금의 비율(%) / Fixed: 고정 금액(KRW)" aria-label="Order Size help"></span></label>' +
+            '<label>Order Size <span class="help-icon" data-tooltip="PCT: 자본금의 비율(%) / Fixed: 고정 금액(KRW)" aria-label="Order Size help"></span></label>' +
             '<div style="display:flex;gap:8px;align-items:center">' +
               '<div class="select-wrap" style="width:120px"><select class="select grp-orderMode"><option value="FIXED">Fixed</option><option value="PCT" selected>% Cap</option></select></div>' +
               '<input class="input grp-orderValue" type="text" value="90" style="width:80px"/>' +
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--danger);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:16px">Risk Management</div>' +
-        '<div class="toolbar">' +
-          '<div class="field"><label>TP (%) <span class="help-icon" data-tooltip="이익실현(Take Profit) 비율입니다.\\n평균매수가 대비 이 비율 이상 상승하면 자동 매도합니다." aria-label="TP help"></span></label><input class="input grp-tp" type="text" value="3.0" style="width:80px"/></div>' +
-          '<div class="field"><label>SL (%) <span class="help-icon" data-tooltip="손절(Stop Loss) 비율입니다.\\n평균매수가 대비 이 비율 이상 하락하면 자동 매도합니다." aria-label="SL help"></span></label><input class="input grp-sl" type="text" value="2.0" style="width:80px"/></div>' +
-          '<div class="field"><label>Max Add Buys <span class="help-icon" data-tooltip="최대 추가매수 횟수입니다.\\n0이면 추가매수를 하지 않습니다." aria-label="Max Add Buys help"></span></label><input class="input grp-maxAdd" type="number" min="0" max="10" value="2" style="width:70px"/></div>' +
-          '<div class="field"><label>Min Confidence <span class="help-icon" data-tooltip="최소 신뢰도 점수입니다.\\n전략이 산출한 신뢰도(score)가 이 값 미만이면 신호를 무시합니다.\\n0이면 모든 신호를 수용합니다." aria-label="Min Confidence help"></span></label><input class="input grp-minConf" type="number" min="0" max="10" step="0.5" value="0" style="width:70px"/></div>' +
-          '<div class="field">' +
-            '<label>Strategy Lock <span class="help-icon" data-tooltip="전략 잠금 기능입니다.\\nON: 진입한 전략만 해당 포지션을 청산(매도)할 수 있습니다.\\nOFF: 어떤 전략이든 매도 신호를 내면 청산합니다." aria-label="Strategy Lock help"></span></label>' +
-            '<div style="display:flex;align-items:center;gap:8px;height:42px">' +
-              '<button class="switch grp-stratLock" aria-pressed="false"><span class="knob"></span></button>' +
-              '<span class="grp-stratLockLabel" style="font-size:13px;color:var(--muted)">OFF</span>' +
+        /* Risk Parameters — collapsible */
+        '<div class="risk-toggle">' +
+          '<span class="risk-icon">&#9660;</span>' +
+          '<span class="risk-label">리스크 파라미터</span>' +
+        '</div>' +
+        '<div class="risk-body">' +
+          '<div class="risk-grid">' +
+            '<div class="field"><label>TP (%) <span class="help-icon" data-tooltip="이익실현 비율. 평균매수가 대비 이 비율 이상 상승 시 매도" aria-label="TP help"></span></label><input class="input grp-tp" type="text" value="3.0"/></div>' +
+            '<div class="field"><label>SL (%) <span class="help-icon" data-tooltip="손절 비율. 평균매수가 대비 이 비율 이상 하락 시 매도" aria-label="SL help"></span></label><input class="input grp-sl" type="text" value="2.0"/></div>' +
+            '<div class="field"><label>최대 추가매수 <span class="help-icon" data-tooltip="최대 추가매수 횟수. 0이면 추가매수 안함" aria-label="Max Add Buys help"></span></label><input class="input grp-maxAdd" type="number" min="0" max="10" value="2"/></div>' +
+            '<div class="field"><label>Min Confidence <span class="help-icon" data-tooltip="최소 신뢰도 점수. 이 값 미만 신호 무시. 0=모두 수용" aria-label="Min Confidence help"></span></label><input class="input grp-minConf" type="number" min="0" max="10" step="0.5" value="0"/></div>' +
+            '<div class="field">' +
+              '<label>전략 락 <span class="help-icon" data-tooltip="ON: 진입 전략만 청산 가능\\nOFF: 어떤 전략이든 매도 신호 시 청산" aria-label="Strategy Lock help"></span></label>' +
+              '<div style="display:flex;align-items:center;gap:8px;height:42px">' +
+                '<button class="switch grp-stratLock" aria-pressed="false"><span class="knob"></span></button>' +
+                '<span class="grp-stratLockLabel" style="font-size:13px;color:var(--muted)">OFF</span>' +
+              '</div>' +
             '</div>' +
+            '<div class="field"><label>타임스탑 (min) <span class="help-icon" data-tooltip="시간 기반 손절(분). 보유시간 초과+손실 시 청산. 0=미사용" aria-label="Time Stop help"></span></label><input class="input grp-timeStop" type="number" min="0" step="30" value="0"/></div>' +
           '</div>' +
-          '<div class="field"><label>Time Stop (min) <span class="help-icon" data-tooltip="시간 기반 손절(분)입니다.\\n포지션 보유 시간이 이 값을 초과하고 손실 중이면 자동 청산합니다.\\n0이면 사용하지 않습니다." aria-label="Time Stop help"></span></label><input class="input grp-timeStop" type="number" min="0" step="30" value="0" style="width:80px"/></div>' +
         '</div>' +
       '</div>';
 
@@ -282,10 +294,35 @@
       }
     );
 
+    // ── Interval Chips ──
+    var intervalChips = card.querySelectorAll('.interval-chip');
+    var intervalHidden = card.querySelector('.grp-interval');
+    for (var ci = 0; ci < intervalChips.length; ci++) {
+      intervalChips[ci].addEventListener('click', function() {
+        for (var cj = 0; cj < intervalChips.length; cj++) intervalChips[cj].classList.remove('active');
+        this.classList.add('active');
+        intervalHidden.value = this.getAttribute('data-val');
+      });
+    }
+
+    // ── Risk Section Toggle ──
+    var riskToggle = card.querySelector('.risk-toggle');
+    var riskBody = card.querySelector('.risk-body');
+    var riskIcon = card.querySelector('.risk-icon');
+    if (riskToggle && riskBody) {
+      riskToggle.addEventListener('click', function() {
+        var isCollapsed = riskBody.classList.toggle('collapsed');
+        if (riskIcon) riskIcon.innerHTML = isCollapsed ? '&#9654;' : '&#9660;';
+      });
+    }
+
     // Populate values from groupData
     if (groupData) {
-      var intervalSel = card.querySelector('.grp-interval');
-      if (intervalSel) intervalSel.value = String(groupData.candleUnitMin || 60);
+      var intVal = String(groupData.candleUnitMin || 240);
+      intervalHidden.value = intVal;
+      for (var ci2 = 0; ci2 < intervalChips.length; ci2++) {
+        intervalChips[ci2].classList.toggle('active', intervalChips[ci2].getAttribute('data-val') === intVal);
+      }
       var orderMode = card.querySelector('.grp-orderMode');
       if (orderMode) orderMode.value = groupData.orderSizingMode || 'PCT';
       var orderVal = card.querySelector('.grp-orderValue');
@@ -1410,5 +1447,144 @@
       render();
     });
   })();
+
+  // ═══════════════════════════════════════════
+  //  Opening Strategy Backtest
+  // ═══════════════════════════════════════════
+
+  var obRun = document.getElementById('obRun');
+  var obLoadSettings = document.getElementById('obLoadSettings');
+
+  function parseHHMM(str) {
+    if (!str) return [0, 0];
+    var parts = String(str).split(':');
+    return [parseInt(parts[0]) || 0, parseInt(parts[1]) || 0];
+  }
+
+  if (obLoadSettings) {
+    obLoadSettings.addEventListener('click', function() {
+      req('/api/scanner/config', { method: 'GET' }).then(function(cfg) {
+        function fmtHM(h, m) { return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'); }
+        var e = function(id) { return document.getElementById(id); };
+        if (e('obRangeStart')) e('obRangeStart').value = fmtHM(cfg.rangeStartHour, cfg.rangeStartMin);
+        if (e('obRangeEnd')) e('obRangeEnd').value = fmtHM(cfg.rangeEndHour, cfg.rangeEndMin);
+        if (e('obEntryStart')) e('obEntryStart').value = fmtHM(cfg.entryStartHour, cfg.entryStartMin);
+        if (e('obEntryEnd')) e('obEntryEnd').value = fmtHM(cfg.entryEndHour, cfg.entryEndMin);
+        if (e('obSessionEnd')) e('obSessionEnd').value = fmtHM(cfg.sessionEndHour, cfg.sessionEndMin);
+        if (e('obTpAtr')) e('obTpAtr').value = cfg.tpAtrMult || 1.2;
+        if (e('obSlPct')) e('obSlPct').value = cfg.slPct || 10;
+        if (e('obTrailAtr')) e('obTrailAtr').value = cfg.trailAtrMult || 0.8;
+        if (e('obVolMult')) e('obVolMult').value = cfg.volumeMult || 1.5;
+        if (e('obCandleUnit')) e('obCandleUnit').value = String(cfg.candleUnitMin || 5);
+        showToast('Scanner settings loaded', 'success');
+      }).catch(function(err) {
+        showToast('Failed to load scanner settings', 'error');
+      });
+    });
+  }
+
+  if (obRun) {
+    obRun.addEventListener('click', function() {
+      setError('');
+      obRun.disabled = true;
+
+      var e = function(id) { return document.getElementById(id); };
+      var marketsStr = e('obMarkets') ? e('obMarkets').value : 'KRW-SOL';
+      var markets = marketsStr.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+      if (markets.length === 0) {
+        setError('Opening Backtest: Market is required.');
+        obRun.disabled = false;
+        return;
+      }
+
+      var rs = parseHHMM(e('obRangeStart') ? e('obRangeStart').value : '08:00');
+      var re = parseHHMM(e('obRangeEnd') ? e('obRangeEnd').value : '08:59');
+      var es = parseHHMM(e('obEntryStart') ? e('obEntryStart').value : '09:05');
+      var ee = parseHHMM(e('obEntryEnd') ? e('obEntryEnd').value : '10:30');
+      var se = parseHHMM(e('obSessionEnd') ? e('obSessionEnd').value : '12:00');
+      var candleUnit = parseInt(e('obCandleUnit') ? e('obCandleUnit').value : '5') || 5;
+
+      var params = {
+        strategies: ['SCALP_OPENING_BREAK'],
+        markets: markets,
+        market: markets[0],
+        period: el('btPeriod').value,
+        fromDate: getDateTimeLocalValue(btFromDate, btFromTime),
+        toDate: getDateTimeLocalValue(btToDate, btToTime),
+        capitalKrw: parseNum(el('btCapital').value),
+        candleUnitMin: candleUnit,
+        takeProfitPct: 0,
+        stopLossPct: 0,
+        maxAddBuysGlobal: 0,
+        timeStopMinutes: 0,
+        openingParams: {
+          rangeStartHour: rs[0], rangeStartMin: rs[1],
+          rangeEndHour: re[0], rangeEndMin: re[1],
+          entryStartHour: es[0], entryStartMin: es[1],
+          entryEndHour: ee[0], entryEndMin: ee[1],
+          sessionEndHour: se[0], sessionEndMin: se[1],
+          tpAtrMult: parseFloat(e('obTpAtr') ? e('obTpAtr').value : '1.2') || 1.2,
+          slPct: parseFloat(e('obSlPct') ? e('obSlPct').value : '10') || 10,
+          trailAtrMult: parseFloat(e('obTrailAtr') ? e('obTrailAtr').value : '0.8') || 0.8,
+          volumeMult: parseFloat(e('obVolMult') ? e('obVolMult').value : '1.5') || 1.5,
+          minBodyRatio: 0.40
+        }
+      };
+
+      req(API.backtestRun, {
+        method: 'POST',
+        body: JSON.stringify(params),
+        cache: 'no-store'
+      }).then(function(res) {
+        if (btResultsHeader) btResultsHeader.style.display = '';
+        if (btKpiGrid) btKpiGrid.style.display = '';
+
+        var roiVal = res.roi == null ? 0 : Number(res.roi);
+        btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
+        btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+        btTotalReturn.textContent = fmt(res.totalReturn);
+        if (res.totalReturn != null) btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+        btTrades.textContent = fmt(res.tradesCount);
+
+        var wr = res.winRate == null ? 0 : Number(res.winRate);
+        btWinRate.textContent = wr.toFixed(1) + '%';
+        if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
+        if (btWinRateCircle) {
+          var circleFg = btWinRateCircle.querySelector('.circle-fg');
+          if (circleFg) {
+            var c = 2 * Math.PI * 25;
+            circleFg.style.strokeDasharray = c;
+            circleFg.style.strokeDashoffset = c * (1 - wr / 100);
+          }
+        }
+        btFinalCapital.textContent = fmt(res.finalCapital);
+
+        var totalSells = (res.tpSellCount || 0) + (res.slSellCount || 0) + (res.patternSellCount || 0);
+        if (totalSells > 0) {
+          el('btDistTp').style.width = ((res.tpSellCount / totalSells) * 100) + '%';
+          el('btDistSl').style.width = ((res.slSellCount / totalSells) * 100) + '%';
+          el('btDistPattern').style.width = ((res.patternSellCount / totalSells) * 100) + '%';
+        }
+        el('btDistTpCount').textContent = res.tpSellCount || 0;
+        el('btDistSlCount').textContent = res.slSellCount || 0;
+        el('btDistPatternCount').textContent = res.patternSellCount || 0;
+
+        if (btResultsBadge) {
+          btResultsBadge.textContent = 'Opening | ' + (res.candleUnitMin || 5) + 'min | ' + markets.join(',');
+          btResultsBadge.style.display = '';
+        }
+
+        logs = res.trades || [];
+        page = 1;
+        render();
+        renderEquityCurve(res.trades || [], parseNum(el('btCapital').value));
+
+      }).catch(function(err) {
+        setError(err.message || 'Opening backtest failed');
+      }).then(function() {
+        obRun.disabled = false;
+      });
+    });
+  }
 
 })();
