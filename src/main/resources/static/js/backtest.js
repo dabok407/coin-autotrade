@@ -88,6 +88,24 @@
   var btTrades = el('btTrades');
   var btWinRate = el('btWinRate');
 
+  // Results sections (initially hidden)
+  var btResultsHeader = el('btResultsHeader');
+  var btResultsBadge = el('btResultsBadge');
+  var btKpiGrid = el('btKpiGrid');
+  var btFinalCapital = el('btFinalCapital');
+  var btWinRateText = el('btWinRateText');
+  var btWinRateCircle = el('btWinRateCircle');
+  var btEquitySection = el('btEquitySection');
+  var btEquityChart = el('btEquityChart');
+  var btEquityMeta = el('btEquityMeta');
+  var btDistTp = el('btDistTp');
+  var btDistSl = el('btDistSl');
+  var btDistPattern = el('btDistPattern');
+  var btDistTpCount = el('btDistTpCount');
+  var btDistSlCount = el('btDistSlCount');
+  var btDistPatternCount = el('btDistPatternCount');
+  var btEquityChartInstance = null;
+
   var btTbody = el('btTbody');
   var btPagerInfo = el('btPagerInfo');
   var btPrev = el('btPrev');
@@ -219,7 +237,7 @@
           '<div class="field" style="min-width:200px">' +
             '<label>Order Size <span class="help-icon" data-tooltip="주문 크기 설정입니다.\\nPCT: 자본금의 비율(%) / Fixed: 고정 금액(KRW)" aria-label="Order Size help"></span></label>' +
             '<div style="display:flex;gap:8px;align-items:center">' +
-              '<div class="select-wrap" style="width:90px"><select class="select grp-orderMode"><option value="FIXED">Fixed</option><option value="PCT" selected>% Cap</option></select></div>' +
+              '<div class="select-wrap" style="width:120px"><select class="select grp-orderMode"><option value="FIXED">Fixed</option><option value="PCT" selected>% Cap</option></select></div>' +
               '<input class="input grp-orderValue" type="text" value="90" style="width:80px"/>' +
             '</div>' +
           '</div>' +
@@ -750,10 +768,14 @@
   //  Trade log rendering / sorting / pagination
   // ═══════════════════════════════════════════════════════════════
 
+  var btIsMobile = window.innerWidth <= 640;
   function fmtTs(ts) {
     if (!ts) return '-';
     var d = new Date(ts);
     if (!isNaN(d.getTime())) {
+      if (btIsMobile) {
+        return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+      }
       return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
     }
     return String(ts);
@@ -935,6 +957,110 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
+  //  Equity Curve Rendering (LightweightCharts)
+  // ═══════════════════════════════════════════════════════════════
+  function renderEquityCurve(trades, initialCapital) {
+    if (!btEquitySection || !btEquityChart) return;
+    if (!trades || trades.length === 0) {
+      btEquitySection.style.display = 'none';
+      return;
+    }
+
+    btEquitySection.style.display = '';
+
+    // Build equity data from trades
+    var equity = initialCapital || 100000;
+    var data = []; // {time, value}
+    var maxEquity = equity, minEquity = equity;
+
+    // Helper: parse ts string or epochMs to unix seconds
+    function toUnixSec(t) {
+      if (t.tsEpochMs && Number(t.tsEpochMs) > 0) return Math.floor(Number(t.tsEpochMs) / 1000);
+      if (t.ts) {
+        var d = new Date(String(t.ts).replace(' ', 'T'));
+        if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+      }
+      return 0;
+    }
+
+    // Sort trades by timestamp
+    var sorted = trades.slice().sort(function(a, b) {
+      return toUnixSec(a) - toUnixSec(b);
+    });
+
+    for (var i = 0; i < sorted.length; i++) {
+      var t = sorted[i];
+      if ((t.action === 'SELL' || t.action === 'sell') && t.pnlKrw != null) {
+        equity += Number(t.pnlKrw);
+      }
+      var ts = toUnixSec(t);
+      if (ts > 0) {
+        data.push({ time: ts, value: Math.round(equity) });
+        if (equity > maxEquity) maxEquity = equity;
+        if (equity < minEquity) minEquity = equity;
+      }
+    }
+
+    if (data.length === 0) {
+      btEquitySection.style.display = 'none';
+      return;
+    }
+
+    // Deduplicate timestamps (keep last)
+    var deduped = [];
+    for (var di = 0; di < data.length; di++) {
+      if (di === data.length - 1 || data[di].time !== data[di + 1].time) {
+        deduped.push(data[di]);
+      }
+    }
+
+    // Equity meta stats
+    if (btEquityMeta) {
+      var change = equity - initialCapital;
+      var changePct = initialCapital > 0 ? (change / initialCapital * 100) : 0;
+      var changeColor = change >= 0 ? 'var(--success)' : 'var(--danger)';
+      btEquityMeta.innerHTML =
+        '<span class="equity-stat">Max <span style="color:' + changeColor + '">' + fmt(Math.round(maxEquity)) + '</span></span>' +
+        '<span class="equity-stat">Min <span>' + fmt(Math.round(minEquity)) + '</span></span>' +
+        '<span class="equity-stat">Change <span style="color:' + changeColor + '">' + (change >= 0 ? '+' : '') + changePct.toFixed(2) + '%</span></span>';
+    }
+
+    // Use LightweightCharts if available
+    if (typeof LightweightCharts !== 'undefined') {
+      btEquityChart.innerHTML = '';
+      var isDark = !document.body.getAttribute('data-theme') || document.body.getAttribute('data-theme') !== 'light';
+      if (btEquityChartInstance) { try { btEquityChartInstance.remove(); } catch(e){} }
+      btEquityChartInstance = LightweightCharts.createChart(btEquityChart, {
+        width: btEquityChart.clientWidth,
+        height: 232,
+        layout: { background: { type: 'solid', color: 'transparent' }, textColor: isDark ? '#5a6a94' : '#7a8aaa', fontFamily: 'Inter, sans-serif', fontSize: 11 },
+        grid: { vertLines: { color: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)' }, horzLines: { color: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)' } },
+        rightPriceScale: { borderColor: 'transparent' },
+        timeScale: { borderColor: 'transparent', timeVisible: true, secondsVisible: false },
+        crosshair: { mode: 0 },
+        handleScroll: false, handleScale: false
+      });
+      var areaSeries = btEquityChartInstance.addAreaSeries({
+        topColor: equity >= initialCapital ? 'rgba(32,201,151,0.3)' : 'rgba(255,77,109,0.3)',
+        bottomColor: equity >= initialCapital ? 'rgba(32,201,151,0.02)' : 'rgba(255,77,109,0.02)',
+        lineColor: equity >= initialCapital ? '#20c997' : '#ff4d6d',
+        lineWidth: 2
+      });
+      areaSeries.setData(deduped);
+      btEquityChartInstance.timeScale().fitContent();
+
+      // Responsive resize
+      var ro = new ResizeObserver(function() {
+        if (btEquityChartInstance) btEquityChartInstance.applyOptions({ width: btEquityChart.clientWidth });
+      });
+      ro.observe(btEquityChart);
+    } else {
+      // Fallback: simple text
+      btEquityChart.innerHTML = '<div style="color:var(--text-muted);padding:24px;text-align:center">차트 라이브러리를 불러올 수 없습니다.</div>';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   //  Event Handlers
   // ═══════════════════════════════════════════════════════════════
 
@@ -975,31 +1101,75 @@
         roi: res.roi
       }));
 
+      // Show results sections
+      if (btResultsHeader) btResultsHeader.style.display = '';
+      if (btKpiGrid) btKpiGrid.style.display = '';
+
+      // KPI values
+      var roiVal = res.roi == null ? 0 : Number(res.roi);
+      btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
+      btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+
       btTotalReturn.textContent = fmt(res.totalReturn);
-      btRoi.textContent = (res.roi == null ? '-' : Number(res.roi).toFixed(2) + '%');
-      btTrades.textContent = fmt(res.tradesCount);
-      btWinRate.textContent = (res.winRate == null ? '-' : Number(res.winRate).toFixed(2) + '%');
-
-      // Update distribution bar
-      var distBar = el('btDistBar');
-      var distWin = el('btDistWin');
-      var distLoss = el('btDistLoss');
-      if (distBar && distWin && distLoss && res.winRate != null) {
-        var wr = Number(res.winRate);
-        distWin.style.width = wr + '%';
-        distLoss.style.width = (100 - wr) + '%';
-        distBar.style.display = '';
-      }
-
-      // Color KPI values based on profit/loss
       if (res.totalReturn != null) {
         btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
       }
-      if (res.roi != null) {
-        btRoi.style.color = res.roi >= 0 ? 'var(--success)' : 'var(--danger)';
+
+      btTrades.textContent = fmt(res.tradesCount);
+
+      // Win rate
+      var wr = res.winRate == null ? 0 : Number(res.winRate);
+      btWinRate.textContent = wr.toFixed(1) + '%';
+      if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
+      // Win rate circle animation
+      if (btWinRateCircle) {
+        var circleFg = btWinRateCircle.querySelector('.circle-fg');
+        if (circleFg) {
+          var circumference = 157; // 2 * PI * 25
+          circleFg.style.strokeDashoffset = circumference - (circumference * wr / 100);
+        }
       }
 
-      logs = res.trades || [];
+      // Results badge
+      if (btResultsBadge) {
+        var tc = res.tradesCount || 0;
+        btResultsBadge.textContent = tc + '건 거래';
+        btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
+        btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+        btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
+      }
+
+      // Final capital
+      if (btFinalCapital) {
+        var initialCap = parseNum(el('btCapital').value);
+        var finalCap = initialCap + (res.totalReturn || 0);
+        btFinalCapital.textContent = fmt(Math.round(finalCap));
+      }
+
+      // Distribution counts (TP/SL/Pattern)
+      var trades = res.trades || [];
+      var tpCount = 0, slCount = 0, patternCount = 0;
+      for (var ti = 0; ti < trades.length; ti++) {
+        var t = trades[ti];
+        if (t.action === 'SELL' || t.action === 'sell') {
+          var ot = (t.orderType || t.patternType || '').toUpperCase();
+          if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
+          else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
+          else patternCount++;
+        }
+      }
+      var distTotal = Math.max(tpCount + slCount + patternCount, 1);
+      if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
+      if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
+      if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
+      if (btDistTpCount) btDistTpCount.textContent = tpCount;
+      if (btDistSlCount) btDistSlCount.textContent = slCount;
+      if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
+
+      // Equity curve
+      renderEquityCurve(trades, parseNum(el('btCapital').value));
+
+      logs = trades;
       page = 1;
       render();
 
@@ -1009,6 +1179,10 @@
         if (res.candleUnitMin != null) info.push('\ub2e8\uc704: ' + res.candleUnitMin + '\ubd84');
         if (res.periodDays != null) info.push('\uae30\uac04: ' + res.periodDays + '\uc77c');
         setError('\uac70\ub798 0\uac74 (\uc2e0\ud638 \uc5c6\uc74c). ' + info.join(' \u00b7 ') + '\n\uc804\ub7b5/\uae30\uac04/\ubd84\ubd09\uc744 \ubc14\uafb8\uba74 \uac70\ub798\uac00 \ubc1c\uc0dd\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.');
+        // Hide results sections if no trades
+        if (btResultsHeader) btResultsHeader.style.display = 'none';
+        if (btKpiGrid) btKpiGrid.style.display = 'none';
+        if (btEquitySection) btEquitySection.style.display = 'none';
       }
     }).catch(function(e) {
       setError(e.message || String(e));
@@ -1032,8 +1206,11 @@
     btRoi.style.color = '';
     btTrades.textContent = '-';
     btWinRate.textContent = '-';
-    var distBar = el('btDistBar');
-    if (distBar) distBar.style.display = 'none';
+    // Hide results sections
+    if (btResultsHeader) btResultsHeader.style.display = 'none';
+    if (btKpiGrid) btKpiGrid.style.display = 'none';
+    if (btEquitySection) btEquitySection.style.display = 'none';
+    if (btEquityChartInstance) { try { btEquityChartInstance.remove(); } catch(e){} btEquityChartInstance = null; }
     render();
   });
 
@@ -1076,6 +1253,26 @@
   // Add group button
   document.getElementById('btAddGroupBtn').addEventListener('click', function() {
     addBtGroupCard(null);
+  });
+
+  // ── Import from Settings ──
+  document.getElementById('importFromSettings').addEventListener('click', function() {
+    req('/api/bot/groups').then(function(groups) {
+      if (!groups || !groups.length) { showToast('저장된 설정이 없습니다', 'error'); return; }
+      if (!confirm('설정 ' + groups.length + '개 그룹을 불러오시겠습니까?\n현재 백테스트 설정이 대체됩니다.')) return;
+      // Clear existing groups
+      var container = document.getElementById('btGroupsContainer');
+      container.innerHTML = '';
+      btGroupCounter = 0;
+      // Render imported groups
+      for (var i = 0; i < groups.length; i++) {
+        addBtGroupCard(groups[i]);
+      }
+      saveBtSettings();
+      showToast('설정 ' + groups.length + '개 그룹을 불러왔습니다.', 'success');
+    }).catch(function(e) {
+      showToast('불러오기 실패: ' + (e.message || e), 'error');
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════

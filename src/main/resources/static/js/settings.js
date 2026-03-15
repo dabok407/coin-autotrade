@@ -112,6 +112,29 @@
     addGroupCard(null);
   });
 
+  // ── Import from Backtest ──
+  document.getElementById('importFromBt').addEventListener('click', function() {
+    try {
+      var raw = localStorage.getItem('bt_settings_v1');
+      if (!raw) { showToast('백테스트에 저장된 설정이 없습니다', 'error'); return; }
+      var data = JSON.parse(raw);
+      var groups = data && data.groups;
+      if (!groups || !groups.length) { showToast('백테스트에 저장된 그룹이 없습니다', 'error'); return; }
+      if (!confirm('백테스트 설정 ' + groups.length + '개 그룹을 불러오시겠습니까?\n현재 그룹 설정이 대체됩니다.')) return;
+      // Clear existing groups
+      var container = document.getElementById('groupsContainer');
+      container.innerHTML = '';
+      groupCounter = 0;
+      // Render imported groups
+      for (var i = 0; i < groups.length; i++) {
+        addGroupCard(groups[i]);
+      }
+      showToast('백테스트 설정 ' + groups.length + '개 그룹을 불러왔습니다. Apply Settings를 눌러 저장하세요.', 'success');
+    } catch (e) {
+      showToast('불러오기 실패: ' + (e.message || e), 'error');
+    }
+  });
+
   // ── Create Group Card ──
   function addGroupCard(groupData) {
     var idx = groupCounter++;
@@ -185,7 +208,7 @@
           '<div class="field" style="min-width:200px">' +
             '<label>Order Size <span class="help-icon" data-tooltip="PCT: 자본금의 비율(%) / Fixed: 고정 금액(KRW)" aria-label="Order Size help"></span></label>' +
             '<div style="display:flex;gap:8px;align-items:center">' +
-              '<div class="select-wrap" style="width:90px"><select class="select grp-orderMode"><option value="FIXED">Fixed</option><option value="PCT" selected>% Cap</option></select></div>' +
+              '<div class="select-wrap" style="width:120px"><select class="select grp-orderMode"><option value="FIXED">Fixed</option><option value="PCT" selected>% Cap</option></select></div>' +
               '<input class="input grp-orderValue" type="text" value="90" style="width:80px"/>' +
             '</div>' +
           '</div>' +
@@ -426,14 +449,14 @@
       }
       var recIntv = recommended > 0 ? (recommended >= 60 ? (recommended/60)+'h' : recommended+'m') : '';
       html += '<tr><td style="font-size:13px">'+escAttr(slabel)+'</td>';
-      html += '<td style="text-align:center;vertical-align:middle"><div class="select-wrap" style="width:100px;height:34px;display:inline-block"><select class="select sd-intv-select" data-strat="'+escAttr(skey)+'" style="width:100%;height:34px;font-size:12px">'+options+'</select></div>';
+      html += '<td style="text-align:center;vertical-align:middle"><div class="select-wrap" style="width:110px;display:inline-block"><select class="select sd-intv-select" data-strat="'+escAttr(skey)+'" style="width:100%">'+options+'</select></div>';
       if (recIntv) html += '<div style="font-size:10px;color:var(--primary);margin-top:2px">권장 '+recIntv+'</div>';
       html += '</td>';
       if (hasEmaCol) {
         if (sd.emaFilterMode === 'CONFIGURABLE') {
           var recEma = sd.recommendedEma || 50;
           var emaVal = inst.emaMap[skey] != null ? inst.emaMap[skey] : recEma;
-          html += '<td style="text-align:center;vertical-align:middle"><input class="input sd-ema-input" data-strat="'+escAttr(skey)+'" type="number" min="0" max="500" step="10" value="'+emaVal+'" style="width:70px;height:34px;font-size:12px;text-align:center"/>';
+          html += '<td style="text-align:center;vertical-align:middle"><input class="input sd-ema-input" data-strat="'+escAttr(skey)+'" type="number" min="0" max="500" step="10" value="'+emaVal+'" style="width:70px;text-align:center"/>';
           html += '<div style="font-size:10px;color:var(--primary);margin-top:2px">권장 '+recEma+'</div></td>';
         } else if (sd.emaFilterMode === 'INTERNAL') {
           html += '<td style="text-align:center;font-size:11px;color:var(--muted)">자체</td>';
