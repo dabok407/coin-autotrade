@@ -1321,10 +1321,11 @@
     req('/api/bot/groups').then(function(groups) {
       if (!groups || !groups.length) { showToast('저장된 설정이 없습니다', 'error'); return; }
       if (!confirm('설정 ' + groups.length + '개 그룹을 불러오시겠습니까?\n현재 백테스트 설정이 대체됩니다.')) return;
-      // Clear existing groups
+      // Clear existing groups and instances
       var container = document.getElementById('btGroupsContainer');
       container.innerHTML = '';
       btGroupCounter = 0;
+      btGroupInstances = [];
       // Render imported groups
       for (var i = 0; i < groups.length; i++) {
         addBtGroupCard(groups[i]);
