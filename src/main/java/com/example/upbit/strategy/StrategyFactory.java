@@ -71,6 +71,9 @@ public class StrategyFactory {
 
         // 오프닝 레인지 돌파 전략
         strategies.put(StrategyType.SCALP_OPENING_BREAK, new ScalpOpeningBreakStrategy());
+
+        // 다중 확인 고확신 모멘텀
+        strategies.put(StrategyType.MULTI_CONFIRM_MOMENTUM, new MultiConfirmMomentumStrategy());
     }
 
     public TradingStrategy get(StrategyType type) {

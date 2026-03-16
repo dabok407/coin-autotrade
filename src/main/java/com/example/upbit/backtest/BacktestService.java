@@ -4,6 +4,7 @@ import com.example.upbit.api.BacktestRequest;
 import com.example.upbit.api.BacktestResponse;
 import com.example.upbit.config.StrategyProperties;
 import com.example.upbit.config.TradeProperties;
+import com.example.upbit.market.CandleCacheService;
 import com.example.upbit.market.CandleService;
 import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.strategy.*;
@@ -37,17 +38,20 @@ public class BacktestService {
     private static final Logger log = LoggerFactory.getLogger(BacktestService.class);
 
     private final CandleService candleService;
+    private final CandleCacheService candleCacheService;
     private final StrategyFactory strategyFactory;
     private final StrategyProperties strategyCfg;
     private final TradeProperties tradeProps;
 
     public BacktestService(
             CandleService candleService,
+            CandleCacheService candleCacheService,
             StrategyFactory strategyFactory,
             StrategyProperties strategyCfg,
             TradeProperties tradeProps
     ) {
         this.candleService = candleService;
+        this.candleCacheService = candleCacheService;
         this.strategyFactory = strategyFactory;
         this.strategyCfg = strategyCfg;
         this.tradeProps = tradeProps;
@@ -232,21 +236,52 @@ public class BacktestService {
         }
         for (StrategyType t : stypes) res.strategies.add(t.name());
 
-        // ===== 멀티 인터벌 캔들 조회: (마켓, 인터벌) 조합별 조회 =====
+        // ===== 멀티 인터벌 캔들 조회: 캐시 우선, 없으면 API 조회 =====
         Map<String, Map<Integer, List<UpbitCandle>>> candlesByMI = new HashMap<String, Map<Integer, List<UpbitCandle>>>();
         int totalCandleCount = 0;
 
         for (String m : markets) {
             Map<Integer, List<UpbitCandle>> byInterval = new HashMap<Integer, List<UpbitCandle>>();
             for (int intv : allIntervals) {
-                List<UpbitCandle> cs;
-                if (req.fromDate != null && req.toDate != null && !req.fromDate.trim().isEmpty() && !req.toDate.trim().isEmpty()) {
-                    String fromUtc = toUpbitUtcIsoStart(req.fromDate.trim());
-                    String toUtcExclusive = toUpbitUtcIsoExclusive(req.toDate.trim());
-                    cs = candleService.fetchBetweenUtc(m, intv, fromUtc, toUtcExclusive);
-                } else {
-                    cs = candleService.fetchLookback(m, intv, days);
+                List<UpbitCandle> cs = null;
+
+                // 1) 캐시 우선 조회
+                if (candleCacheService.hasCachedData(m, intv)) {
+                    List<UpbitCandle> cached = candleCacheService.getCached(m, intv);
+                    if (cached != null && !cached.isEmpty()) {
+                        // 날짜 범위 필터링
+                        if (req.fromDate != null && req.toDate != null
+                                && !req.fromDate.trim().isEmpty() && !req.toDate.trim().isEmpty()) {
+                            String fromUtc = toUpbitUtcIsoStart(req.fromDate.trim());
+                            String toUtcExclusive = toUpbitUtcIsoExclusive(req.toDate.trim());
+                            List<UpbitCandle> filtered = new ArrayList<UpbitCandle>();
+                            for (UpbitCandle c : cached) {
+                                if (c.candle_date_time_utc == null) continue;
+                                if (c.candle_date_time_utc.compareTo(fromUtc) >= 0
+                                        && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
+                                    filtered.add(c);
+                                }
+                            }
+                            cs = filtered;
+                        } else {
+                            cs = cached;
+                        }
+                        log.debug("캐시 사용: {} {}분 → {}건", m, intv, cs.size());
+                    }
                 }
+
+                // 2) 캐시에 없으면 API 조회
+                if (cs == null || cs.isEmpty()) {
+                    if (req.fromDate != null && req.toDate != null
+                            && !req.fromDate.trim().isEmpty() && !req.toDate.trim().isEmpty()) {
+                        String fromUtc = toUpbitUtcIsoStart(req.fromDate.trim());
+                        String toUtcExclusive = toUpbitUtcIsoExclusive(req.toDate.trim());
+                        cs = candleService.fetchBetweenUtc(m, intv, fromUtc, toUtcExclusive);
+                    } else {
+                        cs = candleService.fetchLookback(m, intv, days);
+                    }
+                }
+
                 if (cs == null) cs = new ArrayList<UpbitCandle>();
                 byInterval.put(intv, cs);
                 totalCandleCount += cs.size();

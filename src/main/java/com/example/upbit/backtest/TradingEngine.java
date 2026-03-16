@@ -487,6 +487,18 @@ public class TradingEngine {
             }
         }
 
+        // ===== 미청산 포지션 시가평가 (Mark-to-Market) =====
+        // 백테스트 종료 시점에 보유 중인 포지션을 마지막 종가로 평가하여 capital에 반영
+        for (Map.Entry<String, Pos> pe : posByMarket.entrySet()) {
+            Pos mp = pe.getValue();
+            if (mp.qty > 0 && mp.lastClose > 0) {
+                double fill = mp.lastClose * (1.0 - tradeProps.getSlippageRate());
+                double gross = mp.qty * fill;
+                double fee = gross * strategyCfg.getFeeRate();
+                st.capital += (gross - fee);
+            }
+        }
+
         return st;
     }
 

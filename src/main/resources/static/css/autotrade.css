@@ -490,6 +490,7 @@ body[data-theme="light"] .btn.primary {
   align-items: center;
   justify-content: center;
   gap: 16px;
+  margin-top: 28px;
   margin-bottom: 40px;
 }
 .run-icon { font-size: 18px; }

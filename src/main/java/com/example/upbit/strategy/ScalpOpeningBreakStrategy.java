@@ -54,6 +54,9 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     private double minBodyRatio = 0.40;
     private static final double MIN_ATR_PCT = 0.001;
 
+    // ===== 개선: EMA 트렌드 필터 =====
+    private static final int EMA_PERIOD = 20;
+
     // ===== 안전 =====
     private static final int MIN_CANDLES = 30;
 
@@ -169,6 +172,10 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         // ATR 필터
         double atr = Indicators.atr(candles, ATR_PERIOD);
         if (Double.isNaN(atr) || atr / close < MIN_ATR_PCT) return Signal.none();
+
+        // EMA 트렌드 필터: close가 EMA20 위에 있을 때만 진입
+        double ema = Indicators.ema(candles, EMA_PERIOD);
+        if (!Double.isNaN(ema) && close < ema) return Signal.none();
 
         // ───── Confidence ─────
         double score = 4.5;
