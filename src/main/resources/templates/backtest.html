@@ -112,7 +112,10 @@
           <!-- Market + Candle -->
           <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
             <div class="config-field">
-              <label>Markets <span class="help-icon" data-tooltip="백테스트할 마켓을 선택합니다.&#10;오프닝 스캐너는 선택된 마켓에서 돌파 신호를 감지합니다." aria-label="Markets help"></span></label>
+              <label>Markets <span class="help-icon" data-tooltip="백테스트할 마켓을 선택합니다.&#10;오프닝 스캐너는 선택된 마켓에서 돌파 신호를 감지합니다." aria-label="Markets help"></span>
+                <button type="button" id="obTopNBtn" style="font-size:10px;padding:2px 8px;margin-left:6px;background:rgba(255,165,0,.15);border:1px solid rgba(255,165,0,.4);color:#ffa500;border-radius:4px;cursor:pointer;vertical-align:middle" title="24시간 거래대금 기준 TOP N 마켓을 자동 선택합니다 (보유코인 제외)">&#x1F504; TOP N</button>
+                <span id="obTopNInfo" style="font-size:10px;color:var(--text-tertiary);margin-left:4px;display:none"></span>
+              </label>
               <div class="ms" id="obMarketsMs">
                 <button type="button" class="ms-button"><div class="ms-value"><span class="ms-placeholder">Select markets...</span><div class="ms-chips"></div></div><span class="ms-caret">&#9662;</span></button>
                 <div class="ms-panel"><input class="ms-search" placeholder="Search market..."/><div class="ms-list"></div>

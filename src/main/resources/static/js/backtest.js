@@ -1452,13 +1452,33 @@
         for (var i = 0; i < all.length; i++) {
           marketLabel.set(String(all[i].market), String(all[i].displayName || all[i].market));
         }
-        // Init opening markets multi-select
+        // Init opening markets multi-select with ALL KRW markets (not just bot-configured ones)
         var obMsRoot = document.getElementById('obMarketsMs');
         if (obMsRoot) {
-          obMarketsMs = initMultiSelect(obMsRoot, {
-            placeholder: 'Select markets...',
-            options: allMarketOpts,
-            initial: ['KRW-SOL', 'KRW-ADA']
+          // Load all KRW markets from top-markets API (topN=200 to get all)
+          return req('/api/scanner/top-markets?topN=200', { method: 'GET' }).then(function(topList) {
+            var topArr = Array.isArray(topList) ? topList : [];
+            var obOpts = topArr.map(function(m) { return { value: m.market, label: m.displayName || m.market }; });
+            // Enrich marketLabel map with all KRW markets
+            for (var i = 0; i < topArr.length; i++) {
+              if (!marketLabel.has(String(topArr[i].market))) {
+                marketLabel.set(String(topArr[i].market), String(topArr[i].displayName || topArr[i].market));
+              }
+            }
+            obMarketsMs = initMultiSelect(obMsRoot, {
+              placeholder: 'Select markets...',
+              options: obOpts.length > 0 ? obOpts : allMarketOpts,
+              initial: ['KRW-SOL', 'KRW-ADA']
+            });
+            // Setup TOP N button
+            initTopNButton();
+          }).catch(function() {
+            // Fallback to bot-configured markets
+            obMarketsMs = initMultiSelect(obMsRoot, {
+              placeholder: 'Select markets...',
+              options: allMarketOpts,
+              initial: ['KRW-SOL', 'KRW-ADA']
+            });
           });
         }
       }).catch(function(e) { /* ignore */ });
@@ -1667,6 +1687,48 @@
       setError(err.message || 'Opening backtest failed');
       btRun.disabled = false;
       btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+    });
+  }
+
+  // ===== TOP N auto-select button =====
+  function initTopNButton() {
+    var btn = document.getElementById('obTopNBtn');
+    var info = document.getElementById('obTopNInfo');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      btn.disabled = true;
+      btn.textContent = '\u23F3 조회중...';
+      if (info) { info.style.display = 'none'; info.textContent = ''; }
+      req('/api/scanner/top-markets?topN=15', { method: 'GET' }).then(function(topList) {
+        var arr = Array.isArray(topList) ? topList : [];
+        if (arr.length === 0) {
+          btn.textContent = '\uD83D\uDD04 TOP N';
+          btn.disabled = false;
+          if (info) { info.textContent = '\uB9C8\uCF13 \uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
+          return;
+        }
+        // Select only the TOP N markets
+        var topCodes = arr.map(function(m) { return m.market; });
+        if (obMarketsMs) {
+          obMarketsMs.setSelected(topCodes);
+        }
+        // Enrich marketLabel map
+        for (var k = 0; k < arr.length; k++) {
+          if (!marketLabel.has(String(arr[k].market))) {
+            marketLabel.set(String(arr[k].market), String(arr[k].displayName || arr[k].market));
+          }
+        }
+        btn.textContent = '\uD83D\uDD04 TOP N';
+        btn.disabled = false;
+        if (info) {
+          info.textContent = '24h \uAC70\uB798\uB300\uAE08 TOP ' + arr.length + ' (\uBCF4\uC720\uCF54\uC778 \uC81C\uC678)';
+          info.style.display = 'inline';
+        }
+      }).catch(function(e) {
+        btn.textContent = '\uD83D\uDD04 TOP N';
+        btn.disabled = false;
+        if (info) { info.textContent = '\uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
+      });
     });
   }
 

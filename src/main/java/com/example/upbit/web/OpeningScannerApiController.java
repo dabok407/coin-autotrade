@@ -3,7 +3,14 @@ package com.example.upbit.web;
 import com.example.upbit.bot.OpeningScannerService;
 import com.example.upbit.db.OpeningScannerConfigEntity;
 import com.example.upbit.db.OpeningScannerConfigRepository;
+import com.example.upbit.db.PositionEntity;
+import com.example.upbit.db.PositionRepository;
+import com.example.upbit.market.UpbitMarketCatalogService;
+import com.example.upbit.upbit.UpbitAccount;
+import com.example.upbit.upbit.UpbitPrivateClient;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,13 +21,24 @@ import java.util.*;
 @RequestMapping("/api/scanner")
 public class OpeningScannerApiController {
 
+    private static final Logger log = LoggerFactory.getLogger(OpeningScannerApiController.class);
+
     private final OpeningScannerService scannerService;
     private final OpeningScannerConfigRepository configRepo;
+    private final UpbitMarketCatalogService catalogService;
+    private final UpbitPrivateClient privateClient;
+    private final PositionRepository positionRepo;
 
     public OpeningScannerApiController(OpeningScannerService scannerService,
-                                        OpeningScannerConfigRepository configRepo) {
+                                        OpeningScannerConfigRepository configRepo,
+                                        UpbitMarketCatalogService catalogService,
+                                        UpbitPrivateClient privateClient,
+                                        PositionRepository positionRepo) {
         this.scannerService = scannerService;
         this.configRepo = configRepo;
+        this.catalogService = catalogService;
+        this.privateClient = privateClient;
+        this.positionRepo = positionRepo;
     }
 
     @PostMapping("/start")
@@ -91,6 +109,80 @@ public class OpeningScannerApiController {
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
+    }
+
+    /**
+     * 거래대금 상위 N개 KRW 마켓 조회 (보유코인 + 수동 제외 마켓 제거).
+     * 백테스트 오프닝 전략에서 실전과 동일한 TOP N 마켓을 선택하기 위한 API.
+     */
+    @GetMapping("/top-markets")
+    public ResponseEntity<List<Map<String, Object>>> topMarkets(
+            @RequestParam(defaultValue = "15") int topN) {
+
+        // 1. 제외할 마켓 수집: position table + LIVE 계좌 + 수동 설정
+        Set<String> excludeMarkets = new HashSet<String>();
+
+        // position table에서 보유 중인 코인
+        List<PositionEntity> positions = positionRepo.findAll();
+        for (PositionEntity pe : positions) {
+            if (pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                excludeMarkets.add(pe.getMarket());
+            }
+        }
+
+        // 업비트 실계좌 보유 코인
+        if (privateClient.isConfigured()) {
+            try {
+                List<UpbitAccount> accounts = privateClient.getAccounts();
+                if (accounts != null) {
+                    for (UpbitAccount a : accounts) {
+                        if ("KRW".equals(a.currency)) continue;
+                        BigDecimal bal = a.balanceAsBigDecimal().add(a.lockedAsBigDecimal());
+                        if (bal.compareTo(BigDecimal.ZERO) > 0) {
+                            excludeMarkets.add("KRW-" + a.currency);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("업비트 잔고 조회 실패, position table만 사용", e);
+            }
+        }
+
+        // 수동 제외 마켓
+        OpeningScannerConfigEntity cfg = configRepo.loadOrCreate();
+        excludeMarkets.addAll(cfg.getExcludeMarketsSet());
+
+        // 2. 전체 KRW 마켓에서 제외 목록 빼고 거래대금 조회
+        Set<String> allCodes = catalogService.getAllMarketCodes();
+        List<String> krwMarkets = new ArrayList<String>();
+        for (String m : allCodes) {
+            if (m.startsWith("KRW-") && !excludeMarkets.contains(m)) {
+                krwMarkets.add(m);
+            }
+        }
+
+        final Map<String, Double> volumeMap = catalogService.get24hTradePrice(krwMarkets);
+        krwMarkets.sort(new Comparator<String>() {
+            @Override
+            public int compare(String a, String b) {
+                double va = volumeMap.containsKey(a) ? volumeMap.get(a) : 0;
+                double vb = volumeMap.containsKey(b) ? volumeMap.get(b) : 0;
+                return Double.compare(vb, va);
+            }
+        });
+
+        List<String> top = krwMarkets.subList(0, Math.min(topN, krwMarkets.size()));
+
+        // 3. 응답 빌드
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (String market : top) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("market", market);
+            item.put("displayName", catalogService.displayLabel(market));
+            item.put("volume24h", volumeMap.containsKey(market) ? volumeMap.get(market) : 0);
+            result.add(item);
+        }
+        return ResponseEntity.ok(result);
     }
 
     // ===== Helpers =====
