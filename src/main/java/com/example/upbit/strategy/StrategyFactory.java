@@ -1,6 +1,7 @@
 package com.example.upbit.strategy;
 
 import com.example.upbit.config.StrategyProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.EnumMap;
@@ -22,6 +23,7 @@ public class StrategyFactory {
 
     private final Map<StrategyType, TradingStrategy> strategies = new EnumMap<>(StrategyType.class);
 
+    @Autowired
     public StrategyFactory(StrategyProperties cfg) {
         // === Deprecated 전략 제거 (백테스트 검증 결과 성과 없음) ===
         // - CONSECUTIVE_DOWN_REBOUND: 거래 0건
@@ -88,15 +90,19 @@ public class StrategyFactory {
     /**
      * 특정 전략을 오버라이드한 새 팩토리를 반환.
      * 원본은 변경하지 않음 (백테스트 파라미터 오버라이드용).
+     *
+     * 주의: no-arg 생성자를 사용하면 Spring이 그것을 선택하여
+     * 빈 strategies 맵으로 빈을 생성하는 버그가 발생함.
+     * 대신 EnumMap 파라미터를 받는 내부 생성자를 사용.
      */
     public StrategyFactory withOverride(StrategyType type, TradingStrategy override) {
-        StrategyFactory copy = new StrategyFactory();
-        copy.strategies.putAll(this.strategies);
-        copy.strategies.put(type, override);
-        return copy;
+        EnumMap<StrategyType, TradingStrategy> copy = new EnumMap<>(this.strategies);
+        copy.put(type, override);
+        return new StrategyFactory(copy);
     }
 
-    /** 내부 복사용 (Spring이 아닌 withOverride에서만 사용) */
-    private StrategyFactory() {
+    /** 내부 복사용 — Spring이 사용할 수 없도록 EnumMap 파라미터 필수 */
+    private StrategyFactory(EnumMap<StrategyType, TradingStrategy> source) {
+        this.strategies.putAll(source);
     }
 }
