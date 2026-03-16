@@ -93,6 +93,9 @@ public class OpeningScannerConfigEntity {
     @Column(name = "min_body_ratio", nullable = false, precision = 5, scale = 2)
     private BigDecimal minBodyRatio = BigDecimal.valueOf(0.40);
 
+    @Column(name = "exclude_markets", length = 1000)
+    private String excludeMarkets = "";
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -171,4 +174,18 @@ public class OpeningScannerConfigEntity {
 
     public BigDecimal getMinBodyRatio() { return minBodyRatio; }
     public void setMinBodyRatio(BigDecimal v) { this.minBodyRatio = v != null ? v : BigDecimal.valueOf(0.40); }
+
+    public String getExcludeMarkets() { return excludeMarkets != null ? excludeMarkets : ""; }
+    public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }
+
+    /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
+    public java.util.Set<String> getExcludeMarketsSet() {
+        java.util.Set<String> set = new java.util.HashSet<String>();
+        if (excludeMarkets == null || excludeMarkets.trim().isEmpty()) return set;
+        for (String m : excludeMarkets.split(",")) {
+            String trimmed = m.trim();
+            if (!trimmed.isEmpty()) set.add(trimmed);
+        }
+        return set;
+    }
 }

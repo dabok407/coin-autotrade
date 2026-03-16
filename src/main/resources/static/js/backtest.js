@@ -11,6 +11,34 @@
   // Dark/Light toggle
   initTheme();
 
+  // ===== Loading Overlay =====
+  var loadingOverlay = document.createElement('div');
+  loadingOverlay.className = 'loading-overlay hidden';
+  loadingOverlay.innerHTML = '<div class="loading-spinner"></div>'
+    + '<div class="loading-text" id="loadingText">\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589 \uc911...</div>'
+    + '<div class="loading-elapsed" id="loadingElapsed">0s</div>';
+  document.body.appendChild(loadingOverlay);
+  var loadingTimer = null;
+
+  function showLoading(msg) {
+    var textEl = document.getElementById('loadingText');
+    var elapsedEl = document.getElementById('loadingElapsed');
+    if (textEl) textEl.textContent = msg || '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589 \uc911...';
+    if (elapsedEl) elapsedEl.textContent = '0s';
+    loadingOverlay.classList.remove('hidden');
+    var startTime = Date.now();
+    if (loadingTimer) clearInterval(loadingTimer);
+    loadingTimer = setInterval(function() {
+      var elapsed = Math.floor((Date.now() - startTime) / 1000);
+      if (elapsedEl) elapsedEl.textContent = elapsed + 's';
+    }, 1000);
+  }
+
+  function hideLoading() {
+    loadingOverlay.classList.add('hidden');
+    if (loadingTimer) { clearInterval(loadingTimer); loadingTimer = null; }
+  }
+
   // Logout
   var logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
@@ -1151,106 +1179,142 @@
       return;
     }
 
-    req(API.backtestRun, {
+    // Use async endpoint to avoid timeout on long-period backtests
+    showLoading('\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589 \uc911...');
+    req('/api/backtest/run-async', {
       method: 'POST',
       body: JSON.stringify(p),
       cache: 'no-store'
-    }).then(function(res) {
-      console.log('[Backtest] response:', JSON.stringify({
-        totalReturn: res.totalReturn,
-        tradesCount: res.tradesCount,
-        roi: res.roi
-      }));
-
-      // Show results sections
-      if (btResultsHeader) btResultsHeader.style.display = '';
-      if (btKpiGrid) btKpiGrid.style.display = '';
-
-      // KPI values
-      var roiVal = res.roi == null ? 0 : Number(res.roi);
-      btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
-      btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
-
-      btTotalReturn.textContent = fmt(res.totalReturn);
-      if (res.totalReturn != null) {
-        btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+    }).then(function(startRes) {
+      if (!startRes || !startRes.jobId) {
+        throw new Error('Failed to start async backtest');
       }
+      var jobId = startRes.jobId;
 
-      btTrades.textContent = fmt(res.tradesCount);
-
-      // Win rate
-      var wr = res.winRate == null ? 0 : Number(res.winRate);
-      btWinRate.textContent = wr.toFixed(1) + '%';
-      if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
-      // Win rate circle animation
-      if (btWinRateCircle) {
-        var circleFg = btWinRateCircle.querySelector('.circle-fg');
-        if (circleFg) {
-          var circumference = 157; // 2 * PI * 25
-          circleFg.style.strokeDashoffset = circumference - (circumference * wr / 100);
-        }
+      function pollResult() {
+        req('/api/backtest/async-result/' + jobId, { method: 'GET' }).then(function(pollRes) {
+          if (pollRes && pollRes.status === 'running') {
+            setTimeout(pollResult, 3000);
+            return;
+          }
+          hideLoading();
+          if (pollRes && pollRes.status === 'error') {
+            setError(pollRes.message || 'Backtest failed');
+            btRun.disabled = false;
+            btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+            return;
+          }
+          displayBasicResult(pollRes);
+          btRun.disabled = false;
+          btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+        }).catch(function(err) {
+          hideLoading();
+          setError(err.message || 'Failed to fetch backtest result');
+          btRun.disabled = false;
+          btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+        });
       }
+      setTimeout(pollResult, 3000);
 
-      // Results badge
-      if (btResultsBadge) {
-        var tc = res.tradesCount || 0;
-        btResultsBadge.textContent = tc + '건 거래';
-        btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
-        btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
-        btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
-      }
-
-      // Final capital
-      if (btFinalCapital) {
-        var initialCap = parseNum(el('btCapital').value);
-        var finalCap = initialCap + (res.totalReturn || 0);
-        btFinalCapital.textContent = fmt(Math.round(finalCap));
-      }
-
-      // Distribution counts (TP/SL/Pattern)
-      var trades = res.trades || [];
-      var tpCount = 0, slCount = 0, patternCount = 0;
-      for (var ti = 0; ti < trades.length; ti++) {
-        var t = trades[ti];
-        if (t.action === 'SELL' || t.action === 'sell') {
-          var ot = (t.orderType || t.patternType || '').toUpperCase();
-          if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
-          else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
-          else patternCount++;
-        }
-      }
-      var distTotal = Math.max(tpCount + slCount + patternCount, 1);
-      if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
-      if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
-      if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
-      if (btDistTpCount) btDistTpCount.textContent = tpCount;
-      if (btDistSlCount) btDistSlCount.textContent = slCount;
-      if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
-
-      // Equity curve
-      renderEquityCurve(trades, parseNum(el('btCapital').value));
-
-      logs = trades;
-      page = 1;
-      render();
-
-      if ((res.tradesCount || 0) === 0) {
-        var info = [];
-        if (res.candleCount != null) info.push('\uce94\ub4e4: ' + res.candleCount + '\uac1c');
-        if (res.candleUnitMin != null) info.push('\ub2e8\uc704: ' + res.candleUnitMin + '\ubd84');
-        if (res.periodDays != null) info.push('\uae30\uac04: ' + res.periodDays + '\uc77c');
-        setError('\uac70\ub798 0\uac74 (\uc2e0\ud638 \uc5c6\uc74c). ' + info.join(' \u00b7 ') + '\n\uc804\ub7b5/\uae30\uac04/\ubd84\ubd09\uc744 \ubc14\uafb8\uba74 \uac70\ub798\uac00 \ubc1c\uc0dd\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.');
-        // Hide results sections if no trades
-        if (btResultsHeader) btResultsHeader.style.display = 'none';
-        if (btKpiGrid) btKpiGrid.style.display = 'none';
-        if (btEquitySection) btEquitySection.style.display = 'none';
-      }
     }).catch(function(e) {
+      hideLoading();
       setError(e.message || String(e));
-    }).then(function() {
       btRun.disabled = false;
+      btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
     });
   });
+
+  function displayBasicResult(res) {
+    console.log('[Backtest] response:', JSON.stringify({
+      totalReturn: res.totalReturn,
+      tradesCount: res.tradesCount,
+      roi: res.roi
+    }));
+
+    // Show results sections
+    if (btResultsHeader) btResultsHeader.style.display = '';
+    if (btKpiGrid) btKpiGrid.style.display = '';
+
+    // KPI values
+    var roiVal = res.roi == null ? 0 : Number(res.roi);
+    btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
+    btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+
+    btTotalReturn.textContent = fmt(res.totalReturn);
+    if (res.totalReturn != null) {
+      btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+
+    btTrades.textContent = fmt(res.tradesCount);
+
+    // Win rate
+    var wr = res.winRate == null ? 0 : Number(res.winRate);
+    btWinRate.textContent = wr.toFixed(1) + '%';
+    if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
+    // Win rate circle animation
+    if (btWinRateCircle) {
+      var circleFg = btWinRateCircle.querySelector('.circle-fg');
+      if (circleFg) {
+        var circumference = 157; // 2 * PI * 25
+        circleFg.style.strokeDashoffset = circumference - (circumference * wr / 100);
+      }
+    }
+
+    // Results badge
+    if (btResultsBadge) {
+      var tc = res.tradesCount || 0;
+      btResultsBadge.textContent = tc + '\uac74 \uac70\ub798';
+      btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
+      btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+      btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
+    }
+
+    // Final capital
+    if (btFinalCapital) {
+      var initialCap = parseNum(el('btCapital').value);
+      var finalCap = initialCap + (res.totalReturn || 0);
+      btFinalCapital.textContent = fmt(Math.round(finalCap));
+    }
+
+    // Distribution counts (TP/SL/Pattern)
+    var trades = res.trades || [];
+    var tpCount = 0, slCount = 0, patternCount = 0;
+    for (var ti = 0; ti < trades.length; ti++) {
+      var t = trades[ti];
+      if (t.action === 'SELL' || t.action === 'sell') {
+        var ot = (t.orderType || t.patternType || '').toUpperCase();
+        if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
+        else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
+        else patternCount++;
+      }
+    }
+    var distTotal = Math.max(tpCount + slCount + patternCount, 1);
+    if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
+    if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
+    if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
+    if (btDistTpCount) btDistTpCount.textContent = tpCount;
+    if (btDistSlCount) btDistSlCount.textContent = slCount;
+    if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
+
+    // Equity curve
+    renderEquityCurve(trades, parseNum(el('btCapital').value));
+
+    logs = trades;
+    page = 1;
+    render();
+
+    if ((res.tradesCount || 0) === 0) {
+      var info = [];
+      if (res.candleCount != null) info.push('\uce94\ub4e4: ' + res.candleCount + '\uac1c');
+      if (res.candleUnitMin != null) info.push('\ub2e8\uc704: ' + res.candleUnitMin + '\ubd84');
+      if (res.periodDays != null) info.push('\uae30\uac04: ' + res.periodDays + '\uc77c');
+      setError('\uac70\ub798 0\uac74 (\uc2e0\ud638 \uc5c6\uc74c). ' + info.join(' \u00b7 ') + '\n\uc804\ub7b5/\uae30\uac04/\ubd84\ubd09\uc744 \ubc14\uafb8\uba74 \uac70\ub798\uac00 \ubc1c\uc0dd\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.');
+      // Hide results sections if no trades
+      if (btResultsHeader) btResultsHeader.style.display = 'none';
+      if (btKpiGrid) btKpiGrid.style.display = 'none';
+      if (btEquitySection) btEquitySection.style.display = 'none';
+    }
+  }
 
   // Date range validation on user input
   if (btFromDate) btFromDate.addEventListener('change', normalizeDateRange);
@@ -1561,75 +1625,110 @@
       }
     };
 
-    req(API.backtestRun, {
+    // Use async endpoint to avoid nginx 504 timeout on long backtests
+    showLoading('\uc624\ud504\ub2dd \ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589 \uc911...');
+    req('/api/backtest/run-async', {
       method: 'POST',
       body: JSON.stringify(params),
       cache: 'no-store'
-    }).then(function(res) {
-      if (btResultsHeader) btResultsHeader.style.display = '';
-      if (btKpiGrid) btKpiGrid.style.display = '';
-
-      var roiVal = res.roi == null ? 0 : Number(res.roi);
-      btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
-      btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
-      btTotalReturn.textContent = fmt(res.totalReturn);
-      if (res.totalReturn != null) btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
-      btTrades.textContent = fmt(res.tradesCount);
-
-      var wr = res.winRate == null ? 0 : Number(res.winRate);
-      btWinRate.textContent = wr.toFixed(1) + '%';
-      if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
-      if (btWinRateCircle) {
-        var circleFg = btWinRateCircle.querySelector('.circle-fg');
-        if (circleFg) {
-          var c = 2 * Math.PI * 25;
-          circleFg.style.strokeDasharray = c;
-          circleFg.style.strokeDashoffset = c * (1 - wr / 100);
-        }
+    }).then(function(startRes) {
+      if (!startRes || !startRes.jobId) {
+        throw new Error('Failed to start async backtest');
       }
-      if (btFinalCapital) {
-        var initialCap = parseNum(el('btCapital').value);
-        var finalCap = initialCap + (res.totalReturn || 0);
-        btFinalCapital.textContent = fmt(Math.round(finalCap));
-      }
+      var jobId = startRes.jobId;
 
-      var trades = res.trades || [];
-      var tpCount = 0, slCount = 0, patternCount = 0;
-      for (var ti = 0; ti < trades.length; ti++) {
-        var t = trades[ti];
-        if (t.action === 'SELL' || t.action === 'sell') {
-          var ot = (t.orderType || t.patternType || '').toUpperCase();
-          if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
-          else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
-          else patternCount++;
-        }
+      function pollResult() {
+        req('/api/backtest/async-result/' + jobId, { method: 'GET' }).then(function(pollRes) {
+          if (pollRes && pollRes.status === 'running') {
+            setTimeout(pollResult, 3000);
+            return;
+          }
+          hideLoading();
+          if (pollRes && pollRes.status === 'error') {
+            setError(pollRes.message || 'Opening backtest failed');
+            btRun.disabled = false;
+            btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+            return;
+          }
+          displayOpeningResult(pollRes, markets);
+          btRun.disabled = false;
+          btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+        }).catch(function(err) {
+          hideLoading();
+          setError(err.message || 'Failed to fetch backtest result');
+          btRun.disabled = false;
+          btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+        });
       }
-      var distTotal = Math.max(tpCount + slCount + patternCount, 1);
-      if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
-      if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
-      if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
-      if (btDistTpCount) btDistTpCount.textContent = tpCount;
-      if (btDistSlCount) btDistSlCount.textContent = slCount;
-      if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
-
-      if (btResultsBadge) {
-        btResultsBadge.textContent = 'Opening | ' + (res.candleUnitMin || 5) + 'min | ' + markets.join(',');
-        btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
-        btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
-        btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
-        btResultsBadge.style.display = '';
-      }
-
-      logs = trades;
-      page = 1;
-      render();
-      renderEquityCurve(trades, parseNum(el('btCapital').value));
+      setTimeout(pollResult, 3000);
 
     }).catch(function(err) {
+      hideLoading();
       setError(err.message || 'Opening backtest failed');
-    }).then(function() {
       btRun.disabled = false;
+      btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
     });
+  }
+
+  function displayOpeningResult(res, markets) {
+    if (btResultsHeader) btResultsHeader.style.display = '';
+    if (btKpiGrid) btKpiGrid.style.display = '';
+
+    var roiVal = res.roi == null ? 0 : Number(res.roi);
+    btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
+    btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+    btTotalReturn.textContent = fmt(res.totalReturn);
+    if (res.totalReturn != null) btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+    btTrades.textContent = fmt(res.tradesCount);
+
+    var wr = res.winRate == null ? 0 : Number(res.winRate);
+    btWinRate.textContent = wr.toFixed(1) + '%';
+    if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
+    if (btWinRateCircle) {
+      var circleFg = btWinRateCircle.querySelector('.circle-fg');
+      if (circleFg) {
+        var c = 2 * Math.PI * 25;
+        circleFg.style.strokeDasharray = c;
+        circleFg.style.strokeDashoffset = c * (1 - wr / 100);
+      }
+    }
+    if (btFinalCapital) {
+      var initialCap = parseNum(el('btCapital').value);
+      var finalCap = initialCap + (res.totalReturn || 0);
+      btFinalCapital.textContent = fmt(Math.round(finalCap));
+    }
+
+    var trades = res.trades || [];
+    var tpCount = 0, slCount = 0, patternCount = 0;
+    for (var ti = 0; ti < trades.length; ti++) {
+      var t = trades[ti];
+      if (t.action === 'SELL' || t.action === 'sell') {
+        var ot = (t.orderType || t.patternType || '').toUpperCase();
+        if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
+        else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
+        else patternCount++;
+      }
+    }
+    var distTotal = Math.max(tpCount + slCount + patternCount, 1);
+    if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
+    if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
+    if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
+    if (btDistTpCount) btDistTpCount.textContent = tpCount;
+    if (btDistSlCount) btDistSlCount.textContent = slCount;
+    if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
+
+    if (btResultsBadge) {
+      btResultsBadge.textContent = 'Opening | ' + (res.candleUnitMin || 5) + 'min | ' + markets.join(',');
+      btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
+      btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+      btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
+      btResultsBadge.style.display = '';
+    }
+
+    logs = trades;
+    page = 1;
+    render();
+    renderEquityCurve(trades, parseNum(el('btCapital').value));
   }
 
 })();

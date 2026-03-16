@@ -87,6 +87,7 @@ public class OpeningScannerApiController {
         if (body.containsKey("btcEmaPeriod")) cfg.setBtcEmaPeriod(toInt(body.get("btcEmaPeriod"), 20));
         if (body.containsKey("volumeMult")) cfg.setVolumeMult(toBD(body.get("volumeMult")));
         if (body.containsKey("minBodyRatio")) cfg.setMinBodyRatio(toBD(body.get("minBodyRatio")));
+        if (body.containsKey("excludeMarkets")) cfg.setExcludeMarkets(String.valueOf(body.get("excludeMarkets")));
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
@@ -137,6 +138,7 @@ public class OpeningScannerApiController {
         m.put("btcEmaPeriod", cfg.getBtcEmaPeriod());
         m.put("volumeMult", cfg.getVolumeMult());
         m.put("minBodyRatio", cfg.getMinBodyRatio());
+        m.put("excludeMarkets", cfg.getExcludeMarkets());
         return m;
     }
 

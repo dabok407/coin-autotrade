@@ -6,6 +6,8 @@ import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.market.UpbitMarketCatalogService;
 import com.example.upbit.strategy.*;
 import com.example.upbit.trade.LiveOrderService;
+import com.example.upbit.upbit.UpbitAccount;
+import com.example.upbit.upbit.UpbitPrivateClient;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,7 @@ public class OpeningScannerService {
     private final CandleService candleService;
     private final UpbitMarketCatalogService catalogService;
     private final LiveOrderService liveOrders;
+    private final UpbitPrivateClient privateClient;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ScheduledExecutorService scheduler;
@@ -53,13 +56,15 @@ public class OpeningScannerService {
                                   TradeRepository tradeLogRepo,
                                   CandleService candleService,
                                   UpbitMarketCatalogService catalogService,
-                                  LiveOrderService liveOrders) {
+                                  LiveOrderService liveOrders,
+                                  UpbitPrivateClient privateClient) {
         this.configRepo = configRepo;
         this.positionRepo = positionRepo;
         this.tradeLogRepo = tradeLogRepo;
         this.candleService = candleService;
         this.catalogService = catalogService;
         this.liveOrders = liveOrders;
+        this.privateClient = privateClient;
     }
 
     // ========== Start / Stop ==========
@@ -190,7 +195,29 @@ public class OpeningScannerService {
         }
         activePositions = scannerPosCount;
 
-        // 거래대금 상위 N개 마켓 조회 (기존 보유 코인 제외)
+        // LIVE 모드: 업비트 실제 계좌 보유 코인 조회하여 제외
+        if ("LIVE".equalsIgnoreCase(cfg.getMode()) && privateClient.isConfigured()) {
+            try {
+                List<UpbitAccount> accounts = privateClient.getAccounts();
+                if (accounts != null) {
+                    for (UpbitAccount a : accounts) {
+                        if ("KRW".equals(a.currency)) continue; // 원화 제외
+                        BigDecimal bal = a.balanceAsBigDecimal().add(a.lockedAsBigDecimal());
+                        if (bal.compareTo(BigDecimal.ZERO) > 0) {
+                            ownedMarkets.add("KRW-" + a.currency);
+                        }
+                    }
+                }
+                log.debug("[OpeningScanner] LIVE 보유코인 제외 목록: {}", ownedMarkets);
+            } catch (Exception e) {
+                log.warn("[OpeningScanner] 업비트 잔고 조회 실패, position table만 사용", e);
+            }
+        }
+
+        // 설정에서 수동 제외 마켓 추가 (추가 안전장치)
+        ownedMarkets.addAll(cfg.getExcludeMarketsSet());
+
+        // 거래대금 상위 N개 마켓 조회 (기존 보유 코인 + 제외 마켓 제외)
         List<String> topMarkets = getTopMarketsByVolume(cfg.getTopN(), ownedMarkets);
         lastScannedMarkets = topMarkets;
         scanCount = topMarkets.size();

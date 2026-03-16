@@ -175,7 +175,7 @@
 
         <!-- Row 4: Scan/Filter -->
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Scan &amp; Filter</div>
-        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:8px">
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
             <label>Top N <span class="help-icon" data-tooltip="거래대금 상위 N개 코인을 스캔합니다.&#10;매 틱마다 실시간 거래대금 기준으로 선정" aria-label="Top N help"></span></label>
             <input class="input" type="number" id="scTopN" value="15" min="1" max="50"/>
@@ -195,6 +195,15 @@
           <div class="config-field">
             <label>Min Body % <span class="help-icon" data-tooltip="진입 조건: 캔들 몸통 비율 최소값&#10;예: 0.40 = 전체 캔들 길이의 40% 이상 몸통" aria-label="Min body help"></span></label>
             <input class="input" type="number" id="scBodyRatio" value="0.40" step="0.05" min="0" max="1"/>
+          </div>
+        </div>
+
+        <!-- Row 5: Exclude Markets -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Exclude Markets</div>
+        <div style="margin-bottom:8px">
+          <div class="config-field">
+            <label>제외 마켓 <span class="help-icon" data-tooltip="스캐너가 절대 매수하지 않을 마켓 목록&#10;현재 보유 중인 코인을 입력하세요.&#10;콤마(,)로 구분. 예: KRW-BTC,KRW-XRP,KRW-DOGE" aria-label="Exclude markets help"></span></label>
+            <input class="input" type="text" id="scExcludeMarkets" value="" placeholder="KRW-BTC,KRW-XRP,KRW-DOGE" style="width:100%"/>
           </div>
         </div>
       </div>

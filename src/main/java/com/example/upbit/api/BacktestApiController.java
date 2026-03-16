@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @RequestMapping("/api/backtest")
@@ -17,6 +19,10 @@ public class BacktestApiController {
     private final BacktestService backtestService;
     private final CandleCacheService candleCacheService;
     private final BatchOptimizationService optimizationService;
+
+    // Async backtest storage: jobId -> "running" | BacktestResponse | error message
+    private final ConcurrentHashMap<String, Object> asyncJobs = new ConcurrentHashMap<String, Object>();
+    private final AtomicLong jobSeq = new AtomicLong(0);
 
     public BacktestApiController(BacktestService backtestService,
                                   CandleCacheService candleCacheService,
@@ -33,6 +39,61 @@ public class BacktestApiController {
                 .cacheControl(CacheControl.noStore())
                 .header("Pragma", "no-cache")
                 .body(body);
+    }
+
+    // ===== Async backtest (for long-running opening strategy backtests) =====
+
+    @PostMapping("/run-async")
+    public ResponseEntity<Map<String, Object>> runAsync(@RequestBody final BacktestRequest req) {
+        final String jobId = "bt-" + System.currentTimeMillis() + "-" + jobSeq.incrementAndGet();
+        asyncJobs.put(jobId, "running");
+
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    BacktestResponse body = backtestService.run(req);
+                    asyncJobs.put(jobId, body);
+                } catch (Exception e) {
+                    asyncJobs.put(jobId, "error:" + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+                }
+            }
+        }, "async-backtest-" + jobId);
+        t.setDaemon(true);
+        t.start();
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("status", "started");
+        result.put("jobId", jobId);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/async-result/{jobId}")
+    public ResponseEntity<Object> asyncResult(@PathVariable String jobId) {
+        Object val = asyncJobs.get(jobId);
+        if (val == null) {
+            Map<String, Object> result = new LinkedHashMap<String, Object>();
+            result.put("status", "not_found");
+            return ResponseEntity.status(404).body((Object) result);
+        }
+        if ("running".equals(val)) {
+            Map<String, Object> result = new LinkedHashMap<String, Object>();
+            result.put("status", "running");
+            result.put("jobId", jobId);
+            return ResponseEntity.ok((Object) result);
+        }
+        if (val instanceof String && ((String) val).startsWith("error:")) {
+            asyncJobs.remove(jobId);
+            Map<String, Object> result = new LinkedHashMap<String, Object>();
+            result.put("status", "error");
+            result.put("message", ((String) val).substring(6));
+            return ResponseEntity.ok((Object) result);
+        }
+        // Completed: return BacktestResponse and clean up
+        asyncJobs.remove(jobId);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Pragma", "no-cache")
+                .body(val);
     }
 
     // ===== 캔들 캐시 API =====

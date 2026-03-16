@@ -818,6 +818,7 @@
       if (el('scBtcFilter')) el('scBtcFilter').value = String(cfg.btcFilterEnabled !== false);
       if (el('scVolMult')) el('scVolMult').value = cfg.volumeMult || 1.5;
       if (el('scBodyRatio')) el('scBodyRatio').value = cfg.minBodyRatio || 0.40;
+      if (el('scExcludeMarkets')) el('scExcludeMarkets').value = cfg.excludeMarkets || '';
     } catch(e) {
       console.warn('Scanner config load failed:', e);
     }
@@ -850,7 +851,8 @@
       maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
       btcFilterEnabled: (el('scBtcFilter') ? el('scBtcFilter').value : 'true') === 'true',
       volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
-      minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40
+      minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40,
+      excludeMarkets: el('scExcludeMarkets') ? el('scExcludeMarkets').value.trim() : ''
     };
 
     await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
