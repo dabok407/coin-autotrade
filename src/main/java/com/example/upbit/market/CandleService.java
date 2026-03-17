@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.*;
+import java.util.concurrent.Semaphore;
 
 @Service
 public class CandleService {
@@ -18,6 +19,14 @@ public class CandleService {
      * 이 외의 값을 보내면 400 "specified unit is not valid." 에러 발생.
      */
     private static final int[] VALID_UNITS = {1, 3, 5, 10, 15, 30, 60, 240};
+
+    /**
+     * 글로벌 API 호출 속도 제한: 동시 요청 수를 제한하여 429 방지.
+     * 업비트 Quotation API: 초당 ~10회 제한 → 동시 4개로 안전하게 운용.
+     * (병렬 스레드가 동시에 API를 호출하더라도 이 Semaphore를 거쳐야 함)
+     */
+    private static final Semaphore API_THROTTLE = new Semaphore(4);
+    private static final long MIN_API_INTERVAL_MS = 120; // 최소 호출 간격
 
     private final RestTemplate restTemplate;
 
@@ -56,7 +65,14 @@ public class CandleService {
     final int maxRetries = 5;
     for (int attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            return restTemplate.getForObject(url, type);
+            API_THROTTLE.acquire();
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("API throttle interrupted", ie);
+        }
+        try {
+            UpbitCandle[] result = restTemplate.getForObject(url, type);
+            return result;
         } catch (HttpClientErrorException e) {
             last = e;
             HttpStatus sc = e.getStatusCode();
@@ -69,10 +85,27 @@ public class CandleService {
             // network IO timeout, connection reset, etc.
             last = e;
             sleepBackoff(attempt);
+        } finally {
+            // 최소 호출 간격 보장 후 permit 반환 (다음 호출 간 딜레이)
+            schedulePermitRelease();
         }
     }
     if (last instanceof RuntimeException) throw (RuntimeException) last;
     throw new RuntimeException(last);
+}
+
+/**
+ * Semaphore permit을 MIN_API_INTERVAL_MS 이후에 반환하여 호출 간격을 보장한다.
+ * 별도 스레드로 반환하므로 현재 스레드는 블로킹되지 않는다.
+ */
+private void schedulePermitRelease() {
+    final long delay = MIN_API_INTERVAL_MS;
+    new Thread(new Runnable() {
+        public void run() {
+            try { Thread.sleep(delay); } catch (InterruptedException ignore) {}
+            API_THROTTLE.release();
+        }
+    }, "api-throttle-release").start();
 }
 
 private void sleepBackoff(int attempt) {

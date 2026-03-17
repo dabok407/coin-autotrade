@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 
@@ -236,57 +237,113 @@ public class BacktestService {
         }
         for (StrategyType t : stypes) res.strategies.add(t.name());
 
-        // ===== 멀티 인터벌 캔들 조회: 캐시 우선, 없으면 API 조회 =====
-        Map<String, Map<Integer, List<UpbitCandle>>> candlesByMI = new HashMap<String, Map<Integer, List<UpbitCandle>>>();
-        int totalCandleCount = 0;
+        // ===== 멀티 인터벌 캔들 조회: 캐시 우선, 없으면 API 조회 (마켓별 병렬) =====
+        final Map<String, Map<Integer, List<UpbitCandle>>> candlesByMI = new ConcurrentHashMap<String, Map<Integer, List<UpbitCandle>>>();
+        final int totalDays = days;
+        final String reqFromDate = req.fromDate;
+        final String reqToDate = req.toDate;
 
-        for (String m : markets) {
-            Map<Integer, List<UpbitCandle>> byInterval = new HashMap<Integer, List<UpbitCandle>>();
-            for (int intv : allIntervals) {
-                List<UpbitCandle> cs = null;
+        // 백테스트 전용 스레드풀: 마켓별 병렬 페칭 (API Semaphore가 초당 호출수 제한)
+        int poolSize = Math.min(4, markets.size());
+        ExecutorService fetchPool = Executors.newFixedThreadPool(poolSize,
+                new ThreadFactory() {
+                    private int n = 0;
+                    public Thread newThread(Runnable r) {
+                        Thread t = new Thread(r, "bt-candle-fetch-" + (n++));
+                        t.setDaemon(true);
+                        return t;
+                    }
+                });
 
-                // 1) 캐시 우선 조회
-                if (candleCacheService.hasCachedData(m, intv)) {
-                    List<UpbitCandle> cached = candleCacheService.getCached(m, intv);
-                    if (cached != null && !cached.isEmpty()) {
-                        // 날짜 범위 필터링
-                        if (req.fromDate != null && req.toDate != null
-                                && !req.fromDate.trim().isEmpty() && !req.toDate.trim().isEmpty()) {
-                            String fromUtc = toUpbitUtcIsoStart(req.fromDate.trim());
-                            String toUtcExclusive = toUpbitUtcIsoExclusive(req.toDate.trim());
-                            List<UpbitCandle> filtered = new ArrayList<UpbitCandle>();
-                            for (UpbitCandle c : cached) {
-                                if (c.candle_date_time_utc == null) continue;
-                                if (c.candle_date_time_utc.compareTo(fromUtc) >= 0
-                                        && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
-                                    filtered.add(c);
+        List<Future<?>> futures = new ArrayList<Future<?>>();
+        for (final String m : markets) {
+            futures.add(fetchPool.submit(new Callable<Void>() {
+                public Void call() {
+                    Map<Integer, List<UpbitCandle>> byInterval = new HashMap<Integer, List<UpbitCandle>>();
+                    for (int intv : allIntervals) {
+                        List<UpbitCandle> cs = null;
+
+                        // 1) 캐시 우선 조회
+                        if (candleCacheService.hasCachedData(m, intv)) {
+                            List<UpbitCandle> cached = candleCacheService.getCached(m, intv);
+                            if (cached != null && !cached.isEmpty()) {
+                                if (reqFromDate != null && reqToDate != null
+                                        && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
+                                    String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
+                                    String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
+                                    List<UpbitCandle> filtered = new ArrayList<UpbitCandle>();
+                                    for (UpbitCandle c : cached) {
+                                        if (c.candle_date_time_utc == null) continue;
+                                        if (c.candle_date_time_utc.compareTo(fromUtc) >= 0
+                                                && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
+                                            filtered.add(c);
+                                        }
+                                    }
+                                    cs = filtered;
+                                } else {
+                                    cs = cached;
                                 }
+                                log.debug("캐시 사용: {} {}분 → {}건", m, intv, cs.size());
                             }
-                            cs = filtered;
-                        } else {
-                            cs = cached;
                         }
-                        log.debug("캐시 사용: {} {}분 → {}건", m, intv, cs.size());
-                    }
-                }
 
-                // 2) 캐시에 없으면 API 조회
-                if (cs == null || cs.isEmpty()) {
-                    if (req.fromDate != null && req.toDate != null
-                            && !req.fromDate.trim().isEmpty() && !req.toDate.trim().isEmpty()) {
-                        String fromUtc = toUpbitUtcIsoStart(req.fromDate.trim());
-                        String toUtcExclusive = toUpbitUtcIsoExclusive(req.toDate.trim());
-                        cs = candleService.fetchBetweenUtc(m, intv, fromUtc, toUtcExclusive);
-                    } else {
-                        cs = candleService.fetchLookback(m, intv, days);
-                    }
-                }
+                        // 2) 캐시에 없으면 API 조회
+                        if (cs == null || cs.isEmpty()) {
+                            if (reqFromDate != null && reqToDate != null
+                                    && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
+                                String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
+                                String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
+                                cs = candleService.fetchBetweenUtc(m, intv, fromUtc, toUtcExclusive);
+                            } else {
+                                cs = candleService.fetchLookback(m, intv, totalDays);
+                            }
+                        }
 
-                if (cs == null) cs = new ArrayList<UpbitCandle>();
-                byInterval.put(intv, cs);
-                totalCandleCount += cs.size();
+                        if (cs == null) cs = new ArrayList<UpbitCandle>();
+                        byInterval.put(intv, cs);
+                    }
+                    candlesByMI.put(m, byInterval);
+                    return null;
+                }
+            }));
+        }
+
+        // 모든 마켓 페칭 완료 대기
+        fetchPool.shutdown();
+        try {
+            // 최대 10분 대기 (장기간 백테스트 고려)
+            if (!fetchPool.awaitTermination(10, TimeUnit.MINUTES)) {
+                fetchPool.shutdownNow();
+                throw new RuntimeException("캔들 페칭 시간 초과 (10분)");
             }
-            candlesByMI.put(m, byInterval);
+        } catch (InterruptedException ie) {
+            fetchPool.shutdownNow();
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("캔들 페칭 중단됨", ie);
+        }
+
+        // Future 예외 전파
+        for (Future<?> f : futures) {
+            try {
+                f.get();
+            } catch (ExecutionException ee) {
+                Throwable cause = ee.getCause();
+                if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+                throw new RuntimeException("캔들 페칭 실패", cause);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("캔들 페칭 중단됨", ie);
+            }
+        }
+
+        int totalCandleCount = 0;
+        for (String m : markets) {
+            Map<Integer, List<UpbitCandle>> byInterval = candlesByMI.get(m);
+            if (byInterval != null) {
+                for (List<UpbitCandle> cs : byInterval.values()) {
+                    totalCandleCount += cs.size();
+                }
+            }
             res.markets.add(m);
         }
         res.candleCount = totalCandleCount;

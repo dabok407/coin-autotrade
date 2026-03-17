@@ -73,38 +73,47 @@
       <div id="apiTestResult" style="display:none;margin-top:12px;padding:12px 16px;border-radius:8px;border:1px solid var(--border);font-size:13px;line-height:1.6;white-space:pre-wrap;background:rgba(0,0,0,0.15)"></div>
     </div>
 
-    <!-- ── Strategy Groups ── -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px">
-        Strategy Groups
-        <span class="help-icon" data-tooltip="Strategy Groups: 코인 그룹별로 독립적인 전략/리스크 설정이 가능합니다.&#10;&#10;각 그룹은 자체 마켓, 전략, TP/SL, 인터벌 등을 설정합니다.&#10;마켓은 하나의 그룹에만 소속 가능합니다 (상호 배제).&#10;&#10;예시:&#10;- Group 1: SOL+ETH with EMA_RSI_TREND, TP3/SL2, minConf 8&#10;- Group 2: BTC+ADA with REGIME_PULLBACK, TP3/SL2, minConf 6" aria-label="Strategy groups help"></span>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" id="importFromBt" type="button" style="font-size:12px;padding:6px 12px;background:rgba(43,118,255,.12);border:1px solid rgba(43,118,255,.3);color:var(--primary);border-radius:8px;cursor:pointer">&#x1F4E5; 백테스트에서 불러오기</button>
-        <button class="btn primary" id="addGroupBtn" type="button" style="font-size:12px;padding:6px 16px">+ 그룹 추가</button>
-      </div>
-    </div>
-    <div class="strategy-groups" id="groupsContainer">
-      <!-- Group cards rendered by JS -->
+    <!-- ── Strategy Tabs ── -->
+    <div class="bt-tabs">
+      <div class="bt-tab active" data-tab="basic">&#x1F4CA; 기본 전략</div>
+      <div class="bt-tab" data-tab="opening">&#x1F305; 오프닝 전략</div>
     </div>
 
-    <!-- ── Opening Scanner Settings ── -->
-    <div class="card" style="margin-top:32px;margin-bottom:24px">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-        <div class="card-title">
-          <div class="card-icon" style="background:rgba(255,165,0,.15);color:#ffa500">&#x1F305;</div>
-          Opening Scanner Settings
+    <!-- Tab: 기본 전략 -->
+    <div class="settings-tab-content" id="settingsTabBasic">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px">
+          Strategy Groups
+          <span class="help-icon" data-tooltip="Strategy Groups: 코인 그룹별로 독립적인 전략/리스크 설정이 가능합니다.&#10;&#10;각 그룹은 자체 마켓, 전략, TP/SL, 인터벌 등을 설정합니다.&#10;마켓은 하나의 그룹에만 소속 가능합니다 (상호 배제).&#10;&#10;예시:&#10;- Group 1: SOL+ETH with EMA_RSI_TREND, TP3/SL2, minConf 8&#10;- Group 2: BTC+ADA with REGIME_PULLBACK, TP3/SL2, minConf 6" aria-label="Strategy groups help"></span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:12px;color:var(--text-muted)">Enabled</span>
-          <button class="bot-toggle" id="scannerEnabledToggle" aria-pressed="false" style="width:100px">
-            <span class="bot-toggle-knob"></span>
-            <span class="bot-toggle-label">OFF</span>
-          </button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="importFromBt" type="button" style="font-size:12px;padding:6px 12px;background:rgba(43,118,255,.12);border:1px solid rgba(43,118,255,.3);color:var(--primary);border-radius:8px;cursor:pointer">&#x1F4E5; 백테스트에서 불러오기</button>
+          <button class="btn primary" id="addGroupBtn" type="button" style="font-size:12px;padding:6px 16px">+ 그룹 추가</button>
         </div>
       </div>
+      <div class="strategy-groups" id="groupsContainer">
+        <!-- Group cards rendered by JS -->
+      </div>
+    </div>
 
-      <div style="padding:16px 20px">
+    <!-- Tab: 오프닝 전략 -->
+    <div class="settings-tab-content" id="settingsTabOpening" style="display:none">
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+          <div class="card-title">
+            <div class="card-icon" style="background:rgba(255,165,0,.15);color:#ffa500">&#x1F305;</div>
+            Opening Scanner Settings
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--text-muted)">Enabled</span>
+            <button class="bot-toggle" id="scannerEnabledToggle" aria-pressed="false" style="width:100px">
+              <span class="bot-toggle-knob"></span>
+              <span class="bot-toggle-label">OFF</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="padding:16px 20px">
         <!-- Row 1: Mode, Capital, Order Sizing -->
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
@@ -208,6 +217,7 @@
         </div>
       </div>
     </div>
+    </div><!-- /settingsTabOpening -->
 
     <!-- ── Apply Button ── -->
     <div class="run-section" style="margin-top:32px;margin-bottom:0">

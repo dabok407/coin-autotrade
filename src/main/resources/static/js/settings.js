@@ -45,6 +45,24 @@
     }
   });
 
+  // ── Tab Switching ──
+  var settingsTabs = document.querySelectorAll('.bt-tab');
+  var settingsTabBasic = document.getElementById('settingsTabBasic');
+  var settingsTabOpening = document.getElementById('settingsTabOpening');
+
+  for (var ti = 0; ti < settingsTabs.length; ti++) {
+    (function(tab) {
+      tab.addEventListener('click', function() {
+        var target = tab.getAttribute('data-tab');
+        for (var j = 0; j < settingsTabs.length; j++) {
+          settingsTabs[j].classList.toggle('active', settingsTabs[j].getAttribute('data-tab') === target);
+        }
+        if (settingsTabBasic) settingsTabBasic.style.display = (target === 'basic') ? '' : 'none';
+        if (settingsTabOpening) settingsTabOpening.style.display = (target === 'opening') ? '' : 'none';
+      });
+    })(settingsTabs[ti]);
+  }
+
   // ── Init ──
   AutoTrade.initTheme();
 
