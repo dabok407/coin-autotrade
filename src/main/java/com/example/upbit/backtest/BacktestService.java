@@ -405,6 +405,53 @@ public class BacktestService {
                             .withFilters(op.volumeMult, op.minBodyRatio);
             effectiveFactory = strategyFactory.withOverride(
                     com.example.upbit.strategy.StrategyType.SCALP_OPENING_BREAK, customOpening);
+
+            // BTC 방향 필터: 백테스트용 BTC 캔들 사전 조회
+            if (op.btcFilterEnabled) {
+                params.btcFilterEnabled = true;
+                params.btcEmaPeriod = Math.max(5, op.btcEmaPeriod);
+                try {
+                    List<com.example.upbit.market.UpbitCandle> btcCandles = null;
+                    // 캐시 우선 조회
+                    if (candleCacheService.hasCachedData("KRW-BTC", unit)) {
+                        btcCandles = candleCacheService.getCached("KRW-BTC", unit);
+                        if (btcCandles != null && !btcCandles.isEmpty()
+                                && reqFromDate != null && reqToDate != null
+                                && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
+                            String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
+                            String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
+                            List<com.example.upbit.market.UpbitCandle> filtered =
+                                    new ArrayList<com.example.upbit.market.UpbitCandle>();
+                            for (com.example.upbit.market.UpbitCandle c : btcCandles) {
+                                if (c.candle_date_time_utc == null) continue;
+                                if (c.candle_date_time_utc.compareTo(fromUtc) >= 0
+                                        && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
+                                    filtered.add(c);
+                                }
+                            }
+                            btcCandles = filtered;
+                        }
+                    }
+                    // 캐시에 없으면 API 조회
+                    if (btcCandles == null || btcCandles.isEmpty()) {
+                        if (reqFromDate != null && reqToDate != null
+                                && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
+                            String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
+                            String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
+                            btcCandles = candleService.fetchBetweenUtc("KRW-BTC", unit, fromUtc, toUtcExclusive);
+                        } else {
+                            btcCandles = candleService.fetchLookback("KRW-BTC", unit, days);
+                        }
+                    }
+                    params.btcCandles = (btcCandles != null ? btcCandles
+                            : new ArrayList<com.example.upbit.market.UpbitCandle>());
+                    log.info("[Backtest] BTC filter enabled: EMA{}, {} BTC candles loaded",
+                            params.btcEmaPeriod, params.btcCandles.size());
+                } catch (Exception e) {
+                    log.warn("[Backtest] BTC candle fetch failed, filter disabled", e);
+                    params.btcFilterEnabled = false;
+                }
+            }
         }
 
         TradingEngine engine = new TradingEngine(effectiveFactory, strategyCfg, tradeProps);

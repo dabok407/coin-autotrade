@@ -2018,11 +2018,15 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
         }
     }
 
+    /**
+     * 전체 열린 포지션(기본 전략 + 오프닝 스캐너)의 총 투입금 계산.
+     * Global Capital을 공유하므로 모든 포지션을 카운트해야 한다.
+     */
     private double calcOpenCostBasis() {
         double sum = 0.0;
-        for (MarketConfigEntity mc : marketRepo.findAllByOrderByMarketAsc()) {
-            PositionEntity pe = positionRepo.findById(mc.getMarket()).orElse(null);
-            if (pe != null && bd(pe.getQty()) > 0) {
+        for (PositionEntity pe : positionRepo.findAll()) {
+            if (pe.getQty() != null && bd(pe.getQty()) > 0
+                    && pe.getAvgPrice() != null) {
                 sum += bd(pe.getQty()) * bd(pe.getAvgPrice());
             }
         }
@@ -2133,7 +2137,8 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
             int synced = 0;
             int skipped = 0;
 
-            // 1) 업비트에 있는데 봇 DB에 없으면 → 포지션 복구
+            // 1) 업비트에 있는데 봇 DB에 없으면 → 봇 매수 기록이 있는 경우에만 포지션 복구
+            //    ⚠ 중요: 사용자가 수동으로 보유 중인 코인은 절대 건드리지 않음
             for (Map.Entry<String, UpbitAccount> entry : upbitHoldings.entrySet()) {
                 String currency = entry.getKey();
                 UpbitAccount acct = entry.getValue();
@@ -2144,6 +2149,18 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
                 if (existing.isPresent()) {
                     log.info("[SYNC] {} 이미 봇 DB에 포지션 존재 → 스킵 (DB수량={}, DB평균가={})",
                             market, existing.get().getQty().toPlainString(), existing.get().getAvgPrice().toPlainString());
+                    skipped++;
+                    continue;
+                }
+
+                // ★ 핵심 안전장치: 봇이 직접 매수(BUY)한 기록이 있는 경우에만 포지션 복구
+                // 사용자가 수동으로 보유한 코인은 봇이 관리하지 않음
+                long botBuyCount = tradeRepo.countByMarketAndAction(market, "BUY");
+                long botBuySyncCount = tradeRepo.countByMarketAndAction(market, "BUY_SYNC");
+                if (botBuyCount == 0 && botBuySyncCount == 0) {
+                    log.warn("[SYNC] ⛔ {} 업비트에 보유 중이나 봇 매수 기록 없음 → 외부 보유 코인으로 판단, 스킵 " +
+                            "(수량={}, 평균가={}). 봇이 관리하려면 설정에서 수동 포지션 등록 필요.",
+                            market, acct.balance, acct.avg_buy_price);
                     skipped++;
                     continue;
                 }
@@ -2162,12 +2179,12 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
                 positionRepo.save(np);
                 synced++;
 
-                log.warn("[SYNC] ★ 포지션 복구: {} | 수량={} | 평균가={} | (업비트에 보유 중이나 봇 DB에 누락됨)",
-                        market, qty.toPlainString(), avgPrice.toPlainString());
+                log.warn("[SYNC] ★ 포지션 복구: {} | 수량={} | 평균가={} | (봇 매수 기록 확인됨, BUY={}건)",
+                        market, qty.toPlainString(), avgPrice.toPlainString(), botBuyCount);
 
                 // 거래 기록에도 남김
                 persist("LIVE", market, "BUY_SYNC", avgPrice.doubleValue(), qty.doubleValue(),
-                        0.0, 0.0, "업비트 보유자산에서 자동 복구 (avg_buy_price=" + avgPrice.toPlainString() + ")",
+                        0.0, 0.0, "업비트 보유자산에서 자동 복구 (avg_buy_price=" + avgPrice.toPlainString() + ", 봇 BUY 기록 " + botBuyCount + "건 확인)",
                         "POSITION_SYNC", "봇 DB 누락 포지션 복구");
             }
 

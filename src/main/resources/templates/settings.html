@@ -60,8 +60,9 @@
           </div>
         </div>
         <div class="config-field">
-          <label>Capital (KRW) <span class="help-icon" data-tooltip="자동매매에 사용할 총 자본금(원화)입니다.&#10;PCT 주문 모드에서 이 값의 비율만큼 주문합니다." aria-label="Capital help"></span></label>
+          <label>Capital (KRW) <span class="help-icon" data-tooltip="자동매매에 사용할 총 자본금(원화)입니다.&#10;PCT 주문 모드에서 이 값의 비율만큼 주문합니다.&#10;실제 업비트 잔고 이하로 설정해야 합니다." aria-label="Capital help"></span></label>
           <input class="input" type="text" id="capital" value="100,000"/>
+          <small id="balanceHint" style="color:#8899aa;font-size:11px;margin-top:2px;display:none">업비트 잔고: <span id="balanceAmt">-</span>원</small>
         </div>
         <div class="config-field">
           <label>API Key <span class="help-icon" data-tooltip="업비트 API 키 연결 상태를 테스트합니다.&#10;LIVE 모드 사용 시 API 키가 필요합니다." aria-label="API Key help"></span></label>
@@ -115,23 +116,23 @@
 
         <div style="padding:16px 20px">
         <!-- Row 1: Mode, Capital, Order Sizing -->
-        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
           <div class="config-field">
             <label>Mode <span class="help-icon" data-tooltip="PAPER: 모의매매 (실제 주문 없음)&#10;LIVE: 실거래 (업비트 실제 주문)" aria-label="Mode help"></span></label>
             <select class="select" id="scMode"><option value="PAPER" selected>PAPER</option><option value="LIVE">LIVE</option></select>
           </div>
           <div class="config-field">
-            <label>Capital (KRW) <span class="help-icon" data-tooltip="오프닝 스캐너 전용 자본금(원화)입니다.&#10;메인 봇 자본금과 별도로 운용됩니다." aria-label="Capital help"></span></label>
-            <input class="input" type="text" id="scCapital" value="100,000"/>
-          </div>
-          <div class="config-field">
-            <label>Order Sizing <span class="help-icon" data-tooltip="PCT: 자본금 대비 비율(%)로 주문&#10;FIXED: 고정 금액(KRW)으로 주문" aria-label="Order sizing help"></span></label>
+            <label>Order Sizing <span class="help-icon" data-tooltip="PCT: Global Capital 대비 비율(%)로 주문&#10;FIXED: 고정 금액(KRW)으로 주문" aria-label="Order sizing help"></span></label>
             <select class="select" id="scOrderMode"><option value="PCT" selected>PCT (%)</option><option value="FIXED">FIXED (KRW)</option></select>
           </div>
           <div class="config-field">
-            <label>Order Value <span class="help-icon" data-tooltip="PCT 모드: 자본금의 N% (예: 30 = 30%)&#10;FIXED 모드: 고정 주문 금액(KRW)" aria-label="Order value help"></span></label>
+            <label>Order Value <span class="help-icon" data-tooltip="PCT 모드: Global Capital의 N% (예: 30 = 30%)&#10;FIXED 모드: 고정 주문 금액(KRW)" aria-label="Order value help"></span></label>
             <input class="input" type="number" id="scOrderValue" value="30" step="1"/>
           </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">
+          Global Capital 공유 &mdash; 상단 Global Settings의 Capital (KRW) 한도 내에서 기본 전략과 함께 운용됩니다.
+          <span id="scGlobalCapDisplay" style="color:var(--accent)"></span>
         </div>
 
         <!-- Row 2: Timing -->

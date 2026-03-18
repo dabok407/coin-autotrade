@@ -175,6 +175,20 @@
               <input class="input" type="number" id="obVolMult" value="1.5" step="0.1"/>
             </div>
           </div>
+
+          <!-- BTC Filter -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">BTC Filter</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 2fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>BTC Filter <span class="help-icon" data-tooltip="BTC 방향 필터 (EMA 기준)&#10;ON: BTC가 EMA 위일 때만 롱 진입&#10;LIVE 모드와 동일한 필터입니다." aria-label="BTC filter help"></span></label>
+              <select class="select" id="obBtcFilter"><option value="true">ON</option><option value="false" selected>OFF</option></select>
+            </div>
+            <div class="config-field">
+              <label>EMA Period <span class="help-icon" data-tooltip="BTC EMA 기간&#10;BTC 방향 판단에 사용할 EMA 기간입니다." aria-label="help"></span></label>
+              <input class="input" type="number" id="obBtcEmaPeriod" value="20" min="5" max="200" step="1"/>
+            </div>
+            <div></div>
+          </div>
         </div>
       </div>
     </div>

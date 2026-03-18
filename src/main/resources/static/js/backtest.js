@@ -1592,6 +1592,8 @@
         if (e('obSlPct')) e('obSlPct').value = cfg.slPct || 10;
         if (e('obTrailAtr')) e('obTrailAtr').value = cfg.trailAtrMult || 0.8;
         if (e('obVolMult')) e('obVolMult').value = cfg.volumeMult || 1.5;
+        if (e('obBtcFilter')) e('obBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+        if (e('obBtcEmaPeriod')) e('obBtcEmaPeriod').value = cfg.btcEmaPeriod || 20;
         if (e('obCandleUnit')) e('obCandleUnit').value = String(cfg.candleUnitMin || 5);
         showToast('Scanner settings loaded', 'success');
       }).catch(function(err) {
@@ -1641,7 +1643,9 @@
         slPct: parseFloat(e('obSlPct') ? e('obSlPct').value : '10') || 10,
         trailAtrMult: parseFloat(e('obTrailAtr') ? e('obTrailAtr').value : '0.8') || 0.8,
         volumeMult: parseFloat(e('obVolMult') ? e('obVolMult').value : '1.5') || 1.5,
-        minBodyRatio: 0.40
+        minBodyRatio: 0.40,
+        btcFilterEnabled: (e('obBtcFilter') ? e('obBtcFilter').value : 'false') === 'true',
+        btcEmaPeriod: parseInt(e('obBtcEmaPeriod') ? e('obBtcEmaPeriod').value : '20') || 20
       }
     };
 

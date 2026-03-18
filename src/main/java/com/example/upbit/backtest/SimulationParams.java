@@ -31,6 +31,11 @@ public class SimulationParams {
     /** 인터벌별 전략 그룹: key=intervalMin, value=해당 인터벌에서 실행할 전략 목록 */
     public Map<Integer, List<StrategyType>> stratsByInterval;
 
+    /** BTC 방향 필터 (오프닝 전략 백테스트용) */
+    public boolean btcFilterEnabled;
+    public int btcEmaPeriod;
+    public List<com.example.upbit.market.UpbitCandle> btcCandles;
+
     /** 그룹 모드 여부 및 그룹별 설정 */
     public boolean hasGroups;
     public Map<String, MarketGroupSettings> marketGroupMap;

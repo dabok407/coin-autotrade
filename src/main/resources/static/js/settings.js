@@ -111,6 +111,20 @@
         if (capEl && status.capitalKrw) capEl.value = fmt(status.capitalKrw);
       }
 
+      // 업비트 실제 잔고 표시 (API 키가 설정된 경우)
+      try {
+        var keyResult = await req('/api/keys/test', { method: 'POST', body: '{}' });
+        if (keyResult && keyResult.krwBalance) {
+          var bal = parseFloat(keyResult.krwBalance) || 0;
+          var hint = document.getElementById('balanceHint');
+          var amt = document.getElementById('balanceAmt');
+          if (hint && amt) {
+            amt.textContent = fmt(bal);
+            hint.style.display = 'block';
+          }
+        }
+      } catch (e) { /* API 키 미설정 시 무시 */ }
+
       if (groups && groups.length > 0) {
         for (var i = 0; i < groups.length; i++) {
           addGroupCard(groups[i]);
@@ -819,8 +833,11 @@
       setScannerToggleUI(cfg.enabled);
       var el = function(id) { return document.getElementById(id); };
       if (el('scMode')) el('scMode').value = cfg.mode || 'PAPER';
-      if (el('scCapital')) el('scCapital').value = fmt(cfg.capitalKrw || 100000);
       if (el('scOrderMode')) el('scOrderMode').value = cfg.orderSizingMode || 'PCT';
+      // Global Capital 표시 (읽기 전용)
+      if (el('scGlobalCapDisplay') && cfg.globalCapitalKrw) {
+        el('scGlobalCapDisplay').textContent = '(현재 Capital: ' + fmt(cfg.globalCapitalKrw) + '원)';
+      }
       if (el('scOrderValue')) el('scOrderValue').value = cfg.orderSizingValue || 30;
       if (el('scRangeStart')) el('scRangeStart').value = fmtHHMM(cfg.rangeStartHour, cfg.rangeStartMin);
       if (el('scRangeEnd')) el('scRangeEnd').value = fmtHHMM(cfg.rangeEndHour, cfg.rangeEndMin);
@@ -853,7 +870,6 @@
     var body = {
       enabled: scEnabled,
       mode: el('scMode') ? el('scMode').value : 'PAPER',
-      capitalKrw: parseFloat(String(el('scCapital') ? el('scCapital').value : '100000').replace(/[,\s]/g, '')) || 100000,
       orderSizingMode: el('scOrderMode') ? el('scOrderMode').value : 'PCT',
       orderSizingValue: parseFloat(el('scOrderValue') ? el('scOrderValue').value : '30') || 30,
       rangeStartHour: rs[0], rangeStartMin: rs[1],

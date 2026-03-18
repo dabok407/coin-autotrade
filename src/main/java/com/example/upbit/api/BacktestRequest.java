@@ -72,6 +72,8 @@ public class BacktestRequest {
         public double trailAtrMult = 0.8;
         public double volumeMult = 1.5;
         public double minBodyRatio = 0.40;
+        public boolean btcFilterEnabled = false;
+        public int btcEmaPeriod = 20;
     }
 
     /**

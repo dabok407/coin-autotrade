@@ -70,15 +70,15 @@ public class OpeningScannerConfigEntity {
     @Column(name = "session_end_min", nullable = false)
     private int sessionEndMin = 0;
 
-    // ── 리스크 파라미터 ──
+    // ── 리스크 파라미터 (v2: 스캘핑 최적화) ──
     @Column(name = "tp_atr_mult", nullable = false, precision = 5, scale = 2)
-    private BigDecimal tpAtrMult = BigDecimal.valueOf(1.2);
+    private BigDecimal tpAtrMult = BigDecimal.valueOf(1.5);
 
     @Column(name = "sl_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal slPct = BigDecimal.valueOf(10.0);
+    private BigDecimal slPct = BigDecimal.valueOf(2.0);
 
     @Column(name = "trail_atr_mult", nullable = false, precision = 5, scale = 2)
-    private BigDecimal trailAtrMult = BigDecimal.valueOf(0.8);
+    private BigDecimal trailAtrMult = BigDecimal.valueOf(0.6);
 
     // ── 필터 ──
     @Column(name = "btc_filter_enabled", nullable = false)
@@ -91,7 +91,7 @@ public class OpeningScannerConfigEntity {
     private BigDecimal volumeMult = BigDecimal.valueOf(1.5);
 
     @Column(name = "min_body_ratio", nullable = false, precision = 5, scale = 2)
-    private BigDecimal minBodyRatio = BigDecimal.valueOf(0.40);
+    private BigDecimal minBodyRatio = BigDecimal.valueOf(0.45);
 
     @Column(name = "exclude_markets", length = 1000)
     private String excludeMarkets = "";
@@ -112,7 +112,11 @@ public class OpeningScannerConfigEntity {
     public int getMaxPositions() { return maxPositions; }
     public void setMaxPositions(int maxPositions) { this.maxPositions = Math.max(1, Math.min(15, maxPositions)); }
 
+    /** @deprecated v36: Global Capital(bot_config.capital_krw)로 통합됨. 이 필드는 더 이상 사용하지 않음. */
+    @Deprecated
     public BigDecimal getCapitalKrw() { return capitalKrw; }
+    /** @deprecated v36: Global Capital(bot_config.capital_krw)로 통합됨. */
+    @Deprecated
     public void setCapitalKrw(BigDecimal capitalKrw) { this.capitalKrw = capitalKrw != null ? capitalKrw : BigDecimal.valueOf(100000); }
 
     public String getOrderSizingMode() { return orderSizingMode; }
@@ -155,13 +159,13 @@ public class OpeningScannerConfigEntity {
     public void setSessionEndMin(int v) { this.sessionEndMin = v; }
 
     public BigDecimal getTpAtrMult() { return tpAtrMult; }
-    public void setTpAtrMult(BigDecimal v) { this.tpAtrMult = v != null ? v : BigDecimal.valueOf(1.2); }
+    public void setTpAtrMult(BigDecimal v) { this.tpAtrMult = v != null ? v : BigDecimal.valueOf(1.5); }
 
     public BigDecimal getSlPct() { return slPct; }
-    public void setSlPct(BigDecimal v) { this.slPct = v != null ? v : BigDecimal.valueOf(10.0); }
+    public void setSlPct(BigDecimal v) { this.slPct = v != null ? v : BigDecimal.valueOf(2.0); }
 
     public BigDecimal getTrailAtrMult() { return trailAtrMult; }
-    public void setTrailAtrMult(BigDecimal v) { this.trailAtrMult = v != null ? v : BigDecimal.valueOf(0.8); }
+    public void setTrailAtrMult(BigDecimal v) { this.trailAtrMult = v != null ? v : BigDecimal.valueOf(0.6); }
 
     public boolean isBtcFilterEnabled() { return btcFilterEnabled; }
     public void setBtcFilterEnabled(boolean btcFilterEnabled) { this.btcFilterEnabled = btcFilterEnabled; }
@@ -173,7 +177,7 @@ public class OpeningScannerConfigEntity {
     public void setVolumeMult(BigDecimal v) { this.volumeMult = v != null ? v : BigDecimal.valueOf(1.5); }
 
     public BigDecimal getMinBodyRatio() { return minBodyRatio; }
-    public void setMinBodyRatio(BigDecimal v) { this.minBodyRatio = v != null ? v : BigDecimal.valueOf(0.40); }
+    public void setMinBodyRatio(BigDecimal v) { this.minBodyRatio = v != null ? v : BigDecimal.valueOf(0.45); }
 
     public String getExcludeMarkets() { return excludeMarkets != null ? excludeMarkets : ""; }
     public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }

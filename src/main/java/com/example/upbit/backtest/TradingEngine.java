@@ -346,8 +346,16 @@ public class TradingEngine {
             String patternType = evalResult.patternType;
             String reason = evalResult.reason;
 
+            // ===== BTC 방향 필터: BTC close < EMA 이면 BUY 차단 =====
+            boolean btcBlocked = false;
+            if (params.btcFilterEnabled && params.btcCandles != null && !params.btcCandles.isEmpty()
+                    && (evalResult.signal.action == SignalAction.BUY)) {
+                btcBlocked = !checkBtcFilter(params.btcCandles, params.btcEmaPeriod,
+                        nextCur.candle_date_time_utc);
+            }
+
             // ===== BUY: 신규 포지션 진입 =====
-            if (evalResult.signal.action == SignalAction.BUY && !open) {
+            if (evalResult.signal.action == SignalAction.BUY && !open && !btcBlocked) {
                 if (effMinConfidence > 0 && evalResult.confidence < effMinConfidence) continue;
                 double orderKrw = effBaseOrderKrw;
                 if (orderKrw < tradeProps.getMinOrderKrw()) orderKrw = tradeProps.getMinOrderKrw();
@@ -381,7 +389,7 @@ public class TradingEngine {
             }
 
             // ===== Cross-strategy ADD_BUY: 다른 전략의 BUY -> 손실 중 ADD_BUY 전환 =====
-            if (evalResult.signal.action == SignalAction.BUY && open && mp.addBuys < effMaxAddBuys) {
+            if (evalResult.signal.action == SignalAction.BUY && open && !btcBlocked && mp.addBuys < effMaxAddBuys) {
                 double currentPnlPct = mp.avg > 0 ? ((close - mp.avg) / mp.avg) * 100.0 : 0;
                 if (currentPnlPct >= 0) continue; // 수익 중이면 스킵
 
@@ -500,6 +508,40 @@ public class TradingEngine {
         }
 
         return st;
+    }
+
+    // ===== BTC 방향 필터 (백테스트용) =====
+
+    /**
+     * BTC close >= EMA(period) 인지 확인.
+     * 현재 캔들 시각 이전까지의 BTC 캔들로 EMA를 계산한다.
+     *
+     * @param btcCandles 시간순 정렬된 BTC 캔들 리스트
+     * @param emaPeriod  EMA 기간
+     * @param curUtc     현재 캔들의 UTC 타임스탬프 (yyyy-MM-ddTHH:mm:ss)
+     * @return true면 롱 허용, false면 차단
+     */
+    private boolean checkBtcFilter(List<UpbitCandle> btcCandles, int emaPeriod, String curUtc) {
+        if (curUtc == null || btcCandles.isEmpty()) return true;
+
+        // 현재 타임스탬프 이하의 BTC 캔들만 수집
+        int endIdx = -1;
+        for (int i = btcCandles.size() - 1; i >= 0; i--) {
+            UpbitCandle bc = btcCandles.get(i);
+            if (bc.candle_date_time_utc != null && bc.candle_date_time_utc.compareTo(curUtc) <= 0) {
+                endIdx = i;
+                break;
+            }
+        }
+        if (endIdx < 0 || endIdx + 1 < emaPeriod) return true; // 데이터 부족 시 허용
+
+        // EMA 계산: 해당 시점까지의 캔들로 계산
+        List<UpbitCandle> window = btcCandles.subList(0, endIdx + 1);
+        double ema = com.example.upbit.strategy.Indicators.ema(window, emaPeriod);
+        if (Double.isNaN(ema)) return true;
+
+        double btcClose = btcCandles.get(endIdx).trade_price;
+        return btcClose >= ema;
     }
 
     // ===== 내부 클래스 =====

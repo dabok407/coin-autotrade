@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 독립 오프닝 레인지 돌파 스캐너.
  * 메인 TradingBotService와 별도로 on/off 운영.
  * 거래대금 상위 N개 코인을 스캔하여 오프닝 돌파 시 매수.
+ *
+ * v2: Decision Log 추가, KRW 잔고 사전확인, BTC 필터 로깅 강화
  */
 @Service
 public class OpeningScannerService {
@@ -34,6 +36,7 @@ public class OpeningScannerService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final OpeningScannerConfigRepository configRepo;
+    private final BotConfigRepository botConfigRepo;
     private final PositionRepository positionRepo;
     private final TradeRepository tradeLogRepo;
     private final CandleService candleService;
@@ -51,7 +54,12 @@ public class OpeningScannerService {
     private volatile List<String> lastScannedMarkets = Collections.emptyList();
     private volatile long lastTickEpochMs = 0;
 
+    // v2: Decision Log (대시보드에서 차단/실행 사유 확인용)
+    private static final int MAX_DECISION_LOG = 200;
+    private final Deque<ScannerDecision> decisionLog = new ArrayDeque<ScannerDecision>();
+
     public OpeningScannerService(OpeningScannerConfigRepository configRepo,
+                                  BotConfigRepository botConfigRepo,
                                   PositionRepository positionRepo,
                                   TradeRepository tradeLogRepo,
                                   CandleService candleService,
@@ -59,12 +67,68 @@ public class OpeningScannerService {
                                   LiveOrderService liveOrders,
                                   UpbitPrivateClient privateClient) {
         this.configRepo = configRepo;
+        this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
         this.tradeLogRepo = tradeLogRepo;
         this.candleService = candleService;
         this.catalogService = catalogService;
         this.liveOrders = liveOrders;
         this.privateClient = privateClient;
+    }
+
+    // ========== Decision Log ==========
+
+    public static class ScannerDecision {
+        public final long tsEpochMs;
+        public final String market;
+        public final String action;     // BUY, SELL, SKIP, BLOCKED
+        public final String result;     // EXECUTED, BLOCKED, SKIPPED, ERROR
+        public final String reasonCode; // BTC_FILTER, NO_SIGNAL, MAX_POS, INSUFFICIENT_KRW, etc.
+        public final String reasonKo;   // 한글 설명
+
+        public ScannerDecision(long ts, String market, String action, String result,
+                               String reasonCode, String reasonKo) {
+            this.tsEpochMs = ts;
+            this.market = market;
+            this.action = action;
+            this.result = result;
+            this.reasonCode = reasonCode;
+            this.reasonKo = reasonKo;
+        }
+
+        public Map<String, Object> toMap() {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("tsEpochMs", tsEpochMs);
+            m.put("market", market);
+            m.put("action", action);
+            m.put("result", result);
+            m.put("reasonCode", reasonCode);
+            m.put("reasonKo", reasonKo);
+            return m;
+        }
+    }
+
+    private void addDecision(String market, String action, String result,
+                              String reasonCode, String reasonKo) {
+        ScannerDecision d = new ScannerDecision(
+                System.currentTimeMillis(), market, action, result, reasonCode, reasonKo);
+        synchronized (decisionLog) {
+            decisionLog.addFirst(d);
+            while (decisionLog.size() > MAX_DECISION_LOG) decisionLog.removeLast();
+        }
+    }
+
+    public List<Map<String, Object>> getRecentDecisions(int limit) {
+        List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+        synchronized (decisionLog) {
+            int count = 0;
+            for (ScannerDecision d : decisionLog) {
+                if (count >= limit) break;
+                list.add(d.toMap());
+                count++;
+            }
+        }
+        return list;
     }
 
     // ========== Start / Stop ==========
@@ -165,6 +229,18 @@ public class OpeningScannerService {
         statusText = "SCANNING";
         lastTickEpochMs = System.currentTimeMillis();
 
+        String mode = cfg.getMode();
+        boolean isLive = "LIVE".equalsIgnoreCase(mode);
+
+        // v2: LIVE 모드 API 키 사전 확인
+        if (isLive && !liveOrders.isConfigured()) {
+            statusText = "ERROR (API key)";
+            addDecision("*", "TICK", "BLOCKED", "API_KEY_MISSING",
+                    "LIVE 모드인데 업비트 API 키가 설정되지 않았습니다.");
+            log.error("[OpeningScanner] LIVE 모드인데 업비트 API 키가 없습니다.");
+            return;
+        }
+
         // 전략 인스턴스 생성 (파라미터 오버라이드)
         ScalpOpeningBreakStrategy strategy = new ScalpOpeningBreakStrategy()
                 .withTiming(cfg.getRangeStartHour(), cfg.getRangeStartMin(),
@@ -195,13 +271,18 @@ public class OpeningScannerService {
         }
         activePositions = scannerPosCount;
 
-        // LIVE 모드: 업비트 실제 계좌 보유 코인 조회하여 제외
-        if ("LIVE".equalsIgnoreCase(cfg.getMode()) && privateClient.isConfigured()) {
+        // LIVE 모드: 업비트 실제 계좌 조회 (1회만 호출, 보유코인 제외 + KRW 잔고 확인에 재사용)
+        List<UpbitAccount> cachedAccounts = null;
+        double availableKrw = Double.MAX_VALUE;
+        if (isLive && privateClient.isConfigured()) {
             try {
-                List<UpbitAccount> accounts = privateClient.getAccounts();
-                if (accounts != null) {
-                    for (UpbitAccount a : accounts) {
-                        if ("KRW".equals(a.currency)) continue; // 원화 제외
+                cachedAccounts = privateClient.getAccounts();
+                if (cachedAccounts != null) {
+                    for (UpbitAccount a : cachedAccounts) {
+                        if ("KRW".equals(a.currency)) {
+                            availableKrw = a.balanceAsBigDecimal().doubleValue();
+                            continue;
+                        }
                         BigDecimal bal = a.balanceAsBigDecimal().add(a.lockedAsBigDecimal());
                         if (bal.compareTo(BigDecimal.ZERO) > 0) {
                             ownedMarkets.add("KRW-" + a.currency);
@@ -211,6 +292,8 @@ public class OpeningScannerService {
                 log.debug("[OpeningScanner] LIVE 보유코인 제외 목록: {}", ownedMarkets);
             } catch (Exception e) {
                 log.warn("[OpeningScanner] 업비트 잔고 조회 실패, position table만 사용", e);
+                addDecision("*", "TICK", "WARN", "ACCOUNT_QUERY_FAIL",
+                        "업비트 계좌 조회 실패: " + e.getMessage());
             }
         }
 
@@ -226,6 +309,10 @@ public class OpeningScannerService {
         boolean btcAllowLong = true;
         if (cfg.isBtcFilterEnabled()) {
             btcAllowLong = checkBtcFilter(candleUnit, cfg.getBtcEmaPeriod());
+            if (!btcAllowLong) {
+                addDecision("*", "BUY", "BLOCKED", "BTC_FILTER",
+                        "BTC가 EMA" + cfg.getBtcEmaPeriod() + " 아래에 있어 모든 진입이 차단되었습니다.");
+            }
         }
 
         // 스캐너 포지션 먼저 청산 체크 (보유 중인 스캐너 포지션)
@@ -236,22 +323,70 @@ public class OpeningScannerService {
             try {
                 List<UpbitCandle> candles = candleService.getMinuteCandles(pe.getMarket(), candleUnit, 40, null);
                 if (candles == null || candles.isEmpty()) continue;
+                // 업비트 API는 최신→오래된 순 반환 → 전략은 오래된→최신 순 기대
+                candles = new ArrayList<UpbitCandle>(candles);
+                Collections.reverse(candles);
 
                 StrategyContext ctx = new StrategyContext(pe.getMarket(), candleUnit, candles, pe, 0);
                 Signal signal = strategy.evaluate(ctx);
 
                 if (signal.action == SignalAction.SELL) {
                     executeSell(pe, candles.get(candles.size() - 1), signal, cfg);
+                    addDecision(pe.getMarket(), "SELL", "EXECUTED", "SIGNAL",
+                            signal.reason);
                 }
             } catch (Exception e) {
                 log.error("[OpeningScanner] exit check failed for {}", pe.getMarket(), e);
+                addDecision(pe.getMarket(), "SELL", "ERROR", "EXIT_CHECK_FAIL",
+                        "청산 체크 오류: " + e.getMessage());
             }
         }
 
         // 새 진입 체크
         boolean canEnter = btcAllowLong && scannerPosCount < cfg.getMaxPositions();
 
+        if (!canEnter && !btcAllowLong) {
+            // BTC 필터 때문에 진입 불가 (이미 위에서 로깅)
+        } else if (!canEnter) {
+            addDecision("*", "BUY", "BLOCKED", "MAX_POSITIONS",
+                    String.format("최대 포지션 수(%d) 도달로 신규 진입 차단", cfg.getMaxPositions()));
+        }
+
+        // v2: LIVE 모드에서 가용 KRW 잔고 확인 (cachedAccounts 재사용, 이중 API 호출 방지)
+        BigDecimal orderKrw = calcOrderSize(cfg);
+        if (canEnter && isLive && availableKrw < orderKrw.doubleValue()) {
+            addDecision("*", "BUY", "BLOCKED", "INSUFFICIENT_KRW",
+                    String.format("KRW 잔고 부족: 필요 %s원, 가용 %.0f원",
+                            orderKrw.toPlainString(), availableKrw));
+            log.warn("[OpeningScanner] KRW 잔고 부족: need={} available={}",
+                    orderKrw, availableKrw);
+            canEnter = false;
+        }
+
+        // v3: Global Capital 한도 체크 (기본 전략 + 오프닝 전략 공유 풀)
         if (canEnter) {
+            BigDecimal globalCap = getGlobalCapitalKrw();
+            double totalInvested = calcTotalInvestedAllPositions();
+            double remainingBudget = Math.max(0, globalCap.doubleValue() - totalInvested);
+
+            if (orderKrw.doubleValue() > remainingBudget) {
+                if (remainingBudget >= 5000) {
+                    orderKrw = BigDecimal.valueOf(remainingBudget).setScale(0, RoundingMode.DOWN);
+                    addDecision("*", "BUY", "PARTIAL", "CAPITAL_PARTIAL",
+                            String.format("Global Capital 한도 내 부분 매수: 잔여 %.0f원 / 한도 %s원",
+                                    remainingBudget, globalCap.toPlainString()));
+                } else {
+                    addDecision("*", "BUY", "BLOCKED", "CAPITAL_LIMIT",
+                            String.format("Global Capital 한도 초과: 총 투입 %.0f원 / 한도 %s원",
+                                    totalInvested, globalCap.toPlainString()));
+                    canEnter = false;
+                }
+            }
+        }
+
+        if (canEnter) {
+            int entryAttempts = 0;
+            int entrySuccess = 0;
             for (String market : topMarkets) {
                 // 이미 포지션 보유 중이면 스킵
                 boolean alreadyHas = false;
@@ -270,18 +405,36 @@ public class OpeningScannerService {
                 try {
                     List<UpbitCandle> candles = candleService.getMinuteCandles(market, candleUnit, 40, null);
                     if (candles == null || candles.isEmpty()) continue;
+                    // 업비트 API는 최신→오래된 순 반환 → 전략은 오래된→최신 순 기대
+                    candles = new ArrayList<UpbitCandle>(candles);
+                    Collections.reverse(candles);
 
                     StrategyContext ctx = new StrategyContext(market, candleUnit, candles, null, 0);
                     Signal signal = strategy.evaluate(ctx);
 
+                    entryAttempts++;
                     if (signal.action == SignalAction.BUY) {
                         executeBuy(market, candles.get(candles.size() - 1), signal, cfg);
                         scannerPosCount++;
+                        entrySuccess++;
+                        addDecision(market, "BUY", "EXECUTED", "SIGNAL", signal.reason);
+                    } else {
+                        // v2: 시그널이 없는 마켓도 기록 (디버깅용, 최근 것만)
+                        if (entryAttempts <= 3) {
+                            addDecision(market, "BUY", "SKIPPED", "NO_SIGNAL",
+                                    "전략 조건 미충족");
+                        }
                     }
                 } catch (Exception e) {
                     log.error("[OpeningScanner] entry check failed for {}", market, e);
+                    addDecision(market, "BUY", "ERROR", "ENTRY_CHECK_FAIL",
+                            "진입 체크 오류: " + e.getMessage());
                 }
             }
+
+            // v2: 틱 요약 로그
+            log.info("[OpeningScanner] tick완료 mode={} markets={} attempts={} entries={} positions={}",
+                    mode, topMarkets.size(), entryAttempts, entrySuccess, scannerPosCount);
         }
 
         activePositions = scannerPosCount;
@@ -296,6 +449,8 @@ public class OpeningScannerService {
         BigDecimal orderKrw = calcOrderSize(cfg);
         if (orderKrw.compareTo(BigDecimal.valueOf(5000)) < 0) {
             log.warn("[OpeningScanner] order too small: {} KRW for {}", orderKrw, market);
+            addDecision(market, "BUY", "BLOCKED", "ORDER_TOO_SMALL",
+                    String.format("주문 금액 %s원이 최소 5,000원 미만", orderKrw.toPlainString()));
             return;
         }
 
@@ -312,18 +467,31 @@ public class OpeningScannerService {
             // LIVE: 실제 업비트 주문
             if (!liveOrders.isConfigured()) {
                 log.error("[OpeningScanner] LIVE 모드인데 업비트 키가 없습니다. market={}", market);
+                addDecision(market, "BUY", "BLOCKED", "API_KEY_MISSING",
+                        "LIVE 모드 API 키 미설정");
                 return;
             }
-            LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw.doubleValue());
-            if (!r.isFilled()) {
-                log.warn("[OpeningScanner] LIVE buy pending/failed: market={} state={} vol={}",
-                        market, r.state, r.executedVolume);
-                return;
-            }
-            fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
-            qty = r.executedVolume;
-            if (qty <= 0) {
-                log.warn("[OpeningScanner] LIVE buy executedVolume=0 for {}", market);
+            try {
+                LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw.doubleValue());
+                if (!r.isFilled()) {
+                    log.warn("[OpeningScanner] LIVE buy pending/failed: market={} state={} vol={}",
+                            market, r.state, r.executedVolume);
+                    addDecision(market, "BUY", "ERROR", "ORDER_NOT_FILLED",
+                            String.format("주문 미체결 state=%s vol=%.8f", r.state, r.executedVolume));
+                    return;
+                }
+                fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
+                qty = r.executedVolume;
+                if (qty <= 0) {
+                    log.warn("[OpeningScanner] LIVE buy executedVolume=0 for {}", market);
+                    addDecision(market, "BUY", "ERROR", "ZERO_VOLUME",
+                            "체결 수량 0");
+                    return;
+                }
+            } catch (Exception e) {
+                log.error("[OpeningScanner] LIVE buy order failed for {}", market, e);
+                addDecision(market, "BUY", "ERROR", "ORDER_EXCEPTION",
+                        "주문 실패: " + e.getMessage());
                 return;
             }
         }
@@ -369,15 +537,26 @@ public class OpeningScannerService {
             // LIVE: 실제 업비트 시장가 매도
             if (!liveOrders.isConfigured()) {
                 log.error("[OpeningScanner] LIVE 모드인데 업비트 키가 없습니다. market={}", pe.getMarket());
+                addDecision(pe.getMarket(), "SELL", "BLOCKED", "API_KEY_MISSING",
+                        "LIVE 모드 API 키 미설정");
                 return;
             }
-            LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(pe.getMarket(), qty);
-            if (!r.isFilled()) {
-                log.warn("[OpeningScanner] LIVE sell pending/failed: market={} state={} vol={}",
-                        pe.getMarket(), r.state, r.executedVolume);
+            try {
+                LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(pe.getMarket(), qty);
+                if (!r.isFilled()) {
+                    log.warn("[OpeningScanner] LIVE sell pending/failed: market={} state={} vol={}",
+                            pe.getMarket(), r.state, r.executedVolume);
+                    addDecision(pe.getMarket(), "SELL", "ERROR", "ORDER_NOT_FILLED",
+                            String.format("매도 미체결 state=%s vol=%.8f", r.state, r.executedVolume));
+                    return;
+                }
+                fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
+            } catch (Exception e) {
+                log.error("[OpeningScanner] LIVE sell order failed for {}", pe.getMarket(), e);
+                addDecision(pe.getMarket(), "SELL", "ERROR", "ORDER_EXCEPTION",
+                        "매도 실패: " + e.getMessage());
                 return;
             }
-            fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
         }
 
         double avgPrice = pe.getAvgPrice().doubleValue();
@@ -417,9 +596,31 @@ public class OpeningScannerService {
         if ("FIXED".equalsIgnoreCase(cfg.getOrderSizingMode())) {
             return cfg.getOrderSizingValue();
         }
-        // PCT mode
+        // PCT mode — Global Capital 사용
         BigDecimal pct = cfg.getOrderSizingValue();
-        return cfg.getCapitalKrw().multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN);
+        BigDecimal globalCapital = getGlobalCapitalKrw();
+        return globalCapital.multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN);
+    }
+
+    /** Global Capital(bot_config.capital_krw) 조회. 기본 전략과 오프닝 전략이 공유하는 단일 풀. */
+    private BigDecimal getGlobalCapitalKrw() {
+        List<BotConfigEntity> configs = botConfigRepo.findAll();
+        if (configs.isEmpty()) return BigDecimal.valueOf(100000);
+        BigDecimal cap = configs.get(0).getCapitalKrw();
+        return cap != null && cap.compareTo(BigDecimal.ZERO) > 0 ? cap : BigDecimal.valueOf(100000);
+    }
+
+    /** 전체 포지션(기본 전략 + 오프닝 스캐너)의 총 투입금 계산 */
+    private double calcTotalInvestedAllPositions() {
+        double sum = 0.0;
+        List<PositionEntity> all = positionRepo.findAll();
+        for (PositionEntity pe : all) {
+            if (pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0
+                    && pe.getAvgPrice() != null) {
+                sum += pe.getQty().doubleValue() * pe.getAvgPrice().doubleValue();
+            }
+        }
+        return sum;
     }
 
     /**
@@ -465,12 +666,17 @@ public class OpeningScannerService {
         try {
             List<UpbitCandle> btcCandles = candleService.getMinuteCandles("KRW-BTC", candleUnit, emaPeriod + 10, null);
             if (btcCandles == null || btcCandles.size() < emaPeriod) return true; // 데이터 부족 시 허용
+            // 업비트 API는 최신→오래된 순 반환 → EMA/close 계산에 오래된→최신 순 필요
+            btcCandles = new ArrayList<UpbitCandle>(btcCandles);
+            Collections.reverse(btcCandles);
 
             double ema = Indicators.ema(btcCandles, emaPeriod);
             double btcClose = btcCandles.get(btcCandles.size() - 1).trade_price;
             boolean allow = btcClose >= ema;
             if (!allow) {
                 log.info("[OpeningScanner] BTC filter BLOCKED: close={} < EMA({})={}", btcClose, emaPeriod, ema);
+            } else {
+                log.debug("[OpeningScanner] BTC filter PASSED: close={} >= EMA({})={}", btcClose, emaPeriod, ema);
             }
             return allow;
         } catch (Exception e) {

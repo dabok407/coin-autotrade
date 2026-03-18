@@ -1,10 +1,7 @@
 package com.example.upbit.web;
 
 import com.example.upbit.bot.OpeningScannerService;
-import com.example.upbit.db.OpeningScannerConfigEntity;
-import com.example.upbit.db.OpeningScannerConfigRepository;
-import com.example.upbit.db.PositionEntity;
-import com.example.upbit.db.PositionRepository;
+import com.example.upbit.db.*;
 import com.example.upbit.market.UpbitMarketCatalogService;
 import com.example.upbit.upbit.UpbitAccount;
 import com.example.upbit.upbit.UpbitPrivateClient;
@@ -25,17 +22,20 @@ public class OpeningScannerApiController {
 
     private final OpeningScannerService scannerService;
     private final OpeningScannerConfigRepository configRepo;
+    private final BotConfigRepository botConfigRepo;
     private final UpbitMarketCatalogService catalogService;
     private final UpbitPrivateClient privateClient;
     private final PositionRepository positionRepo;
 
     public OpeningScannerApiController(OpeningScannerService scannerService,
                                         OpeningScannerConfigRepository configRepo,
+                                        BotConfigRepository botConfigRepo,
                                         UpbitMarketCatalogService catalogService,
                                         UpbitPrivateClient privateClient,
                                         PositionRepository positionRepo) {
         this.scannerService = scannerService;
         this.configRepo = configRepo;
+        this.botConfigRepo = botConfigRepo;
         this.catalogService = catalogService;
         this.privateClient = privateClient;
         this.positionRepo = positionRepo;
@@ -78,7 +78,7 @@ public class OpeningScannerApiController {
         if (body.containsKey("mode")) cfg.setMode(String.valueOf(body.get("mode")));
         if (body.containsKey("topN")) cfg.setTopN(toInt(body.get("topN"), 15));
         if (body.containsKey("maxPositions")) cfg.setMaxPositions(toInt(body.get("maxPositions"), 3));
-        if (body.containsKey("capitalKrw")) cfg.setCapitalKrw(toBD(body.get("capitalKrw")));
+        // capitalKrw 제거됨 — Global Capital(bot_config) 사용
         if (body.containsKey("orderSizingMode")) cfg.setOrderSizingMode(String.valueOf(body.get("orderSizingMode")));
         if (body.containsKey("orderSizingValue")) cfg.setOrderSizingValue(toBD(body.get("orderSizingValue")));
         if (body.containsKey("candleUnitMin")) cfg.setCandleUnitMin(toInt(body.get("candleUnitMin"), 5));
@@ -185,6 +185,15 @@ public class OpeningScannerApiController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * v2: 스캐너 디시전 로그 (차단/실행/에러 사유 확인용)
+     */
+    @GetMapping("/decisions")
+    public ResponseEntity<List<Map<String, Object>>> decisions(
+            @RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(scannerService.getRecentDecisions(Math.min(limit, 200)));
+    }
+
     // ===== Helpers =====
 
     private Map<String, Object> buildStatus() {
@@ -206,7 +215,11 @@ public class OpeningScannerApiController {
         m.put("mode", cfg.getMode());
         m.put("topN", cfg.getTopN());
         m.put("maxPositions", cfg.getMaxPositions());
-        m.put("capitalKrw", cfg.getCapitalKrw());
+        // Global Capital 읽기 전용 반환 (bot_config에서 조회)
+        List<BotConfigEntity> bcs = botConfigRepo.findAll();
+        BigDecimal globalCap = (!bcs.isEmpty() && bcs.get(0).getCapitalKrw() != null)
+                ? bcs.get(0).getCapitalKrw() : BigDecimal.valueOf(100000);
+        m.put("globalCapitalKrw", globalCap);
         m.put("orderSizingMode", cfg.getOrderSizingMode());
         m.put("orderSizingValue", cfg.getOrderSizingValue());
         m.put("candleUnitMin", cfg.getCandleUnitMin());
