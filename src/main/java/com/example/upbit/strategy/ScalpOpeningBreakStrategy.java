@@ -126,9 +126,9 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     // ═══════════════════════════════════════
     private Signal evaluateEntry(List<UpbitCandle> candles, UpbitCandle last, double close) {
         ZonedDateTime lastKst = toKst(last.candle_date_time_utc);
-        if (lastKst == null) return Signal.none();
+        if (lastKst == null) return Signal.none("KST_PARSE_FAIL");
         if (!isInWindow(lastKst, entryStartHour, entryStartMin, entryEndHour, entryEndMin)) {
-            return Signal.none();
+            return Signal.none("OUTSIDE_ENTRY_WINDOW");
         }
 
         // 레인지 계산 (같은 날짜)
@@ -150,43 +150,54 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         }
 
         // 레인지 캔들 최소 4개
-        if (rangeCount < 4) return Signal.none();
-        if (rangeHigh <= rangeLow) return Signal.none();
+        if (rangeCount < 4) return Signal.none("RANGE_CANDLES_" + rangeCount + "<4");
+        if (rangeHigh <= rangeLow) return Signal.none("RANGE_INVALID");
 
         // 레인지 최소 폭: 0.3%
         double rangePct = (rangeHigh - rangeLow) / rangeLow * 100.0;
-        if (rangePct < 0.3) return Signal.none();
+        if (rangePct < 0.3) return Signal.none(String.format(Locale.ROOT, "RANGE_NARROW_%.2f%%<0.3%%", rangePct));
 
         // 돌파: close > rangeHigh (v2: 1캔들 즉시 진입)
-        if (close <= rangeHigh) return Signal.none();
+        if (close <= rangeHigh) {
+            double gap = (close - rangeHigh) / rangeHigh * 100.0;
+            return Signal.none(String.format(Locale.ROOT, "NO_BREAKOUT_close=%.0f_rH=%.0f(%.2f%%)", close, rangeHigh, gap));
+        }
 
         // v2 합의: 최소 돌파 강도 0.2% (0.1%→0.2% 강화, 허위 돌파 방지)
         double breakoutPct = (close - rangeHigh) / rangeHigh * 100.0;
-        if (breakoutPct < MIN_BREAKOUT_PCT) return Signal.none();
+        if (breakoutPct < MIN_BREAKOUT_PCT) {
+            return Signal.none(String.format(Locale.ROOT, "BREAKOUT_WEAK_%.2f%%<%.1f%%", breakoutPct, MIN_BREAKOUT_PCT));
+        }
 
         // 양봉 + body/range 필터 (v2 합의: 0.45로 강화)
-        if (!CandlePatterns.isBullish(last)) return Signal.none();
+        if (!CandlePatterns.isBullish(last)) return Signal.none("BEARISH_CANDLE");
         double candleRange = CandlePatterns.range(last);
-        if (candleRange <= 0) return Signal.none();
+        if (candleRange <= 0) return Signal.none("ZERO_RANGE");
         double bodyRatio = CandlePatterns.body(last) / candleRange;
-        if (bodyRatio < minBodyRatio) return Signal.none();
+        if (bodyRatio < minBodyRatio) {
+            return Signal.none(String.format(Locale.ROOT, "BODY_WEAK_%.0f%%<%.0f%%", bodyRatio * 100, minBodyRatio * 100));
+        }
 
         // 거래량 필터 (v2 합의: 1.5x 유지)
         double avgVol = Indicators.smaVolume(candles, VOLUME_AVG_PERIOD);
         double curVol = last.candle_acc_trade_volume;
-        if (avgVol > 0 && curVol < avgVol * volumeMult) return Signal.none();
+        if (avgVol > 0 && curVol < avgVol * volumeMult) {
+            return Signal.none(String.format(Locale.ROOT, "VOLUME_LOW_%.1fx<%.1fx", curVol / avgVol, volumeMult));
+        }
 
         // ATR 필터
         double atr = Indicators.atr(candles, ATR_PERIOD);
-        if (Double.isNaN(atr) || atr / close < MIN_ATR_PCT) return Signal.none();
+        if (Double.isNaN(atr) || atr / close < MIN_ATR_PCT) return Signal.none("ATR_TOO_LOW");
 
         // EMA 트렌드 필터
         double ema = Indicators.ema(candles, EMA_PERIOD);
-        if (!Double.isNaN(ema) && close < ema) return Signal.none();
+        if (!Double.isNaN(ema) && close < ema) {
+            return Signal.none(String.format(Locale.ROOT, "BELOW_EMA20_close=%.0f<ema=%.0f", close, ema));
+        }
 
         // v2: RSI 과매수 필터
         double rsi = Indicators.rsi(candles, RSI_PERIOD);
-        if (rsi >= RSI_OVERBOUGHT) return Signal.none();
+        if (rsi >= RSI_OVERBOUGHT) return Signal.none(String.format(Locale.ROOT, "RSI_OVERBOUGHT_%.0f>=75", rsi));
 
         // ───── Confidence ─────
         double score = 5.0;

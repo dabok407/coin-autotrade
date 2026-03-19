@@ -26,6 +26,11 @@ public class Signal {
         return new Signal(SignalAction.NONE, null, null, 0);
     }
 
+    /** rejection reason 포함 NONE 신호 (디버깅/Decision Log용) */
+    public static Signal none(String reason) {
+        return new Signal(SignalAction.NONE, null, reason, 0);
+    }
+
     /** confidence 없는 신호 (TP/SL, 리스크 관리 매도, ADD_BUY 등) */
     public static Signal of(SignalAction action, StrategyType type, String reason) {
         return new Signal(action, type, reason, 0);

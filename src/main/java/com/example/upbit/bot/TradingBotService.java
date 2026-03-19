@@ -985,7 +985,12 @@ private void tickInternal(boolean boundaryAligned) {
             return;
         }
 
-        log.debug("[TICK] {}분봉 | {} 모드 | 활성 마켓: {} | boundary={}", unit, mode, enabled.size(), boundaryAligned);
+        log.info("[TICK] {}분봉 | {} 모드 | 활성 마켓: {} | boundary={} | sellOnly={}", unit, mode, enabled.size(), boundaryAligned, sellOnlyTick);
+        if (log.isDebugEnabled() || enabled.size() <= 10) {
+            List<String> mktNames = new ArrayList<String>();
+            for (MarketConfigEntity m : enabled) mktNames.add(m.getMarket());
+            log.info("[TICK] 처리 대상: {}", mktNames);
+        }
 
         // LIVE 모드: 첫 tick에서 API 키 유효성 사전 검증
         if ("LIVE".equals(mode) && liveOrders.isConfigured() && !liveKeyVerified) {
@@ -1023,12 +1028,15 @@ private void tickInternal(boolean boundaryAligned) {
 
             // LIVE 모드에서는 pending 주문이 있으면 해당 마켓의 전략 실행을 막아 중복주문 위험을 줄입니다.
             if ("LIVE".equals(mode) && liveOrders.isConfigured() && liveOrders.hasPendingOrder(market)) {
+                log.info("[{}] pending 주문 존재 → 이번 tick 스킵", market);
                 continue;
             }
 
+            log.debug("[{}] 캔들 조회 시작 ({}분봉, lastCandle={})", market, unit, st.lastCandleUtc);
             List<UpbitCandle> candles = boundaryAligned ? getMinuteCandles2WithRetry(market, unit, st.lastCandleUtc) : candleService.getMinuteCandles(market, unit, 2, null);
-            if (candles.size() < 2) {
-                log.warn("[{}] 캔들 조회 실패 ({}개 반환)", market, candles.size());
+            if (candles == null || candles.size() < 2) {
+                log.warn("[{}] 캔들 조회 실패 ({}분봉, {}개 반환, boundary={})", market, unit,
+                        candles == null ? 0 : candles.size(), boundaryAligned);
                 continue;
             }
 
@@ -1047,7 +1055,10 @@ private void tickInternal(boolean boundaryAligned) {
             st.lastPrice = latest.trade_price;
 
             
-if (latest.candle_date_time_utc == null) continue;
+if (latest.candle_date_time_utc == null) {
+    log.warn("[{}] 캔들 UTC 타임스탬프가 null → 스킵", market);
+    continue;
+}
 if (latest.candle_date_time_utc.equals(st.lastCandleUtc)) {
     log.debug("[{}] 새 캔들 없음 (동일 봉: {})", market, st.lastCandleUtc);
     continue;

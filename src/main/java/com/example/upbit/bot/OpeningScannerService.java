@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.*;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -323,8 +324,9 @@ public class OpeningScannerService {
             try {
                 List<UpbitCandle> candles = candleService.getMinuteCandles(pe.getMarket(), candleUnit, 40, null);
                 if (candles == null || candles.isEmpty()) continue;
-                // 업비트 API는 최신→오래된 순 반환 → 전략은 오래된→최신 순 기대
-                candles = new ArrayList<UpbitCandle>(candles);
+                // v3: 미완성(현재 진행 중) 캔들 제거 후 역순 정렬
+                candles = new ArrayList<UpbitCandle>(stripIncompleteCandle(candles, candleUnit));
+                if (candles.isEmpty()) continue;
                 Collections.reverse(candles);
 
                 StrategyContext ctx = new StrategyContext(pe.getMarket(), candleUnit, candles, pe, 0);
@@ -405,8 +407,9 @@ public class OpeningScannerService {
                 try {
                     List<UpbitCandle> candles = candleService.getMinuteCandles(market, candleUnit, 40, null);
                     if (candles == null || candles.isEmpty()) continue;
-                    // 업비트 API는 최신→오래된 순 반환 → 전략은 오래된→최신 순 기대
-                    candles = new ArrayList<UpbitCandle>(candles);
+                    // v3: 미완성(현재 진행 중) 캔들 제거 후 역순 정렬
+                    candles = new ArrayList<UpbitCandle>(stripIncompleteCandle(candles, candleUnit));
+                    if (candles.isEmpty()) continue;
                     Collections.reverse(candles);
 
                     StrategyContext ctx = new StrategyContext(market, candleUnit, candles, null, 0);
@@ -419,11 +422,9 @@ public class OpeningScannerService {
                         entrySuccess++;
                         addDecision(market, "BUY", "EXECUTED", "SIGNAL", signal.reason);
                     } else {
-                        // v2: 시그널이 없는 마켓도 기록 (디버깅용, 최근 것만)
-                        if (entryAttempts <= 3) {
-                            addDecision(market, "BUY", "SKIPPED", "NO_SIGNAL",
-                                    "전략 조건 미충족");
-                        }
+                        // v3: 모든 마켓의 rejection reason 기록 (디버깅용)
+                        String rejectReason = signal.reason != null ? signal.reason : "UNKNOWN";
+                        addDecision(market, "BUY", "SKIPPED", "NO_SIGNAL", rejectReason);
                     }
                 } catch (Exception e) {
                     log.error("[OpeningScanner] entry check failed for {}", market, e);
@@ -624,6 +625,34 @@ public class OpeningScannerService {
     }
 
     /**
+     * 업비트 API가 반환한 캔들 목록(최신→오래된 순)에서 현재 진행 중인 미완성 캔들을 제거한다.
+     * 업비트 API는 현재 형성 중인 캔들을 첫 번째 결과로 포함하는데,
+     * 이 캔들은 거래량/body가 불완전하여 전략 평가에 부적합하다.
+     *
+     * 백테스트와의 동작 일관성: 백테스트는 완성된 캔들만 사용하므로,
+     * LIVE에서도 완성된 캔들만 평가해야 동일한 결과가 나온다.
+     */
+    private List<UpbitCandle> stripIncompleteCandle(List<UpbitCandle> descCandles, int candleUnitMin) {
+        if (descCandles == null || descCandles.isEmpty()) return descCandles;
+        UpbitCandle newest = descCandles.get(0);
+        if (newest.candle_date_time_utc == null) return descCandles;
+        try {
+            LocalDateTime candleStartUtc = LocalDateTime.parse(newest.candle_date_time_utc);
+            long candleEndEpochSec = candleStartUtc.toEpochSecond(ZoneOffset.UTC) + candleUnitMin * 60L;
+            long nowEpochSec = Instant.now().getEpochSecond();
+            if (nowEpochSec < candleEndEpochSec) {
+                // 아직 완성되지 않은 캔들 → 제거
+                log.debug("[OpeningScanner] 미완성 캔들 제거: {} (완성까지 {}초 남음)",
+                        newest.candle_date_time_utc, candleEndEpochSec - nowEpochSec);
+                return descCandles.subList(1, descCandles.size());
+            }
+        } catch (DateTimeParseException e) {
+            log.warn("[OpeningScanner] 캔들 시각 파싱 실패: {}", newest.candle_date_time_utc);
+        }
+        return descCandles;
+    }
+
+    /**
      * 거래대금 상위 N개 KRW 마켓 조회 (ownedMarkets 제외).
      * 업비트 ticker API로 24시간 거래대금 조회.
      */
@@ -666,8 +695,9 @@ public class OpeningScannerService {
         try {
             List<UpbitCandle> btcCandles = candleService.getMinuteCandles("KRW-BTC", candleUnit, emaPeriod + 10, null);
             if (btcCandles == null || btcCandles.size() < emaPeriod) return true; // 데이터 부족 시 허용
-            // 업비트 API는 최신→오래된 순 반환 → EMA/close 계산에 오래된→최신 순 필요
-            btcCandles = new ArrayList<UpbitCandle>(btcCandles);
+            // v3: 미완성 캔들 제거 후 역순 정렬
+            btcCandles = new ArrayList<UpbitCandle>(stripIncompleteCandle(btcCandles, candleUnit));
+            if (btcCandles.size() < emaPeriod) return true;
             Collections.reverse(btcCandles);
 
             double ema = Indicators.ema(btcCandles, emaPeriod);
