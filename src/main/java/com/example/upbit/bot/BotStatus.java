@@ -37,6 +37,10 @@ public class BotStatus {
     private double orderSizingValue; // FIXED: KRW, PCT: percent
     private double baseOrderKrw;     // computed 1x buy amount (KRW)
 
+    // 자본 현황
+    private double usedCapitalKrw;      // 포지션에 투입된 자본 합계
+    private double availableCapitalKrw; // 잔여 자본 (capitalKrw - usedCapitalKrw)
+
     // 손익/KPI
     private double realizedPnlKrw;
     private double unrealizedPnlKrw;
@@ -111,6 +115,12 @@ public class BotStatus {
 
     public double getBaseOrderKrw() { return baseOrderKrw; }
     public void setBaseOrderKrw(double baseOrderKrw) { this.baseOrderKrw = baseOrderKrw; }
+
+    public double getUsedCapitalKrw() { return usedCapitalKrw; }
+    public void setUsedCapitalKrw(double usedCapitalKrw) { this.usedCapitalKrw = usedCapitalKrw; }
+
+    public double getAvailableCapitalKrw() { return availableCapitalKrw; }
+    public void setAvailableCapitalKrw(double availableCapitalKrw) { this.availableCapitalKrw = availableCapitalKrw; }
 
     public double getRealizedPnlKrw() { return realizedPnlKrw; }
     public void setRealizedPnlKrw(double realizedPnlKrw) { this.realizedPnlKrw = realizedPnlKrw; }

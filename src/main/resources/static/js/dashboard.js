@@ -35,6 +35,13 @@
 
   const refreshBtn = document.getElementById('refreshBtn');
 
+  // ── Capital card ──
+  const capitalSnap = document.getElementById('capitalSnap');
+  const capitalUsed = document.getElementById('capitalUsed');
+  const capitalAvailable = document.getElementById('capitalAvailable');
+  const capitalProgressFill = document.getElementById('capitalProgressFill');
+  const capitalUsagePct = document.getElementById('capitalUsagePct');
+
   const balanceAvailableKrw = document.getElementById('balanceAvailableKrw');
   const balanceLockedKrw = document.getElementById('balanceLockedKrw');
   const balanceAsOf = document.getElementById('balanceAsOf');
@@ -42,7 +49,7 @@
 
   // ── Positions card ──
   const posCountBadge = document.getElementById('posCountBadge');
-  const posTbody = document.getElementById('posTbody');
+  const posCardsContainer = document.getElementById('posCardsContainer');
 
   const guardBadge = document.getElementById('guardBadge');
   const guardSummary = document.getElementById('guardSummary');
@@ -98,9 +105,6 @@
     const d = new Date(Number(ms));
     if(Number.isNaN(d.getTime())) return '-';
     const pad = (n) => String(n).padStart(2,'0');
-    if (isMobile) {
-      return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
@@ -397,9 +401,9 @@
 
   /** Render open positions from BotStatus.markets */
   function renderPositions(marketsMap){
-    if(!posTbody) return;
+    if(!posCardsContainer) return;
     if(!marketsMap || typeof marketsMap !== 'object'){
-      posTbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted)">No data</td></tr>';
+      posCardsContainer.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 4px">No data</div>';
       if(posCountBadge) posCountBadge.textContent = '0';
       return;
     }
@@ -407,11 +411,11 @@
     if(posCountBadge) posCountBadge.textContent = String(openPositions.length);
 
     if(openPositions.length === 0){
-      posTbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted)">보유 포지션 없음</td></tr>';
+      posCardsContainer.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 4px">보유 포지션 없음</div>';
       return;
     }
 
-    posTbody.innerHTML = openPositions.map(function(p){
+    posCardsContainer.innerHTML = openPositions.map(function(p){
       var mkt = p.market || '-';
       var display = marketLabel.get(String(mkt)) || mkt;
       var avgP = p.avgPrice || 0;
@@ -419,22 +423,45 @@
       var qty = p.qty || 0;
       var unrealizedKrw = lastP > 0 && avgP > 0 ? (lastP - avgP) * qty : 0;
       var unrealizedPct = avgP > 0 ? ((lastP - avgP) / avgP) * 100 : 0;
-      var pnlColor = unrealizedKrw >= 0 ? 'var(--success)' : 'var(--danger)';
+      var isProfit = unrealizedKrw >= 0;
+      var pnlColor = isProfit ? 'var(--success)' : 'var(--danger)';
+      var pnlBg = isProfit ? 'rgba(32,201,151,0.08)' : 'rgba(255,77,79,0.08)';
+      var pnlBorder = isProfit ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,79,0.2)';
       var strat = p.entryStrategy || '-';
       var stratDisplay = strategyLabel.get(String(strat)) || strat;
+      var addBuys = p.addBuys || 0;
 
-      return '<tr>' +
-        '<td style="font-weight:700" title="' + mkt + '">' + display + '</td>' +
-        '<td>' + (qty > 0 ? Number(qty).toFixed(6) : '-') + '</td>' +
-        '<td>' + fmt(avgP) + '</td>' +
-        '<td>' + (lastP > 0 ? fmt(lastP) : '-') + '</td>' +
-        '<td style="color:' + pnlColor + ';font-weight:700">' +
-          fmt(Math.round(unrealizedKrw)) +
-          ' <span style="font-size:11px">(' + (unrealizedPct >= 0 ? '+' : '') + unrealizedPct.toFixed(2) + '%)</span>' +
-        '</td>' +
-        '<td style="text-align:center">' + (p.addBuys || 0) + '</td>' +
-        '<td style="font-size:12px" title="' + strat + '">' + stratDisplay + '</td>' +
-      '</tr>';
+      return '<div class="pos-card" style="background:var(--bg-card-solid);border:1px solid var(--card-border);border-radius:12px;padding:14px 16px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+            '<span style="font-weight:700;font-size:15px">' + display + '</span>' +
+            '<span style="font-size:10px;color:var(--text-muted);background:var(--glass);padding:2px 8px;border-radius:4px">' + stratDisplay + '</span>' +
+            (addBuys > 0 ? '<span style="font-size:10px;color:var(--primary);background:rgba(43,118,255,0.1);padding:2px 6px;border-radius:4px">+' + addBuys + ' 추매</span>' : '') +
+          '</div>' +
+          '<div style="text-align:right;background:' + pnlBg + ';border:1px solid ' + pnlBorder + ';border-radius:8px;padding:4px 10px">' +
+            '<div style="color:' + pnlColor + ';font-weight:700;font-size:15px;font-family:var(--font-mono)">' +
+              (isProfit ? '+' : '') + fmt(Math.round(unrealizedKrw)) + '<span style="font-size:11px">&#xFFE6;</span>' +
+            '</div>' +
+            '<div style="color:' + pnlColor + ';font-size:11px;font-weight:600;font-family:var(--font-mono)">' +
+              (unrealizedPct >= 0 ? '+' : '') + unrealizedPct.toFixed(2) + '%' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+          '<div>' +
+            '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">Avg Price</div>' +
+            '<div style="font-family:var(--font-mono);font-size:13px;font-weight:600">' + fmt(avgP) + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">Last Price</div>' +
+            '<div style="font-family:var(--font-mono);font-size:13px;font-weight:600">' + (lastP > 0 ? fmt(lastP) : '-') + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">Qty</div>' +
+            '<div style="font-family:var(--font-mono);font-size:13px;font-weight:600">' + (qty > 0 ? Number(qty).toFixed(4) : '-') + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
     }).join('');
   }
 
@@ -655,6 +682,38 @@
           var kv = pair.trim().split(':');
           if (kv.length === 2) siOverrides[kv[0].trim()] = parseInt(kv[1].trim()) || 60;
         });
+      }
+    }
+
+    // Update Capital card
+    {
+      var capTotal = s.capitalKrw != null ? Number(s.capitalKrw) : null;
+      var capUsed = s.usedCapitalKrw != null ? Number(s.usedCapitalKrw) : null;
+      var capAvail = s.availableCapitalKrw != null ? Number(s.availableCapitalKrw) : null;
+
+      if (capitalSnap) {
+        capitalSnap.textContent = capTotal != null ? fmt(capTotal) : '-';
+      }
+      if (capitalUsed) {
+        capitalUsed.textContent = capUsed != null ? fmt(capUsed) : '-';
+      }
+      if (capitalAvailable) {
+        capitalAvailable.textContent = capAvail != null ? fmt(capAvail) : '-';
+      }
+      if (capitalProgressFill && capitalUsagePct) {
+        var pct = 0;
+        if (capTotal != null && capTotal > 0 && capUsed != null) {
+          pct = Math.min(100, Math.max(0, Math.round((capUsed / capTotal) * 100)));
+        }
+        capitalProgressFill.style.width = pct + '%';
+        capitalUsagePct.textContent = pct + '%';
+        // Color coding: <60% purple, 60-85% warning, >85% danger
+        capitalProgressFill.classList.remove('warn', 'danger');
+        if (pct > 85) {
+          capitalProgressFill.classList.add('danger');
+        } else if (pct > 60) {
+          capitalProgressFill.classList.add('warn');
+        }
       }
     }
 
@@ -886,6 +945,7 @@
       await fetchAssetSummary(true);
       await fetchGuardLogs(true);
       await fetchScannerStatus(true);
+      await fetchAlldayStatus(true);
 
       // Render new dashboard sections
       if (s && Array.isArray(s.groups)) renderDashGroups(s.groups);
@@ -976,6 +1036,77 @@
     });
   }
 
+  // ─── AllDay Scanner ───
+  var alldaySwitch = document.getElementById('alldaySwitch');
+  var alldayStateBadge = document.getElementById('alldayStateBadge');
+  var alldayMode = document.getElementById('alldayMode');
+  var alldayStatus = document.getElementById('alldayStatus');
+  var alldayScanCount = document.getElementById('alldayScanCount');
+  var alldayPositions = document.getElementById('alldayPositions');
+  var alldayLastTick = document.getElementById('alldayLastTick');
+  var alldayMarkets = document.getElementById('alldayMarkets');
+
+  function setAlldayRunningUI(running) {
+    if (!alldaySwitch) return;
+    alldaySwitch.classList.toggle('on', !!running);
+    alldaySwitch.setAttribute('aria-pressed', String(!!running));
+    var label = alldaySwitch.querySelector('.bot-toggle-label');
+    if (label) label.textContent = running ? 'ON' : 'OFF';
+    if (alldayStateBadge) {
+      alldayStateBadge.textContent = running ? 'RUNNING' : 'STOPPED';
+      alldayStateBadge.className = 'badge ' + (running ? 'running' : 'stopped');
+    }
+  }
+
+  async function fetchAlldayStatus(silent) {
+    try {
+      var s = await req('/api/allday-scanner/status', { method: 'GET' });
+      setAlldayRunningUI(!!s.running);
+      if (alldayMode) alldayMode.textContent = (s.config && s.config.mode) || '-';
+      if (alldayStatus) alldayStatus.textContent = s.status || '-';
+      if (alldayScanCount) alldayScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+      if (alldayPositions) {
+        var maxPos = (s.config && s.config.maxPositions) || '?';
+        alldayPositions.textContent = (s.activePositions != null ? s.activePositions + '/' + maxPos : '-');
+      }
+      if (alldayLastTick) {
+        alldayLastTick.textContent = (s.lastTickEpochMs && s.lastTickEpochMs > 0)
+          ? fmtTime(s.lastTickEpochMs) : '-';
+      }
+      if (alldayMarkets) {
+        var mkts = s.lastScannedMarkets || [];
+        if (mkts.length === 0) {
+          alldayMarkets.innerHTML = '<span style="color:var(--text-muted)">-</span>';
+        } else {
+          alldayMarkets.innerHTML = mkts.map(function(m) {
+            var label = marketLabel.get(String(m)) || m;
+            return '<span style="background:var(--surface-alt,rgba(255,255,255,.06));padding:2px 8px;border-radius:4px;font-family:var(--font-mono)">' + label + '</span>';
+          }).join('');
+        }
+      }
+    } catch(e) {
+      if (!silent) console.error('AllDay Scanner status fetch failed:', e);
+    }
+  }
+
+  if (alldaySwitch) {
+    alldaySwitch.addEventListener('click', async function() {
+      var next = !alldaySwitch.classList.contains('on');
+      var ok = confirm(next ? '올데이 스캐너를 시작하시겠습니까?' : '올데이 스캐너를 중지하시겠습니까?');
+      if (!ok) return;
+      try {
+        alldaySwitch.disabled = true;
+        await req(next ? '/api/allday-scanner/start' : '/api/allday-scanner/stop', { method: 'POST' });
+        setAlldayRunningUI(next);
+        await fetchAlldayStatus(true);
+      } catch(e) {
+        showToast(e.message || '올데이 스캐너 요청 실패', 'error');
+      } finally {
+        alldaySwitch.disabled = false;
+      }
+    });
+  }
+
   botSwitch.addEventListener('click', async () => {
     const next = !botSwitch.classList.contains('on');
     const ok = confirm(next ? '봇을 START 하시겠습니까?' : '봇을 STOP 하시겠습니까?');
@@ -1061,6 +1192,6 @@
 
     // 첫 화면 렌더
     await refreshAll();
-    setInterval(() => { fetchAssetSummary(true); fetchGuardLogs(true); fetchScannerStatus(true); }, 10000);
+    setInterval(() => { fetchAssetSummary(true); fetchGuardLogs(true); fetchScannerStatus(true); fetchAlldayStatus(true); }, 10000);
   })();
 })();

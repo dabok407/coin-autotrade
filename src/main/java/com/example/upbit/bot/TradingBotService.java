@@ -15,6 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionStatus;
 
 import javax.annotation.PostConstruct;
 import java.time.*;
@@ -65,6 +68,7 @@ public class TradingBotService {
     private final StrategyFactory strategyFactory;
     private final TickerService tickerService;
     private final StrategyGroupRepository strategyGroupRepo;
+    private final TransactionTemplate txTemplate;
     private final AtomicBoolean running = new AtomicBoolean(false);
     /** LIVE 모드 API 키 검증 완료 플래그 (첫 tick에서 1회 검증) */
     private volatile boolean liveKeyVerified = false;
@@ -172,7 +176,8 @@ private volatile boolean sellOnlyTick = false;   // Start 즉시 tick: 매도만
                              UpbitPrivateClient privateClient,
                              StrategyFactory strategyFactory,
                              TickerService tickerService,
-                             StrategyGroupRepository strategyGroupRepo) {
+                             StrategyGroupRepository strategyGroupRepo,
+                             TransactionTemplate txTemplate) {
         this.candleService = candleService;
         this.botProps = botProps;
         this.cfg = cfg;
@@ -187,6 +192,7 @@ private volatile boolean sellOnlyTick = false;   // Start 즉시 tick: 매도만
         this.strategyFactory = strategyFactory;
         this.tickerService = tickerService;
         this.strategyGroupRepo = strategyGroupRepo;
+        this.txTemplate = txTemplate;
 
         refreshMarketStates();
     }
@@ -462,12 +468,22 @@ private void tickTpSlFromTicker() {
                     String.format("%.2f", avgPrice), String.format("%.2f", tickerPrice), tpSlReason);
 
             if ("PAPER".equals(mode)) {
-                double fill = tickerPrice * (1.0 - tradeProps.getSlippageRate());
-                double gross = qty * fill;
-                double fee = gross * cfg.getFeeRate();
-                double realized = (gross - fee) - (qty * avgPrice);
-                persist(mode, market, "SELL", fill, qty, realized, 0.0, tpSlReason, tpSlType, tpSlReason, avgPrice);
-                positionRepo.deleteById(market);
+                final double fill = tickerPrice * (1.0 - tradeProps.getSlippageRate());
+                final double gross = qty * fill;
+                final double fee = gross * cfg.getFeeRate();
+                final double realized = (gross - fee) - (qty * avgPrice);
+                final double fQty = qty;
+                final double fAvgPrice = avgPrice;
+                final String fTpSlType = tpSlType;
+                final String fTpSlReason = tpSlReason;
+                final String fMarket = market;
+                txTemplate.execute(new TransactionCallbackWithoutResult() {
+                    @Override
+                    protected void doInTransactionWithoutResult(TransactionStatus status) {
+                        persist(mode, fMarket, "SELL", fill, fQty, realized, 0.0, fTpSlReason, fTpSlType, fTpSlReason, fAvgPrice);
+                        positionRepo.deleteById(fMarket);
+                    }
+                });
                 if (st != null) { st.downStreak = 0; st.peakHighSinceEntry = 0.0; }
             } else {
                 if (!liveOrders.isConfigured()) continue;
@@ -478,13 +494,24 @@ private void tickTpSlFromTicker() {
                                 "state=" + r.state + " vol=" + r.executedVolume + " [ticker]", tpSlType, tpSlReason);
                         continue;
                     }
-                    double fill = r.avgPrice > 0 ? r.avgPrice : tickerPrice;
-                    double gross = qty * fill;
-                    double fee = gross * cfg.getFeeRate();
-                    double realized = (gross - fee) - (qty * avgPrice);
-                    persist(mode, market, "SELL", fill, qty, realized, 0.0,
-                            tpSlReason + " uuid=" + r.uuid, tpSlType, tpSlReason, avgPrice);
-                    positionRepo.deleteById(market);
+                    final double fill = r.avgPrice > 0 ? r.avgPrice : tickerPrice;
+                    final double gross = qty * fill;
+                    final double fee = gross * cfg.getFeeRate();
+                    final double realized = (gross - fee) - (qty * avgPrice);
+                    final double fQty = qty;
+                    final double fAvgPrice = avgPrice;
+                    final String fTpSlType = tpSlType;
+                    final String fTpSlReason = tpSlReason;
+                    final String fUuid = r.uuid;
+                    final String fMarket = market;
+                    txTemplate.execute(new TransactionCallbackWithoutResult() {
+                        @Override
+                        protected void doInTransactionWithoutResult(TransactionStatus status) {
+                            persist(mode, fMarket, "SELL", fill, fQty, realized, 0.0,
+                                    fTpSlReason + " uuid=" + fUuid, fTpSlType, fTpSlReason, fAvgPrice);
+                            positionRepo.deleteById(fMarket);
+                        }
+                    });
                     if (st != null) { st.downStreak = 0; st.peakHighSinceEntry = 0.0; }
                 } catch (Exception e) {
                     log.error("[TP/SL TICKER] LIVE 매도 실패 market={}: {}", market, e.getMessage());
@@ -583,7 +610,36 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
 
             ms.put(mc.getMarket(), m);
         }
+
+        // 스캐너 등 market_config 외부에서 생성된 포지션도 Open Positions에 표시
+        for (PositionEntity pe : positionRepo.findAll()) {
+            if (ms.containsKey(pe.getMarket())) continue; // 이미 포함된 마켓 스킵
+            if (pe.getQty() == null || pe.getQty().compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
+
+            BotStatus.MarketStatus m = new BotStatus.MarketStatus();
+            m.setMarket(pe.getMarket());
+            m.setEnabled(false);
+            m.setBaseOrderKrw(0.0);
+            m.setPositionOpen(true);
+            m.setAvgPrice(bd(pe.getAvgPrice()));
+            m.setQty(bd(pe.getQty()));
+            m.setAddBuys(pe.getAddBuys());
+            m.setEntryStrategy(pe.getEntryStrategy());
+            m.setRealizedPnlKrw(calcMarketRealizedPnl(pe.getMarket(), bc.getMode()));
+            ms.put(pe.getMarket(), m);
+        }
+
         s.setMarkets(ms);
+
+        // 자본 현황: 모든 열린 포지션의 투입금(avgPrice * qty) 합산
+        double usedCapital = 0.0;
+        for (BotStatus.MarketStatus m : ms.values()) {
+            if (m.isPositionOpen()) {
+                usedCapital += m.getAvgPrice() * m.getQty();
+            }
+        }
+        s.setUsedCapitalKrw(usedCapital);
+        s.setAvailableCapitalKrw(bd(bc.getCapitalKrw()) - usedCapital);
 
         // Strategy Groups 로드
         List<StrategyGroupEntity> groupEntities = strategyGroupRepo.findAllByOrderBySortOrderAsc();
@@ -1026,6 +1082,18 @@ private void tickInternal(boolean boundaryAligned) {
                 states.put(market, st);
             }
 
+            // sellOnly tick: 포지션 없는 마켓은 캔들 조회/상태 업데이트 없이 스킵
+            // 이유: sellOnly에서 lastCandleUtc를 업데이트하면, 다음 정상 tick에서
+            // 소량 코인(NEAR 등)의 새 캔들이 아직 API에 없을 때 "동일 봉"으로 스킵됨
+            if (sellOnlyTick) {
+                PositionEntity sellCheckPos = positionRepo.findById(market).orElse(null);
+                if (sellCheckPos == null || sellCheckPos.getQty() == null
+                        || sellCheckPos.getQty().compareTo(BigDecimal.ZERO) <= 0) {
+                    log.debug("[{}] sellOnly tick — 포지션 없으므로 스킵", market);
+                    continue;
+                }
+            }
+
             // LIVE 모드에서는 pending 주문이 있으면 해당 마켓의 전략 실행을 막아 중복주문 위험을 줄입니다.
             if ("LIVE".equals(mode) && liveOrders.isConfigured() && liveOrders.hasPendingOrder(market)) {
                 log.info("[{}] pending 주문 존재 → 이번 tick 스킵", market);
@@ -1060,7 +1128,7 @@ if (latest.candle_date_time_utc == null) {
     continue;
 }
 if (latest.candle_date_time_utc.equals(st.lastCandleUtc)) {
-    log.debug("[{}] 새 캔들 없음 (동일 봉: {})", market, st.lastCandleUtc);
+    log.info("[{}] 새 캔들 없음 (동일 봉: {}) → 스킵", market, st.lastCandleUtc);
     continue;
 }
 
@@ -1122,7 +1190,7 @@ for (int ci = 0; ci < candlesToProcess.size(); ci++) {
 
     double close = cur.trade_price;
     if (close < prevClose) st.downStreak++;
-    else st.downStreak = 0; st.peakHighSinceEntry = 0.0;
+    else { st.downStreak = 0; st.peakHighSinceEntry = 0.0; }
     prevClose = close;
 
     st.lastPrice = close;
@@ -1161,12 +1229,21 @@ if (tpSlResult != null) {
     String tpSlType = tpSlResult.patternType;
     String tpSlReason = tpSlResult.reason;
     if ("PAPER".equals(mode)) {
-        double fill = close * (1.0 - tradeProps.getSlippageRate());
-        double gross = bd(pe.getQty()) * fill;
-        double fee = gross * cfg.getFeeRate();
-        double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
-        persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0, tpSlReason, tpSlType, tpSlReason, avgForTpSl);
-        positionRepo.deleteById(market);
+        final double fill = close * (1.0 - tradeProps.getSlippageRate());
+        final double gross = bd(pe.getQty()) * fill;
+        final double fee = gross * cfg.getFeeRate();
+        final double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
+        final double fPeQty = bd(pe.getQty());
+        final double fAvgForTpSl = avgForTpSl;
+        final String fTpSlType = tpSlType;
+        final String fTpSlReason = tpSlReason;
+        txTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                persist(mode, market, "SELL", fill, fPeQty, realized, 0.0, fTpSlReason, fTpSlType, fTpSlReason, fAvgForTpSl);
+                positionRepo.deleteById(market);
+            }
+        });
         st.downStreak = 0; st.peakHighSinceEntry = 0.0;
     } else {
         if (!liveOrders.isConfigured()) throw new IllegalStateException("LIVE 모드인데 업비트 키가 없습니다.");
@@ -1175,12 +1252,22 @@ if (tpSlResult != null) {
             persist(mode, market, "SELL_PENDING", close, bd(pe.getQty()), 0.0, 0.0, "state=" + r.state + " vol=" + r.executedVolume, tpSlType, tpSlReason);
             break;
         }
-        double fill = r.avgPrice > 0 ? r.avgPrice : close;
-        double gross = bd(pe.getQty()) * fill;
-        double fee = gross * cfg.getFeeRate();
-        double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
-        persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0, tpSlReason + " uuid=" + r.uuid, tpSlType, tpSlReason, avgForTpSl);
-        positionRepo.deleteById(market);
+        final double fill = r.avgPrice > 0 ? r.avgPrice : close;
+        final double gross = bd(pe.getQty()) * fill;
+        final double fee = gross * cfg.getFeeRate();
+        final double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
+        final double fPeQty = bd(pe.getQty());
+        final double fAvgForTpSl = avgForTpSl;
+        final String fTpSlType = tpSlType;
+        final String fTpSlReason = tpSlReason;
+        final String fUuid = r.uuid;
+        txTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                persist(mode, market, "SELL", fill, fPeQty, realized, 0.0, fTpSlReason + " uuid=" + fUuid, fTpSlType, fTpSlReason, fAvgForTpSl);
+                positionRepo.deleteById(market);
+            }
+        });
         st.downStreak = 0; st.peakHighSinceEntry = 0.0;
     }
     log.info("[{}] {} 매도 | 평단:{} → 현재:{} | 사유: {}", market, tpSlType,
@@ -1214,12 +1301,20 @@ if (timeStopMin > 0 && openForTpSl && pe != null && pe.getOpenedAt() != null) {
                         market, elapsedMin, String.format("%.2f", pnlPct), entryStrat);
 
                 if ("PAPER".equals(mode)) {
-                    double fill = close * (1.0 - tradeProps.getSlippageRate());
-                    double gross = bd(pe.getQty()) * fill;
-                    double fee = gross * cfg.getFeeRate();
-                    double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
-                    persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0, tsReason, "TIME_STOP", tsReason, avgForTpSl);
-                    positionRepo.deleteById(market);
+                    final double fill = close * (1.0 - tradeProps.getSlippageRate());
+                    final double gross = bd(pe.getQty()) * fill;
+                    final double fee = gross * cfg.getFeeRate();
+                    final double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
+                    final double fPeQty = bd(pe.getQty());
+                    final double fAvgForTpSl = avgForTpSl;
+                    final String fTsReason = tsReason;
+                    txTemplate.execute(new TransactionCallbackWithoutResult() {
+                        @Override
+                        protected void doInTransactionWithoutResult(TransactionStatus status) {
+                            persist(mode, market, "SELL", fill, fPeQty, realized, 0.0, fTsReason, "TIME_STOP", fTsReason, fAvgForTpSl);
+                            positionRepo.deleteById(market);
+                        }
+                    });
                     st.downStreak = 0; st.peakHighSinceEntry = 0.0;
                 } else {
                     if (!liveOrders.isConfigured()) throw new IllegalStateException("LIVE 모드인데 업비트 키가 없습니다.");
@@ -1229,13 +1324,22 @@ if (timeStopMin > 0 && openForTpSl && pe != null && pe.getOpenedAt() != null) {
                                 "state=" + r.state + " vol=" + r.executedVolume, "TIME_STOP", tsReason);
                         break;
                     }
-                    double fill = r.avgPrice > 0 ? r.avgPrice : close;
-                    double gross = bd(pe.getQty()) * fill;
-                    double fee = gross * cfg.getFeeRate();
-                    double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
-                    persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0,
-                            tsReason + " uuid=" + r.uuid, "TIME_STOP", tsReason, avgForTpSl);
-                    positionRepo.deleteById(market);
+                    final double fill = r.avgPrice > 0 ? r.avgPrice : close;
+                    final double gross = bd(pe.getQty()) * fill;
+                    final double fee = gross * cfg.getFeeRate();
+                    final double realized = (gross - fee) - (bd(pe.getQty()) * avgForTpSl);
+                    final double fPeQty = bd(pe.getQty());
+                    final double fAvgForTpSl = avgForTpSl;
+                    final String fTsReason = tsReason;
+                    final String fUuid = r.uuid;
+                    txTemplate.execute(new TransactionCallbackWithoutResult() {
+                        @Override
+                        protected void doInTransactionWithoutResult(TransactionStatus status) {
+                            persist(mode, market, "SELL", fill, fPeQty, realized, 0.0,
+                                    fTsReason + " uuid=" + fUuid, "TIME_STOP", fTsReason, fAvgForTpSl);
+                            positionRepo.deleteById(market);
+                        }
+                    });
                     st.downStreak = 0; st.peakHighSinceEntry = 0.0;
                 }
                 break; // Time Stop 매도 완료 → 다음 마켓
@@ -1550,25 +1654,42 @@ if (pe != null && bd(pe.getQty()) > 0) {
                                 market, String.format("%.2f", peakHigh), String.format("%.2f", close),
                                 String.format("%.2f", ((peakHigh - close) / peakHigh) * 100.0));
                         if ("PAPER".equals(mode)) {
-                            double fill = close * (1.0 - tradeProps.getSlippageRate());
-                            double gross = bd(pe.getQty()) * fill;
-                            double fee = gross * cfg.getFeeRate();
-                            double realized = (gross - fee) - (bd(pe.getQty()) * avgPriceTrail);
-                            persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0,
-                                    trailReason, "TRAILING_STOP", trailReason, avgPriceTrail);
-                            positionRepo.deleteById(market);
+                            final double fill = close * (1.0 - tradeProps.getSlippageRate());
+                            final double gross = bd(pe.getQty()) * fill;
+                            final double fee = gross * cfg.getFeeRate();
+                            final double realized = (gross - fee) - (bd(pe.getQty()) * avgPriceTrail);
+                            final double fPeQty = bd(pe.getQty());
+                            final double fAvgPriceTrail = avgPriceTrail;
+                            final String fTrailReason = trailReason;
+                            txTemplate.execute(new TransactionCallbackWithoutResult() {
+                                @Override
+                                protected void doInTransactionWithoutResult(TransactionStatus status) {
+                                    persist(mode, market, "SELL", fill, fPeQty, realized, 0.0,
+                                            fTrailReason, "TRAILING_STOP", fTrailReason, fAvgPriceTrail);
+                                    positionRepo.deleteById(market);
+                                }
+                            });
                             st.downStreak = 0; st.peakHighSinceEntry = 0.0;
                         } else {
                             if (liveOrders.isConfigured()) {
                                 LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(market, bd(pe.getQty()));
                                 if (r.isFilled()) {
-                                    double fill = r.avgPrice > 0 ? r.avgPrice : close;
-                                    double gross = bd(pe.getQty()) * fill;
-                                    double fee = gross * cfg.getFeeRate();
-                                    double realized = (gross - fee) - (bd(pe.getQty()) * avgPriceTrail);
-                                    persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0,
-                                            trailReason + " uuid=" + r.uuid, "TRAILING_STOP", trailReason, avgPriceTrail);
-                                    positionRepo.deleteById(market);
+                                    final double fill = r.avgPrice > 0 ? r.avgPrice : close;
+                                    final double gross = bd(pe.getQty()) * fill;
+                                    final double fee = gross * cfg.getFeeRate();
+                                    final double realized = (gross - fee) - (bd(pe.getQty()) * avgPriceTrail);
+                                    final double fPeQty = bd(pe.getQty());
+                                    final double fAvgPriceTrail = avgPriceTrail;
+                                    final String fTrailReason = trailReason;
+                                    final String fUuid = r.uuid;
+                                    txTemplate.execute(new TransactionCallbackWithoutResult() {
+                                        @Override
+                                        protected void doInTransactionWithoutResult(TransactionStatus status) {
+                                            persist(mode, market, "SELL", fill, fPeQty, realized, 0.0,
+                                                    fTrailReason + " uuid=" + fUuid, "TRAILING_STOP", fTrailReason, fAvgPriceTrail);
+                                            positionRepo.deleteById(market);
+                                        }
+                                    });
                                     st.downStreak = 0; st.peakHighSinceEntry = 0.0;
                                 }
                             }
@@ -1611,13 +1732,23 @@ if (chosen.action == SignalAction.SELL && open && bc.isStrategyLock()) {
 // === SELL ===
 if (chosen.action == SignalAction.SELL && open) {
     if ("PAPER".equals(mode)) {
-        double fill = close * (1.0 - tradeProps.getSlippageRate());
-        double gross = bd(pe.getQty()) * fill;
-        double fee = gross * cfg.getFeeRate();
-        double realized = (gross - fee) - (bd(pe.getQty()) * bd(pe.getAvgPrice()));
-        double pnlPct = bd(pe.getAvgPrice()) > 0 ? ((close - bd(pe.getAvgPrice())) / bd(pe.getAvgPrice())) * 100.0 : 0;
-        persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0, patternReason, patternType, patternReason, bd(pe.getAvgPrice()), signalConfidence);
-        positionRepo.deleteById(market);
+        final double fill = close * (1.0 - tradeProps.getSlippageRate());
+        final double gross = bd(pe.getQty()) * fill;
+        final double fee = gross * cfg.getFeeRate();
+        final double realized = (gross - fee) - (bd(pe.getQty()) * bd(pe.getAvgPrice()));
+        final double pnlPct = bd(pe.getAvgPrice()) > 0 ? ((close - bd(pe.getAvgPrice())) / bd(pe.getAvgPrice())) * 100.0 : 0;
+        final double fPeQty = bd(pe.getQty());
+        final double fPeAvgPrice = bd(pe.getAvgPrice());
+        final String fPatternReason = patternReason;
+        final String fPatternType = patternType;
+        final double fSignalConfidence = signalConfidence;
+        txTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                persist(mode, market, "SELL", fill, fPeQty, realized, 0.0, fPatternReason, fPatternType, fPatternReason, fPeAvgPrice, fSignalConfidence);
+                positionRepo.deleteById(market);
+            }
+        });
         st.downStreak = 0; st.peakHighSinceEntry = 0.0;
         log.info("[{}] 패턴매도 | {} | 평단:{} → 현재:{} | 수익률:{} | 실현손익:{}원",
                 market, patternType, String.format("%.2f", bd(pe.getAvgPrice())),
@@ -1631,13 +1762,24 @@ if (chosen.action == SignalAction.SELL && open) {
             persist(mode, market, "SELL_PENDING", close, bd(pe.getQty()), 0.0, 0.0, "state=" + r.state + " vol=" + r.executedVolume, patternType, patternReason);
             break;
         }
-        double fill = r.avgPrice > 0 ? r.avgPrice : close;
-        double gross = bd(pe.getQty()) * fill;
-        double fee = gross * cfg.getFeeRate();
-        double realized = (gross - fee) - (bd(pe.getQty()) * bd(pe.getAvgPrice()));
-        double pnlPctLive = bd(pe.getAvgPrice()) > 0 ? ((fill - bd(pe.getAvgPrice())) / bd(pe.getAvgPrice())) * 100.0 : 0;
-        persist(mode, market, "SELL", fill, bd(pe.getQty()), realized, 0.0, patternReason + " uuid=" + r.uuid, patternType, patternReason, bd(pe.getAvgPrice()), signalConfidence);
-        positionRepo.deleteById(market);
+        final double fill = r.avgPrice > 0 ? r.avgPrice : close;
+        final double gross = bd(pe.getQty()) * fill;
+        final double fee = gross * cfg.getFeeRate();
+        final double realized = (gross - fee) - (bd(pe.getQty()) * bd(pe.getAvgPrice()));
+        final double pnlPctLive = bd(pe.getAvgPrice()) > 0 ? ((fill - bd(pe.getAvgPrice())) / bd(pe.getAvgPrice())) * 100.0 : 0;
+        final double fPeQty = bd(pe.getQty());
+        final double fPeAvgPrice = bd(pe.getAvgPrice());
+        final String fPatternReason = patternReason;
+        final String fPatternType = patternType;
+        final double fSignalConfidence = signalConfidence;
+        final String fUuid = r.uuid;
+        txTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                persist(mode, market, "SELL", fill, fPeQty, realized, 0.0, fPatternReason + " uuid=" + fUuid, fPatternType, fPatternReason, fPeAvgPrice, fSignalConfidence);
+                positionRepo.deleteById(market);
+            }
+        });
         st.downStreak = 0; st.peakHighSinceEntry = 0.0;
         log.info("[{}] 패턴매도(LIVE) | {} | 평단:{} → 체결:{} | 수익률:{} | 실현손익:{}원",
                 market, patternType, String.format("%.2f", bd(pe.getAvgPrice())),
@@ -1712,9 +1854,13 @@ if (chosen.action == SignalAction.BUY && !open) {
         }
     }
 
-    executeBuy(mode, market, close, st.downStreak, orderKrw, patternReason, patternType, patternReason, signalConfidence);
+    boolean buyOk = executeBuy(mode, market, close, st.downStreak, orderKrw, patternReason, patternType, patternReason, signalConfidence);
     // log.info는 executeBuy 내부에서 persist("BUY")가 된 경우에만 의미 있음
     // executeBuy가 false 리턴해도 BUY_PENDING/BUY_FAILED로 이미 persist됨
+    if (buyOk) {
+        remainCap -= orderKrw;
+        used += orderKrw;
+    }
     break; // 다음 마켓도 처리되도록 return 대신 break
 }
 
@@ -1803,9 +1949,13 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
         }
     }
 
-    executeAddBuy(mode, market, close, orderKrw, patternReason, patternType, patternReason, signalConfidence);
+    boolean addBuyOk = executeAddBuy(mode, market, close, orderKrw, patternReason, patternType, patternReason, signalConfidence);
     log.info("[{}] 추가매수 | {} | 가격:{} | 투입:{}원 | {}회차 | 사유: {}", market, patternType,
             String.format("%.2f", close), String.format("%.0f", orderKrw), next, patternReason);
+    if (addBuyOk) {
+        remainCap -= orderKrw;
+        used += orderKrw;
+    }
     break; // 다음 마켓도 처리되도록 return 대신 break
 }
 
@@ -1848,16 +1998,25 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
             double fill = close * (1.0 + tradeProps.getSlippageRate());
             double qty = net / fill;
 
-            PositionEntity np = new PositionEntity();
-            np.setMarket(market);
-            np.setQty(qty);
-            np.setAvgPrice(fill);
-            np.setAddBuys(0);
-            np.setOpenedAt(Instant.now());
-            np.setEntryStrategy(patternType);
-            positionRepo.save(np);
+            final double fFill = fill;
+            final double fQty = qty;
+            final double fOrderKrw = orderKrw;
+            final int fDownStreak = downStreak;
+            txTemplate.execute(new TransactionCallbackWithoutResult() {
+                @Override
+                protected void doInTransactionWithoutResult(TransactionStatus status) {
+                    PositionEntity np = new PositionEntity();
+                    np.setMarket(market);
+                    np.setQty(fQty);
+                    np.setAvgPrice(fFill);
+                    np.setAddBuys(0);
+                    np.setOpenedAt(Instant.now());
+                    np.setEntryStrategy(patternType);
+                    positionRepo.save(np);
 
-            persist(mode, market, "BUY", fill, qty, 0.0, 0.0, note + " DownStreak=" + downStreak, patternType, patternReason, 0, confidence);
+                    persist(mode, market, "BUY", fFill, fQty, 0.0, 0.0, note + " DownStreak=" + fDownStreak, patternType, patternReason, 0, confidence);
+                }
+            });
             log.info("[{}] 매수 | {} | 가격:{} | 투입:{}원 | 사유: {}",
                     market, patternType, String.format("%.2f", fill), String.format("%.0f", orderKrw), note);
             // 트레일링 스탑용 peakHigh 초기화
@@ -1889,28 +2048,47 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
         }
 
         LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw);
-        if (!r.isFilled()) {
+
+        // isFilled(): done 또는 (cancel + executedVolume>0)
+        // 추가: timeout/wait 상태라도 executedVolume>0 이면 실제 체결된 것이므로 포지션 생성
+        boolean actuallyFilled = r.isFilled() || r.executedVolume > 0;
+
+        if (!actuallyFilled) {
             persist(mode, market, "BUY_PENDING", close, 0.0, 0.0, 0.0, "state=" + r.state + " vol=" + r.executedVolume, patternType, patternReason);
+            log.warn("[{}] 매수 미체결 | state={} | executedVolume={}", market, r.state, r.executedVolume);
             return false;
         }
 
         double fill = r.avgPrice > 0 ? r.avgPrice : close;
         double qty = r.executedVolume;
-        if (qty <= 0) {
-            persist(mode, market, "BUY_FAILED", close, 0.0, 0.0, 0.0, "executedVolume=0", patternType, patternReason);
+        // 404 즉시체결: executedVolume 조회 불가 → 주문금액/가격으로 추정
+        if (qty <= 0 && "order_not_found".equalsIgnoreCase(r.state)) {
+            qty = orderKrw / fill;
+            log.info("[{}] BUY 404 즉시체결 추정 qty≈{} ({}원/{})", market,
+                    String.format("%.8f", qty), String.format("%.0f", orderKrw), fill);
+        } else if (qty <= 0) {
+            persist(mode, market, "BUY_FAILED", close, 0.0, 0.0, 0.0, "executedVolume=0 state=" + r.state, patternType, patternReason);
             return false;
         }
 
-        PositionEntity np = new PositionEntity();
-        np.setMarket(market);
-        np.setQty(qty);
-        np.setAvgPrice(fill);
-        np.setAddBuys(0);
-        np.setOpenedAt(Instant.now());
-        np.setEntryStrategy(patternType);
-        positionRepo.save(np);
+        final double fFill = fill;
+        final double fQty = qty;
+        final String fUuid = r.uuid;
+        txTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                PositionEntity np = new PositionEntity();
+                np.setMarket(market);
+                np.setQty(fQty);
+                np.setAvgPrice(fFill);
+                np.setAddBuys(0);
+                np.setOpenedAt(Instant.now());
+                np.setEntryStrategy(patternType);
+                positionRepo.save(np);
 
-        persist(mode, market, "BUY", fill, qty, 0.0, 0.0, note + " uuid=" + r.uuid, patternType, patternReason, 0, confidence);
+                persist(mode, market, "BUY", fFill, fQty, 0.0, 0.0, note + " uuid=" + fUuid, patternType, patternReason, 0, confidence);
+            }
+        });
         log.info("[{}] 매수 체결 | {} | 체결가:{} | 수량:{} | 투입:{}원 | state={} | 사유: {}",
                 market, patternType, String.format("%.2f", fill), String.format("%.8f", qty),
                 String.format("%.0f", orderKrw), r.state, note);
@@ -1924,9 +2102,9 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
      * 추가매수(ADD_BUY) 실행.
      * - PAPER/LIVE 동일하게 평균단가 재계산 후 Position 업데이트
      */
-    private void executeAddBuy(String mode, String market, double close, double orderKrw, String note, String patternType, String patternReason, double confidence) {
+    private boolean executeAddBuy(String mode, String market, double close, double orderKrw, String note, String patternType, String patternReason, double confidence) {
         PositionEntity pe = positionRepo.findById(market).orElse(null);
-        if (pe == null || bd(pe.getQty()) <= 0) return;
+        if (pe == null || bd(pe.getQty()) <= 0) return false;
         int next = pe.getAddBuys() + 1;
 
         if (orderKrw < tradeProps.getMinOrderKrw()) orderKrw = tradeProps.getMinOrderKrw();
@@ -1940,13 +2118,23 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
             double newQty = bd(pe.getQty()) + addQty;
             double newAvg = ((bd(pe.getQty()) * bd(pe.getAvgPrice())) + (addQty * fill)) / newQty;
 
-            pe.setQty(newQty);
-            pe.setAvgPrice(newAvg);
-            pe.setAddBuys(next);
-            positionRepo.save(pe);
+            final double fNewQty = newQty;
+            final double fNewAvg = newAvg;
+            final double fFill = fill;
+            final double fAddQty = addQty;
+            final int fNext = next;
+            txTemplate.execute(new TransactionCallbackWithoutResult() {
+                @Override
+                protected void doInTransactionWithoutResult(TransactionStatus status) {
+                    pe.setQty(fNewQty);
+                    pe.setAvgPrice(fNewAvg);
+                    pe.setAddBuys(fNext);
+                    positionRepo.save(pe);
 
-            persist(mode, market, "ADD_BUY", fill, addQty, 0.0, 0.0, "addBuys=" + next, patternType, patternReason, 0, confidence);
-            return;
+                    persist(mode, market, "ADD_BUY", fFill, fAddQty, 0.0, 0.0, "addBuys=" + fNext, patternType, patternReason, 0, confidence);
+                }
+            });
+            return true;
         }
 
         if (!liveOrders.isConfigured()) throw new IllegalStateException("LIVE 모드인데 업비트 키가 없습니다.");
@@ -1965,31 +2153,43 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
                         "원화 잔고(Available KRW)가 부족해서 추가매수 주문을 보내지 않았어요.",
                         det);
             } catch (Exception ignore) {}
-            return;
+            return false;
         }
 
         LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw);
         if (!r.isFilled()) {
             persist(mode, market, "ADD_BUY_PENDING", close, 0.0, 0.0, 0.0, "state=" + r.state + " vol=" + r.executedVolume, patternType, patternReason);
-            return;
+            return false;
         }
 
         double fill = r.avgPrice > 0 ? r.avgPrice : close;
         double addQty = r.executedVolume;
         if (addQty <= 0) {
             persist(mode, market, "ADD_BUY_FAILED", close, 0.0, 0.0, 0.0, "executedVolume=0", patternType, patternReason);
-            return;
+            return false;
         }
 
         double newQty = bd(pe.getQty()) + addQty;
         double newAvg = ((bd(pe.getQty()) * bd(pe.getAvgPrice())) + (addQty * fill)) / newQty;
 
-        pe.setQty(newQty);
-        pe.setAvgPrice(newAvg);
-        pe.setAddBuys(next);
-        positionRepo.save(pe);
+        final double fNewQty = newQty;
+        final double fNewAvg = newAvg;
+        final double fFill = fill;
+        final double fAddQty = addQty;
+        final int fNext = next;
+        final String fUuid = r.uuid;
+        txTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                pe.setQty(fNewQty);
+                pe.setAvgPrice(fNewAvg);
+                pe.setAddBuys(fNext);
+                positionRepo.save(pe);
 
-        persist(mode, market, "ADD_BUY", fill, addQty, 0.0, 0.0, "addBuys=" + next + " uuid=" + r.uuid, patternType, patternReason, 0, confidence);
+                persist(mode, market, "ADD_BUY", fFill, fAddQty, 0.0, 0.0, "addBuys=" + fNext + " uuid=" + fUuid, patternType, patternReason, 0, confidence);
+            }
+        });
+        return true;
     }
 
     /** 총 실현 PnL 합계 (드로다운 서킷브레이커 판정용) */
@@ -2164,11 +2364,13 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
                     continue;
                 }
 
-                // ★ 핵심 안전장치: 봇이 직접 매수(BUY)한 기록이 있는 경우에만 포지션 복구
+                // ★ 핵심 안전장치: 봇이 직접 매수(BUY/BUY_PENDING/BUY_SYNC)한 기록이 있는 경우에만 포지션 복구
+                // BUY_PENDING: timeout/wait 상태로 끝났지만 실제 체결된 경우 (업비트에 코인이 있으므로)
                 // 사용자가 수동으로 보유한 코인은 봇이 관리하지 않음
                 long botBuyCount = tradeRepo.countByMarketAndAction(market, "BUY");
                 long botBuySyncCount = tradeRepo.countByMarketAndAction(market, "BUY_SYNC");
-                if (botBuyCount == 0 && botBuySyncCount == 0) {
+                long botBuyPendingCount = tradeRepo.countByMarketAndAction(market, "BUY_PENDING");
+                if (botBuyCount == 0 && botBuySyncCount == 0 && botBuyPendingCount == 0) {
                     log.warn("[SYNC] ⛔ {} 업비트에 보유 중이나 봇 매수 기록 없음 → 외부 보유 코인으로 판단, 스킵 " +
                             "(수량={}, 평균가={}). 봇이 관리하려면 설정에서 수동 포지션 등록 필요.",
                             market, acct.balance, acct.avg_buy_price);
@@ -2181,22 +2383,47 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
 
                 if (qty.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
 
-                PositionEntity np = new PositionEntity();
-                np.setMarket(market);
-                np.setQty(qty);
-                np.setAvgPrice(avgPrice);
-                np.setAddBuys(0);
-                np.setOpenedAt(Instant.now());
-                positionRepo.save(np);
+                // 최근 BUY/BUY_PENDING 기록에서 entryStrategy 추출
+                String recoveredStrategy = null;
+                try {
+                    List<TradeEntity> buyRecords = tradeRepo.findTop200ByOrderByTsEpochMsDesc();
+                    for (TradeEntity bt : buyRecords) {
+                        if (market.equals(bt.getMarket()) && ("BUY".equals(bt.getAction()) || "BUY_PENDING".equals(bt.getAction()))) {
+                            recoveredStrategy = bt.getPatternType();
+                            break;
+                        }
+                    }
+                } catch (Exception ignore) {}
+
+                final BigDecimal fQty = qty;
+                final BigDecimal fAvgPrice = avgPrice;
+                final String fRecoveredStrategy = recoveredStrategy;
+                final String fMarket = market;
+                final long fBotBuyCount = botBuyCount;
+                final long fBotBuyPendingCount = botBuyPendingCount;
+                txTemplate.execute(new TransactionCallbackWithoutResult() {
+                    @Override
+                    protected void doInTransactionWithoutResult(TransactionStatus status) {
+                        PositionEntity np = new PositionEntity();
+                        np.setMarket(fMarket);
+                        np.setQty(fQty);
+                        np.setAvgPrice(fAvgPrice);
+                        np.setAddBuys(0);
+                        np.setOpenedAt(Instant.now());
+                        if (fRecoveredStrategy != null) np.setEntryStrategy(fRecoveredStrategy);
+                        positionRepo.save(np);
+
+                        persist("LIVE", fMarket, "BUY_SYNC", fAvgPrice.doubleValue(), fQty.doubleValue(),
+                                0.0, 0.0, "업비트 보유자산에서 자동 복구 (avg_buy_price=" + fAvgPrice.toPlainString() + ", 봇 BUY 기록 " + fBotBuyCount + "건, BUY_PENDING " + fBotBuyPendingCount + "건 확인)",
+                                fRecoveredStrategy != null ? fRecoveredStrategy : "POSITION_SYNC", "봇 DB 누락 포지션 복구");
+                    }
+                });
                 synced++;
 
-                log.warn("[SYNC] ★ 포지션 복구: {} | 수량={} | 평균가={} | (봇 매수 기록 확인됨, BUY={}건)",
-                        market, qty.toPlainString(), avgPrice.toPlainString(), botBuyCount);
-
-                // 거래 기록에도 남김
-                persist("LIVE", market, "BUY_SYNC", avgPrice.doubleValue(), qty.doubleValue(),
-                        0.0, 0.0, "업비트 보유자산에서 자동 복구 (avg_buy_price=" + avgPrice.toPlainString() + ", 봇 BUY 기록 " + botBuyCount + "건 확인)",
-                        "POSITION_SYNC", "봇 DB 누락 포지션 복구");
+                log.warn("[SYNC] ★ 포지션 복구: {} | 수량={} | 평균가={} | 전략={} | (봇 매수 기록 확인됨, BUY={}건, BUY_PENDING={}건)",
+                        market, qty.toPlainString(), avgPrice.toPlainString(),
+                        recoveredStrategy != null ? recoveredStrategy : "N/A",
+                        botBuyCount, botBuyPendingCount);
             }
 
             // 2) 봇 DB에 있는데 업비트에 없으면 → 포지션 삭제 (수동 매도 등)
@@ -2209,10 +2436,17 @@ if (chosen.action == SignalAction.ADD_BUY && open && cfg.isAddBuyOnEachExtraDown
 
                 if (!upbitHoldings.containsKey(currency)) {
                     log.warn("[SYNC] ★ 포지션 삭제: {} | (업비트에 보유하지 않으나 봇 DB에 남아있음)", market);
-                    persist("LIVE", market, "SELL_SYNC", 0, pos.getQty().doubleValue(),
-                            0.0, 0.0, "업비트 미보유 → 봇 포지션 자동 삭제",
-                            "POSITION_SYNC", "업비트 미보유 포지션 정리");
-                    positionRepo.deleteById(market);
+                    final String fMarket = market;
+                    final double fPosQty = pos.getQty().doubleValue();
+                    txTemplate.execute(new TransactionCallbackWithoutResult() {
+                        @Override
+                        protected void doInTransactionWithoutResult(TransactionStatus status) {
+                            persist("LIVE", fMarket, "SELL_SYNC", 0, fPosQty,
+                                    0.0, 0.0, "업비트 미보유 → 봇 포지션 자동 삭제",
+                                    "POSITION_SYNC", "업비트 미보유 포지션 정리");
+                            positionRepo.deleteById(fMarket);
+                        }
+                    });
                     removed++;
                 }
             }

@@ -110,6 +110,32 @@
         <div style="font-weight:700;font-family:var(--font-mono);font-size:20px" id="intervalSnap"><span class="skeleton skeleton-text" style="width:40%"></span></div>
       </div>
     </div>
+    <div class="kpi-card capital">
+      <div class="kpi-label">Capital <span class="help-icon" data-tooltip="설정 자본금 대비 포지션 투입 현황&#10;Used: 포지션에 투입된 금액&#10;Available: 잔여 배분 가능 금액" aria-label="Capital help"></span></div>
+      <div style="margin-top:4px">
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Total Capital</div>
+        <div style="font-weight:800;font-family:var(--font-mono);font-size:20px" id="capitalSnap"><span class="skeleton skeleton-text" style="width:60%"></span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Used</div>
+            <div style="font-weight:700;font-family:var(--font-mono);font-size:14px" id="capitalUsed"><span class="skeleton skeleton-text" style="width:70%"></span></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Available</div>
+            <div style="font-weight:700;font-family:var(--font-mono);font-size:14px" id="capitalAvailable"><span class="skeleton skeleton-text" style="width:70%"></span></div>
+          </div>
+        </div>
+        <div class="capital-progress-wrap">
+          <div class="capital-progress-bar">
+            <div class="capital-progress-fill" id="capitalProgressFill" style="width:0%"></div>
+          </div>
+          <div class="capital-progress-label">
+            <span>Usage</span>
+            <span class="capital-progress-pct" id="capitalUsagePct">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Portfolio Performance + Strategy Performance -->
@@ -146,7 +172,7 @@
   </div>
 
   <!-- Opening Scanner Status Card -->
-  <div class="card" id="scannerCard" style="margin-bottom:16px">
+  <div class="card" id="scannerCard" style="margin-bottom:16px;padding:0;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">&#x1F305;</span>
@@ -155,7 +181,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--text-muted)" id="scannerMode">-</span>
-        <button class="bot-toggle" id="scannerSwitch" aria-pressed="false" title="Start/Stop Scanner" style="width:90px;flex-shrink:0;transform:scale(0.85)">
+        <button class="bot-toggle bot-toggle-sm" id="scannerSwitch" aria-pressed="false" title="Start/Stop Scanner" style="width:90px;flex-shrink:0">
           <span class="bot-toggle-knob"></span>
           <span class="bot-toggle-label">OFF</span>
         </button>
@@ -187,22 +213,59 @@
     </div>
   </div>
 
-  <!-- Open Positions -->
-  <div class="trades-card" id="positionsCard" style="margin-bottom:16px">
-    <div class="trades-header">
-      <div class="trades-title">Open Positions <span class="badge" id="posCountBadge" style="font-size:11px;margin-left:8px">0</span></div>
+  <!-- AllDay Scanner Status Card -->
+  <div class="card" id="alldayCard" style="margin-bottom:16px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">&#x1F319;</span>
+        <span style="font-weight:700;font-size:14px">AllDay Scanner</span>
+        <span class="badge" id="alldayStateBadge" style="font-size:11px">STOPPED</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text-muted)" id="alldayMode">-</span>
+        <button class="bot-toggle bot-toggle-sm" id="alldaySwitch" aria-pressed="false" title="Start/Stop AllDay Scanner" style="width:90px;flex-shrink:0">
+          <span class="bot-toggle-knob"></span>
+          <span class="bot-toggle-label">OFF</span>
+        </button>
+      </div>
     </div>
-    <table class="trades-table" id="posTable">
-      <colgroup>
-        <col style="width:16%"><col style="width:14%"><col style="width:14%"><col style="width:14%"><col style="width:16%"><col style="width:12%"><col style="width:14%">
-      </colgroup>
-      <thead>
-        <tr><th>Market</th><th>Qty</th><th>Avg Price</th><th>Last Price</th><th>Unrealized PnL</th><th>Add Buys</th><th>Entry Strategy</th></tr>
-      </thead>
-      <tbody id="posTbody">
-        <tr><td colspan="7" style="color:var(--text-muted);padding:16px">Loading...</td></tr>
-      </tbody>
-    </table>
+    <div style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;font-size:13px">
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Status</div>
+        <div style="font-weight:700;font-family:var(--font-mono)" id="alldayStatus">-</div>
+      </div>
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Scan Target</div>
+        <div style="font-weight:700;font-family:var(--font-mono)" id="alldayScanCount">-</div>
+      </div>
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
+        <div style="font-weight:700;font-family:var(--font-mono)" id="alldayPositions">-</div>
+      </div>
+      <div>
+        <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Last Tick</div>
+        <div style="font-weight:700;font-family:var(--font-mono);font-size:12px" id="alldayLastTick">-</div>
+      </div>
+    </div>
+    <div style="padding:0 20px 12px">
+      <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Scanning Markets</div>
+      <div id="alldayMarkets" style="display:flex;flex-wrap:wrap;gap:4px;font-size:12px">
+        <span style="color:var(--text-muted)">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Open Positions -->
+  <div class="card" id="positionsCard" style="margin-bottom:16px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
+      <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">&#x1F4B0;</span> Open Positions
+        <span class="badge" id="posCountBadge" style="font-size:11px">0</span>
+      </div>
+    </div>
+    <div id="posCardsContainer" style="padding:0 16px 16px;display:flex;flex-direction:column;gap:10px">
+      <div style="color:var(--text-muted);font-size:13px;padding:8px 4px">Loading...</div>
+    </div>
   </div>
 
   <!-- Order Guard (hidden) -->
@@ -318,7 +381,7 @@
         </div>
         <div>
           <div style="font-weight:700;margin-bottom:6px">Technical Details</div>
-          <pre id="guardModalDetails" style="white-space:pre-wrap;word-break:break-word;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin:0;font-family:var(--font-mono);font-size:12px">-</pre>
+          <pre id="guardModalDetails" style="white-space:pre-wrap;word-break:break-word;background:var(--surface);border:1px solid var(--card-border);border-radius:10px;padding:10px;margin:0;font-family:var(--font-mono);font-size:12px">-</pre>
         </div>
         <div>
           <button type="button" class="guard-chart-btn" id="guardChartBtn">Chart</button>
@@ -339,6 +402,9 @@
     <div class="modal-body" id="strategyModalBody"></div>
   </div>
 </div>
+
+<!-- Build Info Footer -->
+<footer class="build-footer" id="buildFooter"></footer>
 
 <!-- Mobile Bottom Nav -->
 <nav class="mobile-nav">
