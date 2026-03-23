@@ -37,6 +37,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 // 로그인 페이지, RSA 공개키, 정적 자원만 허용
                 .antMatchers("/login", "/api/auth/pubkey", "/api/auth/login").permitAll()
                 .antMatchers("/css/**", "/js/**", "/favicon.ico").permitAll()
+                // 백테스트 API는 조회성(시뮬레이션)이므로 인증 없이 허용
+                .antMatchers("/api/backtest/**", "/api/strategies").permitAll()
                 // 나머지 모든 요청은 인증 필요
                 .anyRequest().authenticated()
             .and()
@@ -77,7 +79,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .csrf()
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 // 로그인/공개키 엔드포인트만 CSRF 면제
-                .ignoringAntMatchers("/api/auth/login", "/api/auth/pubkey")
+                .ignoringAntMatchers("/api/auth/login", "/api/auth/pubkey", "/api/backtest/**")
             .and()
 
             // ── iframe 클릭재킹 방어: DENY (H2 콘솔 미사용) ──
