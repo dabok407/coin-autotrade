@@ -271,11 +271,15 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
             return Signal.of(SignalAction.SELL, type(), reason);
         }
 
-        // 4. 빠른 실패 돌파: pnl < -0.5% + 1음봉
-        if (pnlPct < -0.5 && !CandlePatterns.isBullish(last)) {
-            String reason = String.format(Locale.ROOT,
-                    "OPEN_FAILED avg=%.2f close=%.2f pnl=%.2f%%", avgPrice, close, pnlPct);
-            return Signal.of(SignalAction.SELL, type(), reason);
+        // 4. 빠른 실패 돌파: pnl < -1.0% + 2연속 음봉 (v3: 노이즈 내성 강화)
+        int sz = candles.size();
+        if (pnlPct < -1.0 && !CandlePatterns.isBullish(last) && sz >= 2) {
+            UpbitCandle prev = candles.get(sz - 2);
+            if (!CandlePatterns.isBullish(prev)) {
+                String reason = String.format(Locale.ROOT,
+                        "OPEN_FAILED avg=%.2f close=%.2f pnl=%.2f%%", avgPrice, close, pnlPct);
+                return Signal.of(SignalAction.SELL, type(), reason);
+            }
         }
 
         // 5. 트레일링 스탑: peak - trailAtrMult × ATR (이익 구간)
