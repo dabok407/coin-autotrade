@@ -612,10 +612,19 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
         }
 
         // 스캐너 등 market_config 외부에서 생성된 포지션도 Open Positions에 표시
+        List<String> scannerMarkets = new ArrayList<String>();
+        List<PositionEntity> scannerPositions = new ArrayList<PositionEntity>();
         for (PositionEntity pe : positionRepo.findAll()) {
             if (ms.containsKey(pe.getMarket())) continue; // 이미 포함된 마켓 스킵
             if (pe.getQty() == null || pe.getQty().compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
-
+            scannerMarkets.add(pe.getMarket());
+            scannerPositions.add(pe);
+        }
+        // 스캐너 포지션 현재가 일괄 조회
+        Map<String, Double> scannerPrices = scannerMarkets.isEmpty()
+                ? Collections.<String, Double>emptyMap()
+                : tickerService.getTickerPrices(scannerMarkets);
+        for (PositionEntity pe : scannerPositions) {
             BotStatus.MarketStatus m = new BotStatus.MarketStatus();
             m.setMarket(pe.getMarket());
             m.setEnabled(false);
@@ -625,6 +634,8 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
             m.setQty(bd(pe.getQty()));
             m.setAddBuys(pe.getAddBuys());
             m.setEntryStrategy(pe.getEntryStrategy());
+            Double lp = scannerPrices.get(pe.getMarket());
+            if (lp != null && lp > 0) m.setLastPrice(lp);
             m.setRealizedPnlKrw(calcMarketRealizedPnl(pe.getMarket(), bc.getMode()));
             ms.put(pe.getMarket(), m);
         }
