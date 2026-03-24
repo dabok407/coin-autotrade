@@ -12,16 +12,18 @@ import com.example.upbit.upbit.UpbitPrivateClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import javax.annotation.PreDestroy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 독립 오프닝 레인지 돌파 스캐너.
@@ -44,6 +46,7 @@ public class OpeningScannerService {
     private final UpbitMarketCatalogService catalogService;
     private final LiveOrderService liveOrders;
     private final UpbitPrivateClient privateClient;
+    private final TransactionTemplate txTemplate;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ScheduledExecutorService scheduler;
@@ -55,9 +58,51 @@ public class OpeningScannerService {
     private volatile List<String> lastScannedMarkets = Collections.emptyList();
     private volatile long lastTickEpochMs = 0;
 
+    // Parallel executor for candle fetching and strategy evaluation
+    private final ExecutorService parallelExecutor = Executors.newFixedThreadPool(
+            Math.min(Runtime.getRuntime().availableProcessors(), 8),
+            new ThreadFactory() {
+                private final AtomicInteger counter = new AtomicInteger(0);
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "scanner-parallel-" + counter.incrementAndGet());
+                    t.setDaemon(true);
+                    return t;
+                }
+            }
+    );
+
     // v2: Decision Log (대시보드에서 차단/실행 사유 확인용)
     private static final int MAX_DECISION_LOG = 200;
     private final Deque<ScannerDecision> decisionLog = new ArrayDeque<ScannerDecision>();
+
+    /** Result holder for parallel candle fetching */
+    private static class CandleFetchResult {
+        final String market;
+        final List<UpbitCandle> candles;
+        final Exception error;
+
+        CandleFetchResult(String market, List<UpbitCandle> candles, Exception error) {
+            this.market = market;
+            this.candles = candles;
+            this.error = error;
+        }
+    }
+
+    /** BUY signal holder for Phase 2 → Phase 3 handoff */
+    private static class BuySignal {
+        final String market;
+        final UpbitCandle candle;
+        final Signal signal;
+        final List<UpbitCandle> candles;
+
+        BuySignal(String market, UpbitCandle candle, Signal signal, List<UpbitCandle> candles) {
+            this.market = market;
+            this.candle = candle;
+            this.signal = signal;
+            this.candles = candles;
+        }
+    }
 
     public OpeningScannerService(OpeningScannerConfigRepository configRepo,
                                   BotConfigRepository botConfigRepo,
@@ -66,7 +111,8 @@ public class OpeningScannerService {
                                   CandleService candleService,
                                   UpbitMarketCatalogService catalogService,
                                   LiveOrderService liveOrders,
-                                  UpbitPrivateClient privateClient) {
+                                  UpbitPrivateClient privateClient,
+                                  TransactionTemplate txTemplate) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -75,6 +121,7 @@ public class OpeningScannerService {
         this.catalogService = catalogService;
         this.liveOrders = liveOrders;
         this.privateClient = privateClient;
+        this.txTemplate = txTemplate;
     }
 
     // ========== Decision Log ==========
@@ -162,6 +209,12 @@ public class OpeningScannerService {
             scheduler = null;
         }
         return true;
+    }
+
+    @PreDestroy
+    public void destroy() {
+        parallelExecutor.shutdownNow();
+        log.info("[OpeningScanner] parallel executor shut down");
     }
 
     public boolean isRunning() { return running.get(); }
@@ -253,7 +306,8 @@ public class OpeningScannerService {
                         cfg.getSlPct().doubleValue(),
                         cfg.getTrailAtrMult().doubleValue())
                 .withFilters(cfg.getVolumeMult().doubleValue(),
-                        cfg.getMinBodyRatio().doubleValue());
+                        cfg.getMinBodyRatio().doubleValue())
+                .withOpenFailedEnabled(cfg.isOpenFailedEnabled());
 
         int candleUnit = cfg.getCandleUnitMin();
 
@@ -316,35 +370,69 @@ public class OpeningScannerService {
             }
         }
 
-        // 스캐너 포지션 먼저 청산 체크 (보유 중인 스캐너 포지션)
+        // ========== Phase 1: SELL (exit checks) - Parallel candle fetch + sequential sell ==========
+        List<PositionEntity> scannerPositions = new ArrayList<PositionEntity>();
         for (PositionEntity pe : allPositions) {
             if (!"SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())) continue;
             if (pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) continue;
+            scannerPositions.add(pe);
+        }
 
-            try {
-                List<UpbitCandle> candles = candleService.getMinuteCandles(pe.getMarket(), candleUnit, 40, null);
-                if (candles == null || candles.isEmpty()) continue;
-                // v3: 미완성(현재 진행 중) 캔들 제거 후 역순 정렬
-                candles = new ArrayList<UpbitCandle>(stripIncompleteCandle(candles, candleUnit));
-                if (candles.isEmpty()) continue;
-                Collections.reverse(candles);
+        if (!scannerPositions.isEmpty()) {
+            // Submit parallel candle fetches for all scanner positions
+            final int sellCandleUnit = candleUnit;
+            Map<String, Future<CandleFetchResult>> sellFutures = new LinkedHashMap<String, Future<CandleFetchResult>>();
+            for (final PositionEntity pe : scannerPositions) {
+                sellFutures.put(pe.getMarket(), parallelExecutor.submit(new Callable<CandleFetchResult>() {
+                    @Override
+                    public CandleFetchResult call() {
+                        try {
+                            List<UpbitCandle> candles = candleService.getMinuteCandles(pe.getMarket(), sellCandleUnit, 40, null);
+                            return new CandleFetchResult(pe.getMarket(), candles, null);
+                        } catch (Exception e) {
+                            return new CandleFetchResult(pe.getMarket(), null, e);
+                        }
+                    }
+                }));
+            }
 
-                StrategyContext ctx = new StrategyContext(pe.getMarket(), candleUnit, candles, pe, 0);
-                Signal signal = strategy.evaluate(ctx);
+            // Collect results and execute sells SEQUENTIALLY
+            for (PositionEntity pe : scannerPositions) {
+                try {
+                    CandleFetchResult result = sellFutures.get(pe.getMarket()).get(30, TimeUnit.SECONDS);
+                    if (result.error != null) {
+                        log.error("[OpeningScanner] exit candle fetch failed for {}", pe.getMarket(), result.error);
+                        addDecision(pe.getMarket(), "SELL", "ERROR", "EXIT_CHECK_FAIL",
+                                "청산 캔들 조회 오류: " + result.error.getMessage());
+                        continue;
+                    }
+                    List<UpbitCandle> candles = result.candles;
+                    if (candles == null || candles.isEmpty()) continue;
+                    candles = new ArrayList<UpbitCandle>(stripIncompleteCandle(candles, candleUnit));
+                    if (candles.isEmpty()) continue;
+                    Collections.reverse(candles);
 
-                if (signal.action == SignalAction.SELL) {
-                    executeSell(pe, candles.get(candles.size() - 1), signal, cfg);
-                    addDecision(pe.getMarket(), "SELL", "EXECUTED", "SIGNAL",
-                            signal.reason);
+                    StrategyContext ctx = new StrategyContext(pe.getMarket(), candleUnit, candles, pe, 0);
+                    Signal signal = strategy.evaluate(ctx);
+
+                    if (signal.action == SignalAction.SELL) {
+                        executeSell(pe, candles.get(candles.size() - 1), signal, cfg);
+                        addDecision(pe.getMarket(), "SELL", "EXECUTED", "SIGNAL",
+                                signal.reason);
+                    }
+                } catch (TimeoutException e) {
+                    log.error("[OpeningScanner] exit candle fetch timeout for {}", pe.getMarket());
+                    addDecision(pe.getMarket(), "SELL", "ERROR", "EXIT_CHECK_FAIL",
+                            "청산 캔들 조회 타임아웃 (30초)");
+                } catch (Exception e) {
+                    log.error("[OpeningScanner] exit check failed for {}", pe.getMarket(), e);
+                    addDecision(pe.getMarket(), "SELL", "ERROR", "EXIT_CHECK_FAIL",
+                            "청산 체크 오류: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                log.error("[OpeningScanner] exit check failed for {}", pe.getMarket(), e);
-                addDecision(pe.getMarket(), "SELL", "ERROR", "EXIT_CHECK_FAIL",
-                        "청산 체크 오류: " + e.getMessage());
             }
         }
 
-        // 새 진입 체크
+        // ========== Phase 2: BUY signal detection - Parallel candle fetch + evaluation ==========
         boolean canEnter = btcAllowLong && scannerPosCount < cfg.getMaxPositions();
 
         if (!canEnter && !btcAllowLong) {
@@ -387,10 +475,9 @@ public class OpeningScannerService {
         }
 
         if (canEnter) {
-            int entryAttempts = 0;
-            int entrySuccess = 0;
+            // Filter entry candidates (exclude already-held markets)
+            List<String> entryCandidates = new ArrayList<String>();
             for (String market : topMarkets) {
-                // 이미 포지션 보유 중이면 스킵
                 boolean alreadyHas = false;
                 for (PositionEntity pe : allPositions) {
                     if (market.equals(pe.getMarket()) && pe.getQty() != null
@@ -399,33 +486,62 @@ public class OpeningScannerService {
                         break;
                     }
                 }
-                if (alreadyHas) continue;
+                if (!alreadyHas) {
+                    entryCandidates.add(market);
+                }
+            }
 
-                // 포지션 수 재확인
-                if (scannerPosCount >= cfg.getMaxPositions()) break;
+            // Submit parallel candle fetches + strategy evaluation for all candidates
+            final int buyCandleUnit = candleUnit;
+            final ScalpOpeningBreakStrategy evalStrategy = strategy;
+            Map<String, Future<CandleFetchResult>> buyFutures = new LinkedHashMap<String, Future<CandleFetchResult>>();
+            for (final String market : entryCandidates) {
+                buyFutures.put(market, parallelExecutor.submit(new Callable<CandleFetchResult>() {
+                    @Override
+                    public CandleFetchResult call() {
+                        try {
+                            List<UpbitCandle> candles = candleService.getMinuteCandles(market, buyCandleUnit, 40, null);
+                            return new CandleFetchResult(market, candles, null);
+                        } catch (Exception e) {
+                            return new CandleFetchResult(market, null, e);
+                        }
+                    }
+                }));
+            }
 
+            // Collect candle results and evaluate strategies — build BuySignal list
+            List<BuySignal> buySignals = new ArrayList<BuySignal>();
+            int entryAttempts = 0;
+
+            for (String market : entryCandidates) {
                 try {
-                    List<UpbitCandle> candles = candleService.getMinuteCandles(market, candleUnit, 40, null);
+                    CandleFetchResult result = buyFutures.get(market).get(30, TimeUnit.SECONDS);
+                    if (result.error != null) {
+                        log.error("[OpeningScanner] entry candle fetch failed for {}", market, result.error);
+                        addDecision(market, "BUY", "ERROR", "ENTRY_CHECK_FAIL",
+                                "진입 캔들 조회 오류: " + result.error.getMessage());
+                        continue;
+                    }
+                    List<UpbitCandle> candles = result.candles;
                     if (candles == null || candles.isEmpty()) continue;
-                    // v3: 미완성(현재 진행 중) 캔들 제거 후 역순 정렬
                     candles = new ArrayList<UpbitCandle>(stripIncompleteCandle(candles, candleUnit));
                     if (candles.isEmpty()) continue;
                     Collections.reverse(candles);
 
                     StrategyContext ctx = new StrategyContext(market, candleUnit, candles, null, 0);
-                    Signal signal = strategy.evaluate(ctx);
+                    Signal signal = evalStrategy.evaluate(ctx);
 
                     entryAttempts++;
                     if (signal.action == SignalAction.BUY) {
-                        executeBuy(market, candles.get(candles.size() - 1), signal, cfg);
-                        scannerPosCount++;
-                        entrySuccess++;
-                        addDecision(market, "BUY", "EXECUTED", "SIGNAL", signal.reason);
+                        buySignals.add(new BuySignal(market, candles.get(candles.size() - 1), signal, candles));
                     } else {
-                        // v3: 모든 마켓의 rejection reason 기록 (디버깅용)
                         String rejectReason = signal.reason != null ? signal.reason : "UNKNOWN";
                         addDecision(market, "BUY", "SKIPPED", "NO_SIGNAL", rejectReason);
                     }
+                } catch (TimeoutException e) {
+                    log.error("[OpeningScanner] entry candle fetch timeout for {}", market);
+                    addDecision(market, "BUY", "ERROR", "ENTRY_CHECK_FAIL",
+                            "진입 캔들 조회 타임아웃 (30초)");
                 } catch (Exception e) {
                     log.error("[OpeningScanner] entry check failed for {}", market, e);
                     addDecision(market, "BUY", "ERROR", "ENTRY_CHECK_FAIL",
@@ -433,9 +549,64 @@ public class OpeningScannerService {
                 }
             }
 
+            // ========== Phase 3: BUY execution - Sequential with capital tracking ==========
+            // Sort by confidence (highest first)
+            Collections.sort(buySignals, new Comparator<BuySignal>() {
+                @Override
+                public int compare(BuySignal a, BuySignal b) {
+                    return Double.compare(b.signal.confidence, a.signal.confidence);
+                }
+            });
+
+            int entrySuccess = 0;
+            double spentKrw = 0;
+
+            for (BuySignal bs : buySignals) {
+                // 포지션 수 재확인
+                if (scannerPosCount >= cfg.getMaxPositions()) {
+                    addDecision(bs.market, "BUY", "BLOCKED", "MAX_POSITIONS",
+                            String.format("최대 포지션 수(%d) 도달", cfg.getMaxPositions()));
+                    break;
+                }
+
+                // Per-order capital checks: availableKrw (live wallet) and global capital limit
+                if (isLive && availableKrw - spentKrw < orderKrw.doubleValue()) {
+                    addDecision(bs.market, "BUY", "BLOCKED", "INSUFFICIENT_KRW",
+                            String.format("KRW 잔고 부족(누적 차감): 필요 %s원, 가용 %.0f원 (이번 틱 사용 %.0f원)",
+                                    orderKrw.toPlainString(), availableKrw - spentKrw, spentKrw));
+                    log.warn("[OpeningScanner] {} KRW 잔고 부족(누적): need={} available={} spent={}",
+                            bs.market, orderKrw, availableKrw - spentKrw, spentKrw);
+                    continue;
+                }
+                BigDecimal globalCap2 = getGlobalCapitalKrw();
+                double totalInvested2 = calcTotalInvestedAllPositions() + spentKrw;
+                double remainingBudget2 = Math.max(0, globalCap2.doubleValue() - totalInvested2);
+                if (orderKrw.doubleValue() > remainingBudget2) {
+                    if (remainingBudget2 < 5000) {
+                        addDecision(bs.market, "BUY", "BLOCKED", "CAPITAL_LIMIT",
+                                String.format("Global Capital 한도 초과(누적): 투입 %.0f원+소비 %.0f원 / 한도 %s원",
+                                        totalInvested2, spentKrw, globalCap2.toPlainString()));
+                        continue;
+                    }
+                    orderKrw = BigDecimal.valueOf(remainingBudget2).setScale(0, RoundingMode.DOWN);
+                }
+
+                try {
+                    executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                    spentKrw += orderKrw.doubleValue();
+                    scannerPosCount++;
+                    entrySuccess++;
+                    addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
+                } catch (Exception e) {
+                    log.error("[OpeningScanner] buy execution failed for {}", bs.market, e);
+                    addDecision(bs.market, "BUY", "ERROR", "EXECUTION_FAIL",
+                            "매수 실행 오류: " + e.getMessage());
+                }
+            }
+
             // v2: 틱 요약 로그
-            log.info("[OpeningScanner] tick완료 mode={} markets={} attempts={} entries={} positions={}",
-                    mode, topMarkets.size(), entryAttempts, entrySuccess, scannerPosCount);
+            log.info("[OpeningScanner] tick완료 mode={} markets={} attempts={} signals={} entries={} positions={}",
+                    mode, topMarkets.size(), entryAttempts, buySignals.size(), entrySuccess, scannerPosCount);
         }
 
         activePositions = scannerPosCount;
@@ -474,21 +645,45 @@ public class OpeningScannerService {
             }
             try {
                 LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw.doubleValue());
-                if (!r.isFilled()) {
+                // isFilled(): done 또는 (cancel + executedVolume>0)
+                // 추가: timeout/wait 상태라도 executedVolume>0 이면 실제 체결된 것
+                boolean actuallyFilled = r.isFilled() || r.executedVolume > 0;
+                if (!actuallyFilled) {
                     log.warn("[OpeningScanner] LIVE buy pending/failed: market={} state={} vol={}",
                             market, r.state, r.executedVolume);
+                    // trade_log에도 BUY_PENDING 기록 (sync 복구 대상이 될 수 있도록)
+                    TradeEntity pendingLog = new TradeEntity();
+                    pendingLog.setTsEpochMs(System.currentTimeMillis());
+                    pendingLog.setMarket(market);
+                    pendingLog.setAction("BUY_PENDING");
+                    pendingLog.setPrice(BigDecimal.valueOf(price));
+                    pendingLog.setQty(BigDecimal.ZERO);
+                    pendingLog.setPnlKrw(BigDecimal.ZERO);
+                    pendingLog.setRoiPercent(BigDecimal.ZERO);
+                    pendingLog.setMode(cfg.getMode());
+                    pendingLog.setPatternType("SCALP_OPENING_BREAK");
+                    pendingLog.setNote("state=" + r.state + " vol=" + r.executedVolume);
+                    pendingLog.setCandleUnitMin(cfg.getCandleUnitMin());
+                    tradeLogRepo.save(pendingLog);
                     addDecision(market, "BUY", "ERROR", "ORDER_NOT_FILLED",
                             String.format("주문 미체결 state=%s vol=%.8f", r.state, r.executedVolume));
                     return;
                 }
                 fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
                 qty = r.executedVolume;
-                if (qty <= 0) {
+                // 404 즉시체결: executedVolume 조회 불가 → 주문금액/가격으로 추정
+                if (qty <= 0 && "order_not_found".equalsIgnoreCase(r.state)) {
+                    qty = orderKrw.doubleValue() / fillPrice;
+                    log.info("[OpeningScanner] BUY {} — 404 즉시체결 추정, qty≈{} ({}원/{})",
+                            market, String.format("%.8f", qty), orderKrw, fillPrice);
+                } else if (qty <= 0) {
                     log.warn("[OpeningScanner] LIVE buy executedVolume=0 for {}", market);
                     addDecision(market, "BUY", "ERROR", "ZERO_VOLUME",
                             "체결 수량 0");
                     return;
                 }
+                log.info("[OpeningScanner] LIVE buy filled: market={} state={} price={} qty={}",
+                        market, r.state, fillPrice, qty);
             } catch (Exception e) {
                 log.error("[OpeningScanner] LIVE buy order failed for {}", market, e);
                 addDecision(market, "BUY", "ERROR", "ORDER_EXCEPTION",
@@ -497,29 +692,37 @@ public class OpeningScannerService {
             }
         }
 
-        // 포지션 생성
-        PositionEntity pe = new PositionEntity();
-        pe.setMarket(market);
-        pe.setQty(qty);
-        pe.setAvgPrice(fillPrice);
-        pe.setAddBuys(0);
-        pe.setOpenedAt(Instant.now());
-        pe.setEntryStrategy("SCALP_OPENING_BREAK");
-        positionRepo.save(pe);
+        // 포지션 + 거래 로그를 원자적으로 저장
+        final double fFillPrice = fillPrice;
+        final double fQty = qty;
+        txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
+                PositionEntity pe = new PositionEntity();
+                pe.setMarket(market);
+                pe.setQty(fQty);
+                pe.setAvgPrice(fFillPrice);
+                pe.setAddBuys(0);
+                pe.setOpenedAt(Instant.now());
+                pe.setEntryStrategy("SCALP_OPENING_BREAK");
+                positionRepo.save(pe);
 
-        // 거래 로그
-        TradeEntity tl = new TradeEntity();
-        tl.setTsEpochMs(System.currentTimeMillis());
-        tl.setMarket(market);
-        tl.setAction("BUY");
-        tl.setPrice(BigDecimal.valueOf(fillPrice));
-        tl.setQty(BigDecimal.valueOf(qty));
-        tl.setMode(cfg.getMode());
-        tl.setPatternType("SCALP_OPENING_BREAK");
-        tl.setPatternReason(signal.reason);
-        tl.setConfidence(signal.confidence);
-        tl.setCandleUnitMin(cfg.getCandleUnitMin());
-        tradeLogRepo.save(tl);
+                TradeEntity tl = new TradeEntity();
+                tl.setTsEpochMs(System.currentTimeMillis());
+                tl.setMarket(market);
+                tl.setAction("BUY");
+                tl.setPrice(BigDecimal.valueOf(fFillPrice));
+                tl.setQty(BigDecimal.valueOf(fQty));
+                tl.setPnlKrw(BigDecimal.ZERO);
+                tl.setRoiPercent(BigDecimal.ZERO);
+                tl.setMode(cfg.getMode());
+                tl.setPatternType("SCALP_OPENING_BREAK");
+                tl.setPatternReason(signal.reason);
+                tl.setConfidence(signal.confidence);
+                tl.setCandleUnitMin(cfg.getCandleUnitMin());
+                tradeLogRepo.save(tl);
+            }
+        });
 
         log.info("[OpeningScanner] BUY {} mode={} price={} qty={} conf={} reason={}",
                 market, cfg.getMode(), fillPrice, qty, signal.confidence, signal.reason);
@@ -544,7 +747,8 @@ public class OpeningScannerService {
             }
             try {
                 LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(pe.getMarket(), qty);
-                if (!r.isFilled()) {
+                boolean actuallyFilled = r.isFilled() || r.executedVolume > 0;
+                if (!actuallyFilled) {
                     log.warn("[OpeningScanner] LIVE sell pending/failed: market={} state={} vol={}",
                             pe.getMarket(), r.state, r.executedVolume);
                     addDecision(pe.getMarket(), "SELL", "ERROR", "ORDER_NOT_FILLED",
@@ -552,6 +756,10 @@ public class OpeningScannerService {
                     return;
                 }
                 fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
+                if ("order_not_found".equalsIgnoreCase(r.state)) {
+                    log.info("[OpeningScanner] SELL {} — 404 즉시체결 추정, 캔들가격 사용: {}",
+                            pe.getMarket(), price);
+                }
             } catch (Exception e) {
                 log.error("[OpeningScanner] LIVE sell order failed for {}", pe.getMarket(), e);
                 addDecision(pe.getMarket(), "SELL", "ERROR", "ORDER_EXCEPTION",
@@ -566,25 +774,35 @@ public class OpeningScannerService {
         pnlKrw -= fee;
         double roiPct = avgPrice > 0 ? ((fillPrice - avgPrice) / avgPrice) * 100.0 : 0;
 
-        // 거래 로그
-        TradeEntity tl = new TradeEntity();
-        tl.setTsEpochMs(System.currentTimeMillis());
-        tl.setMarket(pe.getMarket());
-        tl.setAction("SELL");
-        tl.setPrice(BigDecimal.valueOf(fillPrice));
-        tl.setQty(BigDecimal.valueOf(qty));
-        tl.setPnlKrw(BigDecimal.valueOf(pnlKrw));
-        tl.setRoiPercent(BigDecimal.valueOf(roiPct));
-        tl.setMode(cfg.getMode());
-        tl.setPatternType("SCALP_OPENING_BREAK");
-        tl.setPatternReason(signal.reason);
-        tl.setAvgBuyPrice(pe.getAvgPrice());
-        tl.setConfidence(signal.confidence);
-        tl.setCandleUnitMin(cfg.getCandleUnitMin());
-        tradeLogRepo.save(tl);
+        // 거래 로그 + 포지션 삭제를 원자적으로 처리
+        final double fFillPrice = fillPrice;
+        final double fQty = qty;
+        final double fPnlKrw = pnlKrw;
+        final double fRoiPct = roiPct;
+        final BigDecimal peAvgPrice = pe.getAvgPrice();
+        final String peMarket = pe.getMarket();
+        txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
+                TradeEntity tl = new TradeEntity();
+                tl.setTsEpochMs(System.currentTimeMillis());
+                tl.setMarket(peMarket);
+                tl.setAction("SELL");
+                tl.setPrice(BigDecimal.valueOf(fFillPrice));
+                tl.setQty(BigDecimal.valueOf(fQty));
+                tl.setPnlKrw(BigDecimal.valueOf(fPnlKrw));
+                tl.setRoiPercent(BigDecimal.valueOf(fRoiPct));
+                tl.setMode(cfg.getMode());
+                tl.setPatternType("SCALP_OPENING_BREAK");
+                tl.setPatternReason(signal.reason);
+                tl.setAvgBuyPrice(peAvgPrice);
+                tl.setConfidence(signal.confidence);
+                tl.setCandleUnitMin(cfg.getCandleUnitMin());
+                tradeLogRepo.save(tl);
 
-        // 포지션 삭제
-        positionRepo.deleteById(pe.getMarket());
+                positionRepo.deleteById(peMarket);
+            }
+        });
 
         log.info("[OpeningScanner] SELL {} price={} pnl={} roi={}% reason={}",
                 pe.getMarket(), fillPrice, String.format("%.0f", pnlKrw),

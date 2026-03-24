@@ -49,6 +49,7 @@
   var settingsTabs = document.querySelectorAll('.bt-tab');
   var settingsTabBasic = document.getElementById('settingsTabBasic');
   var settingsTabOpening = document.getElementById('settingsTabOpening');
+  var settingsTabAllday = document.getElementById('settingsTabAllday');
 
   for (var ti = 0; ti < settingsTabs.length; ti++) {
     (function(tab) {
@@ -59,6 +60,7 @@
         }
         if (settingsTabBasic) settingsTabBasic.style.display = (target === 'basic') ? '' : 'none';
         if (settingsTabOpening) settingsTabOpening.style.display = (target === 'opening') ? '' : 'none';
+        if (settingsTabAllday) settingsTabAllday.style.display = (target === 'allday') ? '' : 'none';
       });
     })(settingsTabs[ti]);
   }
@@ -751,11 +753,12 @@
 
       var result = await req('/api/bot/groups', { method: 'POST', body: JSON.stringify(groups) });
 
-      // Save scanner config together
+      // Save scanner configs together
       await saveScannerConfig();
+      await saveAlldayConfig();
 
       if (result && result.success) {
-        showToast('Settings applied! (' + result.groupCount + ' groups + scanner)', 'success');
+        showToast('Settings applied! (' + result.groupCount + ' groups + scanners)', 'success');
       } else {
         showToast('Error: ' + (result.error || 'Unknown'), 'error');
       }
@@ -772,7 +775,11 @@
   if (apiTestBtn) {
     apiTestBtn.addEventListener('click', async function() {
       apiTestBtn.disabled = true; apiTestBtn.textContent = 'Testing...';
-      if (apiTestResult) { apiTestResult.style.display = 'block'; apiTestResult.textContent = 'Testing Upbit API key...'; }
+      var apiTestText = document.getElementById('apiTestResultText');
+      if (apiTestResult) {
+        apiTestResult.style.display = 'block';
+        if (apiTestText) { apiTestText.textContent = 'Testing Upbit API key...'; }
+      }
       try {
         var res = await req('/api/keys/test', { method: 'POST', body: JSON.stringify({ market: 'KRW-BTC', amount: 5001 }) });
         var text = '';
@@ -784,14 +791,25 @@
           if (!res.orderTestOk && res.orderTestError) text += '  Error: ' + res.orderTestError + '\n';
         }
         if (apiTestResult) {
-          apiTestResult.textContent = text;
+          if (apiTestText) { apiTestText.textContent = text; }
           apiTestResult.style.borderColor = (res.accountsOk && res.orderTestOk) ? 'var(--success)' : 'var(--danger)';
         }
       } catch (err) {
-        if (apiTestResult) { apiTestResult.textContent = 'Error: ' + (err.message || err); apiTestResult.style.borderColor = 'var(--danger)'; }
+        if (apiTestResult) {
+          if (apiTestText) { apiTestText.textContent = 'Error: ' + (err.message || err); }
+          apiTestResult.style.borderColor = 'var(--danger)';
+        }
       } finally {
         apiTestBtn.disabled = false; apiTestBtn.textContent = 'API Test';
       }
+    });
+  }
+
+  // ── API Test Result Dismiss ──
+  var apiTestResultDismiss = document.getElementById('apiTestResultDismiss');
+  if (apiTestResultDismiss && apiTestResult) {
+    apiTestResultDismiss.addEventListener('click', function() {
+      apiTestResult.style.display = 'none';
     });
   }
 
@@ -851,6 +869,7 @@
       if (el('scTopN')) el('scTopN').value = cfg.topN || 15;
       if (el('scMaxPos')) el('scMaxPos').value = cfg.maxPositions || 3;
       if (el('scBtcFilter')) el('scBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+      if (el('scOpenFailed')) el('scOpenFailed').value = String(cfg.openFailedEnabled !== false);
       if (el('scVolMult')) el('scVolMult').value = cfg.volumeMult || 1.5;
       if (el('scBodyRatio')) el('scBodyRatio').value = cfg.minBodyRatio || 0.40;
       if (el('scExcludeMarkets')) el('scExcludeMarkets').value = cfg.excludeMarkets || '';
@@ -884,6 +903,7 @@
       topN: parseInt(el('scTopN') ? el('scTopN').value : '15') || 15,
       maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
       btcFilterEnabled: (el('scBtcFilter') ? el('scBtcFilter').value : 'true') === 'true',
+      openFailedEnabled: (el('scOpenFailed') ? el('scOpenFailed').value : 'true') === 'true',
       volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
       minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40,
       excludeMarkets: el('scExcludeMarkets') ? el('scExcludeMarkets').value.trim() : ''
@@ -894,5 +914,100 @@
 
   // Load scanner config on page load
   loadScannerConfig();
+
+  // ═══════════════════════════════════════════
+  //  AllDay Scanner Settings
+  // ═══════════════════════════════════════════
+
+  var adEnabledToggle = document.getElementById('adEnabledToggle');
+  var adEnabled = false;
+
+  function setAlldayToggleUI(enabled) {
+    adEnabled = !!enabled;
+    if (!adEnabledToggle) return;
+    adEnabledToggle.classList.toggle('on', adEnabled);
+    adEnabledToggle.setAttribute('aria-pressed', String(adEnabled));
+    var label = adEnabledToggle.querySelector('.bot-toggle-label');
+    if (label) label.textContent = adEnabled ? 'ON' : 'OFF';
+  }
+
+  if (adEnabledToggle) {
+    adEnabledToggle.addEventListener('click', function() {
+      setAlldayToggleUI(!adEnabled);
+    });
+  }
+
+  async function loadAlldayConfig() {
+    try {
+      var cfg = await req('/api/allday-scanner/config', { method: 'GET' });
+      setAlldayToggleUI(cfg.enabled);
+      var el = function(id) { return document.getElementById(id); };
+      if (el('adMode')) el('adMode').value = cfg.mode || 'PAPER';
+      if (el('adOrderMode')) el('adOrderMode').value = cfg.orderSizingMode || 'PCT';
+      if (el('adGlobalCapDisplay') && cfg.globalCapitalKrw) {
+        el('adGlobalCapDisplay').textContent = '(현재 Capital: ' + fmt(cfg.globalCapitalKrw) + '원)';
+      }
+      if (el('adOrderValue')) el('adOrderValue').value = cfg.orderSizingValue || 20;
+      if (el('adEntryStart')) el('adEntryStart').value = fmtHHMM(cfg.entryStartHour, cfg.entryStartMin);
+      if (el('adEntryEnd')) el('adEntryEnd').value = fmtHHMM(cfg.entryEndHour, cfg.entryEndMin);
+      if (el('adSessionEnd')) el('adSessionEnd').value = fmtHHMM(cfg.sessionEndHour, cfg.sessionEndMin);
+      if (el('adSlPct')) el('adSlPct').value = cfg.slPct || 1.5;
+      if (el('adTrailAtr')) el('adTrailAtr').value = cfg.trailAtrMult || 0.8;
+      if (el('adMinConf')) el('adMinConf').value = cfg.minConfidence || 9.4;
+      if (el('adCandleUnit')) el('adCandleUnit').value = String(cfg.candleUnitMin || 5);
+      if (el('adTsCandles')) el('adTsCandles').value = cfg.timeStopCandles || 12;
+      if (el('adTsMinPnl')) el('adTsMinPnl').value = cfg.timeStopMinPnl || 0.3;
+      if (el('adTopN')) el('adTopN').value = cfg.topN || 15;
+      if (el('adMaxPos')) el('adMaxPos').value = cfg.maxPositions || 2;
+      if (el('adBtcFilter')) el('adBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+      if (el('adVolSurge')) el('adVolSurge').value = cfg.volumeSurgeMult || 3.0;
+      if (el('adBodyRatio')) el('adBodyRatio').value = cfg.minBodyRatio || 0.60;
+      if (el('adExcludeMarkets')) el('adExcludeMarkets').value = cfg.excludeMarkets || '';
+      // Quick TP
+      if (el('adQuickTpEnabled')) el('adQuickTpEnabled').value = String(cfg.quickTpEnabled !== false);
+      if (el('adQuickTpPct')) el('adQuickTpPct').value = cfg.quickTpPct || 0.7;
+      if (el('adQuickTpInterval')) el('adQuickTpInterval').value = cfg.quickTpIntervalSec || 5;
+    } catch(e) {
+      console.warn('AllDay Scanner config load failed:', e);
+    }
+  }
+
+  async function saveAlldayConfig() {
+    var el = function(id) { return document.getElementById(id); };
+    var es = parseHHMM(el('adEntryStart') ? el('adEntryStart').value : '10:35');
+    var ee = parseHHMM(el('adEntryEnd') ? el('adEntryEnd').value : '22:00');
+    var se = parseHHMM(el('adSessionEnd') ? el('adSessionEnd').value : '23:00');
+
+    var body = {
+      enabled: adEnabled,
+      mode: el('adMode') ? el('adMode').value : 'PAPER',
+      orderSizingMode: el('adOrderMode') ? el('adOrderMode').value : 'PCT',
+      orderSizingValue: parseFloat(el('adOrderValue') ? el('adOrderValue').value : '20') || 20,
+      entryStartHour: es[0], entryStartMin: es[1],
+      entryEndHour: ee[0], entryEndMin: ee[1],
+      sessionEndHour: se[0], sessionEndMin: se[1],
+      slPct: parseFloat(el('adSlPct') ? el('adSlPct').value : '1.5') || 1.5,
+      trailAtrMult: parseFloat(el('adTrailAtr') ? el('adTrailAtr').value : '0.8') || 0.8,
+      minConfidence: parseFloat(el('adMinConf') ? el('adMinConf').value : '9.4') || 9.4,
+      candleUnitMin: parseInt(el('adCandleUnit') ? el('adCandleUnit').value : '5') || 5,
+      timeStopCandles: parseInt(el('adTsCandles') ? el('adTsCandles').value : '12') || 12,
+      timeStopMinPnl: parseFloat(el('adTsMinPnl') ? el('adTsMinPnl').value : '0.3') || 0.3,
+      topN: parseInt(el('adTopN') ? el('adTopN').value : '15') || 15,
+      maxPositions: parseInt(el('adMaxPos') ? el('adMaxPos').value : '2') || 2,
+      btcFilterEnabled: (el('adBtcFilter') ? el('adBtcFilter').value : 'true') === 'true',
+      volumeSurgeMult: parseFloat(el('adVolSurge') ? el('adVolSurge').value : '3.0') || 3.0,
+      minBodyRatio: parseFloat(el('adBodyRatio') ? el('adBodyRatio').value : '0.60') || 0.60,
+      excludeMarkets: el('adExcludeMarkets') ? el('adExcludeMarkets').value.trim() : '',
+      // Quick TP
+      quickTpEnabled: (el('adQuickTpEnabled') ? el('adQuickTpEnabled').value : 'true') === 'true',
+      quickTpPct: parseFloat(el('adQuickTpPct') ? el('adQuickTpPct').value : '0.7') || 0.7,
+      quickTpIntervalSec: parseInt(el('adQuickTpInterval') ? el('adQuickTpInterval').value : '5') || 5
+    };
+
+    await req('/api/allday-scanner/config', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  // Load allday scanner config on page load
+  loadAlldayConfig();
 
 })();

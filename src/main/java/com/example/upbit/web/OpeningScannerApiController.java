@@ -106,6 +106,7 @@ public class OpeningScannerApiController {
         if (body.containsKey("volumeMult")) cfg.setVolumeMult(toBD(body.get("volumeMult")));
         if (body.containsKey("minBodyRatio")) cfg.setMinBodyRatio(toBD(body.get("minBodyRatio")));
         if (body.containsKey("excludeMarkets")) cfg.setExcludeMarkets(String.valueOf(body.get("excludeMarkets")));
+        if (body.containsKey("openFailedEnabled")) cfg.setOpenFailedEnabled(Boolean.TRUE.equals(body.get("openFailedEnabled")));
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
@@ -244,6 +245,7 @@ public class OpeningScannerApiController {
         m.put("volumeMult", cfg.getVolumeMult());
         m.put("minBodyRatio", cfg.getMinBodyRatio());
         m.put("excludeMarkets", cfg.getExcludeMarkets());
+        m.put("openFailedEnabled", cfg.isOpenFailedEnabled());
         return m;
     }
 

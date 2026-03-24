@@ -96,6 +96,9 @@ public class OpeningScannerConfigEntity {
     @Column(name = "exclude_markets", length = 1000)
     private String excludeMarkets = "";
 
+    @Column(name = "open_failed_enabled", nullable = false)
+    private boolean openFailedEnabled = false;
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -178,6 +181,9 @@ public class OpeningScannerConfigEntity {
 
     public BigDecimal getMinBodyRatio() { return minBodyRatio; }
     public void setMinBodyRatio(BigDecimal v) { this.minBodyRatio = v != null ? v : BigDecimal.valueOf(0.45); }
+
+    public boolean isOpenFailedEnabled() { return openFailedEnabled; }
+    public void setOpenFailedEnabled(boolean openFailedEnabled) { this.openFailedEnabled = openFailedEnabled; }
 
     public String getExcludeMarkets() { return excludeMarkets != null ? excludeMarkets : ""; }
     public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }

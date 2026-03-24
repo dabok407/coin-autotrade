@@ -93,6 +93,7 @@
   var btGroupCounter = 0;
   var activeTab = 'basic'; // 'basic' or 'opening'
   var obMarketsMs = null;  // opening markets multi-select instance
+  var adMarketsMs = null;  // allday markets multi-select instance
 
   function el(id) { return document.getElementById(id); }
 
@@ -189,7 +190,16 @@
 
   function setError(msg) {
     btError.style.display = msg ? 'block' : 'none';
-    btError.textContent = msg || '';
+    var btErrorText = document.getElementById('btErrorText');
+    if (btErrorText) { btErrorText.textContent = msg || ''; }
+  }
+
+  // ── Backtest Error Dismiss ──
+  var btErrorDismiss = document.getElementById('btErrorDismiss');
+  if (btErrorDismiss) {
+    btErrorDismiss.addEventListener('click', function() {
+      btError.style.display = 'none';
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -841,9 +851,6 @@
     if (!ts) return '-';
     var d = new Date(ts);
     if (!isNaN(d.getTime())) {
-      if (btIsMobile) {
-        return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
-      }
       return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
     }
     return String(ts);
@@ -1135,6 +1142,7 @@
   var btTabs = document.querySelectorAll('.bt-tab');
   var btTabBasic = el('btTabBasic');
   var btTabOpening = el('btTabOpening');
+  var btTabAllday = el('btTabAllday');
 
   for (var ti = 0; ti < btTabs.length; ti++) {
     (function(tab) {
@@ -1146,6 +1154,7 @@
         }
         if (btTabBasic) btTabBasic.style.display = target === 'basic' ? '' : 'none';
         if (btTabOpening) btTabOpening.style.display = target === 'opening' ? '' : 'none';
+        if (btTabAllday) btTabAllday.style.display = target === 'allday' ? '' : 'none';
       });
     })(btTabs[ti]);
   }
@@ -1160,6 +1169,10 @@
 
     if (activeTab === 'opening') {
       runOpeningBacktest();
+      return;
+    }
+    if (activeTab === 'allday') {
+      runAlldayBacktest();
       return;
     }
 
@@ -1472,6 +1485,16 @@
             });
             // Setup TOP N button
             initTopNButton();
+            // Init allday markets multi-select (reuse same market list)
+            var adMsRoot = document.getElementById('adMarketsMs');
+            if (adMsRoot) {
+              adMarketsMs = initMultiSelect(adMsRoot, {
+                placeholder: 'Select markets...',
+                options: obOpts.length > 0 ? obOpts : allMarketOpts,
+                initial: ['KRW-SOL', 'KRW-ADA']
+              });
+              initAdTopNButton();
+            }
           }).catch(function() {
             // Fallback to bot-configured markets
             obMarketsMs = initMultiSelect(obMsRoot, {
@@ -1479,6 +1502,14 @@
               options: allMarketOpts,
               initial: ['KRW-SOL', 'KRW-ADA']
             });
+            var adMsRoot2 = document.getElementById('adMarketsMs');
+            if (adMsRoot2) {
+              adMarketsMs = initMultiSelect(adMsRoot2, {
+                placeholder: 'Select markets...',
+                options: allMarketOpts,
+                initial: ['KRW-SOL', 'KRW-ADA']
+              });
+            }
           });
         }
       }).catch(function(e) { /* ignore */ });
@@ -1519,6 +1550,8 @@
         { value: 'TAKE_PROFIT', label: '\uc775\uc808(TP)' },
         { value: 'STOP_LOSS', label: '\uc190\uc808(SL)' },
         { value: 'TIME_STOP', label: '\uc2dc\uac04\ucd08\uacfc' },
+        { value: 'QUICK_TP', label: '\ube60\ub978\uc775\uc808(QTP)' },
+        { value: 'QUICK_SL', label: '\ube60\ub978\uc190\uc808(QSL)' },
         { value: 'STRATEGY_LOCK', label: '\uc804\ub7b5\uc7a0\uae08' },
         { value: 'LOW_CONFIDENCE', label: '\uc2e0\ub8b0\ub3c4\ubbf8\ub2ec' }
       ];
@@ -1594,7 +1627,12 @@
         if (e('obVolMult')) e('obVolMult').value = cfg.volumeMult || 1.5;
         if (e('obBtcFilter')) e('obBtcFilter').value = String(cfg.btcFilterEnabled !== false);
         if (e('obBtcEmaPeriod')) e('obBtcEmaPeriod').value = cfg.btcEmaPeriod || 20;
+        if (e('obOpenFailed')) e('obOpenFailed').value = String(cfg.openFailedEnabled !== false);
         if (e('obCandleUnit')) e('obCandleUnit').value = String(cfg.candleUnitMin || 5);
+        if (e('obMinBody')) e('obMinBody').value = cfg.minBodyRatio || 0.40;
+        if (e('obOrderMode')) e('obOrderMode').value = cfg.orderSizingMode || 'PCT';
+        if (e('obOrderValue')) e('obOrderValue').value = cfg.orderSizingValue || 30;
+        if (e('obMaxPos')) e('obMaxPos').value = cfg.maxPositions || 3;
         showToast('Scanner settings loaded', 'success');
       }).catch(function(err) {
         showToast('Failed to load scanner settings', 'error');
@@ -1643,9 +1681,13 @@
         slPct: parseFloat(e('obSlPct') ? e('obSlPct').value : '10') || 10,
         trailAtrMult: parseFloat(e('obTrailAtr') ? e('obTrailAtr').value : '0.8') || 0.8,
         volumeMult: parseFloat(e('obVolMult') ? e('obVolMult').value : '1.5') || 1.5,
-        minBodyRatio: 0.40,
+        minBodyRatio: parseFloat(e('obMinBody') ? e('obMinBody').value : '0.40') || 0.40,
         btcFilterEnabled: (e('obBtcFilter') ? e('obBtcFilter').value : 'false') === 'true',
-        btcEmaPeriod: parseInt(e('obBtcEmaPeriod') ? e('obBtcEmaPeriod').value : '20') || 20
+        btcEmaPeriod: parseInt(e('obBtcEmaPeriod') ? e('obBtcEmaPeriod').value : '20') || 20,
+        openFailedEnabled: (e('obOpenFailed') ? e('obOpenFailed').value : 'true') === 'true',
+        orderSizingMode: e('obOrderMode') ? e('obOrderMode').value : 'PCT',
+        orderSizingValue: parseFloat(e('obOrderValue') ? e('obOrderValue').value : '30') || 30,
+        maxPositions: parseInt(e('obMaxPos') ? e('obMaxPos').value : '3') || 3
       }
     };
 
@@ -1729,6 +1771,176 @@
           info.style.display = 'inline';
         }
       }).catch(function(e) {
+        btn.textContent = '\uD83D\uDD04 TOP N';
+        btn.disabled = false;
+        if (info) { info.textContent = '\uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
+      });
+    });
+  }
+
+  // ===== AllDay Load from Settings =====
+  var adLoadSettingsBtn = document.getElementById('adLoadSettings');
+  if (adLoadSettingsBtn) {
+    adLoadSettingsBtn.addEventListener('click', function() {
+      req('/api/allday-scanner/config', { method: 'GET' }).then(function(cfg) {
+        function fmtHM(h, m) { return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'); }
+        var e = function(id) { return document.getElementById(id); };
+        if (e('adEntryStart')) e('adEntryStart').value = fmtHM(cfg.entryStartHour, cfg.entryStartMin);
+        if (e('adEntryEnd')) e('adEntryEnd').value = fmtHM(cfg.entryEndHour, cfg.entryEndMin);
+        if (e('adSessionEnd')) e('adSessionEnd').value = fmtHM(cfg.sessionEndHour, cfg.sessionEndMin);
+        if (e('adSlPct')) e('adSlPct').value = cfg.slPct || 1.5;
+        if (e('adTrailAtr')) e('adTrailAtr').value = cfg.trailAtrMult || 0.8;
+        if (e('adMinConf')) e('adMinConf').value = cfg.minConfidence || 9.4;
+        if (e('adVolSurge')) e('adVolSurge').value = cfg.volumeSurgeMult || 3.0;
+        if (e('adCandleUnit')) e('adCandleUnit').value = String(cfg.candleUnitMin || 5);
+        if (e('adTimeStopCandles')) e('adTimeStopCandles').value = cfg.timeStopCandles || 12;
+        if (e('adTimeStopPnl')) e('adTimeStopPnl').value = cfg.timeStopMinPnl || 0.3;
+        if (e('adBtcFilter')) e('adBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+        if (e('adBtcEmaPeriod')) e('adBtcEmaPeriod').value = cfg.btcEmaPeriod || 20;
+        if (e('adMinBody')) e('adMinBody').value = cfg.minBodyRatio || 0.60;
+        if (e('adOrderMode')) e('adOrderMode').value = cfg.orderSizingMode || 'PCT';
+        if (e('adOrderValue')) e('adOrderValue').value = cfg.orderSizingValue || 20;
+        if (e('adMaxPos')) e('adMaxPos').value = cfg.maxPositions || 2;
+        // Quick TP
+        if (e('adQuickTpEnabled')) e('adQuickTpEnabled').value = String(cfg.quickTpEnabled !== false);
+        if (e('adQuickTpPct')) e('adQuickTpPct').value = cfg.quickTpPct || 0.7;
+        if (e('adQuickTpInterval')) e('adQuickTpInterval').value = cfg.quickTpIntervalSec || 5;
+        showToast('AllDay settings loaded', 'success');
+      }).catch(function(err) {
+        showToast('Failed to load AllDay settings', 'error');
+      });
+    });
+  }
+
+  // ===== AllDay Backtest =====
+  function runAlldayBacktest() {
+    var e = function(id) { return document.getElementById(id); };
+    var markets = adMarketsMs ? adMarketsMs.getSelected() : [];
+    if (markets.length === 0) {
+      setError('AllDay Backtest: Market을 선택해주세요.');
+      btRun.disabled = false;
+      return;
+    }
+
+    var es = parseHHMM(e('adEntryStart') ? e('adEntryStart').value : '10:35');
+    var ee = parseHHMM(e('adEntryEnd') ? e('adEntryEnd').value : '07:30');
+    var se = parseHHMM(e('adSessionEnd') ? e('adSessionEnd').value : '08:00');
+    var candleUnit = parseInt(e('adCandleUnit') ? e('adCandleUnit').value : '5') || 5;
+
+    normalizeDateRange();
+
+    var params = {
+      strategies: ['HIGH_CONFIDENCE_BREAKOUT'],
+      markets: markets,
+      market: markets[0],
+      period: el('btPeriod').value,
+      fromDate: getDateTimeLocalValue(btFromDate, btFromTime),
+      toDate: getDateTimeLocalValue(btToDate, btToTime),
+      capitalKrw: parseNum(el('btCapital').value),
+      candleUnitMin: candleUnit,
+      takeProfitPct: 0,
+      stopLossPct: 0,
+      maxAddBuysGlobal: 0,
+      timeStopMinutes: 0,
+      alldayParams: {
+        entryStartHour: es[0], entryStartMin: es[1],
+        entryEndHour: ee[0], entryEndMin: ee[1],
+        sessionEndHour: se[0], sessionEndMin: se[1],
+        slPct: parseFloat(e('adSlPct') ? e('adSlPct').value : '1.5') || 1.5,
+        trailAtrMult: parseFloat(e('adTrailAtr') ? e('adTrailAtr').value : '0.8') || 0.8,
+        minConfidence: parseFloat(e('adMinConf') ? e('adMinConf').value : '9.4') || 9.4,
+        volumeSurgeMult: parseFloat(e('adVolSurge') ? e('adVolSurge').value : '3.0') || 3.0,
+        timeStopCandles: parseInt(e('adTimeStopCandles') ? e('adTimeStopCandles').value : '12') || 12,
+        timeStopMinPnl: parseFloat(e('adTimeStopPnl') ? e('adTimeStopPnl').value : '0.3') || 0.3,
+        btcFilterEnabled: (e('adBtcFilter') ? e('adBtcFilter').value : 'false') === 'true',
+        btcEmaPeriod: parseInt(e('adBtcEmaPeriod') ? e('adBtcEmaPeriod').value : '20') || 20,
+        minBodyRatio: parseFloat(e('adMinBody') ? e('adMinBody').value : '0.60') || 0.60,
+        orderSizingMode: e('adOrderMode') ? e('adOrderMode').value : 'PCT',
+        orderSizingValue: parseFloat(e('adOrderValue') ? e('adOrderValue').value : '20') || 20,
+        maxPositions: parseInt(e('adMaxPos') ? e('adMaxPos').value : '2') || 2,
+        // Quick TP
+        quickTpEnabled: (e('adQuickTpEnabled') ? e('adQuickTpEnabled').value : 'true') === 'true',
+        quickTpPct: parseFloat(e('adQuickTpPct') ? e('adQuickTpPct').value : '0.7') || 0.7,
+        quickTpIntervalSec: parseInt(e('adQuickTpInterval') ? e('adQuickTpInterval').value : '5') || 5
+      }
+    };
+
+    showLoading('\uc62c\ub370\uc774 \ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589 \uc911...');
+    req('/api/backtest/run-async', {
+      method: 'POST',
+      body: JSON.stringify(params),
+      cache: 'no-store'
+    }).then(function(startRes) {
+      if (!startRes || !startRes.jobId) {
+        throw new Error('Failed to start async backtest');
+      }
+      var jobId = startRes.jobId;
+
+      function pollResult() {
+        req('/api/backtest/async-result/' + jobId, { method: 'GET' }).then(function(pollRes) {
+          if (pollRes && pollRes.status === 'running') {
+            setTimeout(pollResult, 3000);
+            return;
+          }
+          hideLoading();
+          if (pollRes && pollRes.status === 'error') {
+            setError(pollRes.message || 'AllDay backtest failed');
+            btRun.disabled = false;
+            btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+            return;
+          }
+          displayOpeningResult(pollRes, markets);
+          btRun.disabled = false;
+          btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+        }).catch(function(err) {
+          hideLoading();
+          setError(err.message || 'Failed to fetch backtest result');
+          btRun.disabled = false;
+          btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+        });
+      }
+      setTimeout(pollResult, 3000);
+
+    }).catch(function(err) {
+      hideLoading();
+      setError(err.message || 'AllDay backtest failed');
+      btRun.disabled = false;
+      btRun.textContent = '\ubc31\ud14c\uc2a4\ud2b8 \uc2e4\ud589';
+    });
+  }
+
+  function initAdTopNButton() {
+    var btn = document.getElementById('adTopNBtn');
+    var info = document.getElementById('adTopNInfo');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      btn.disabled = true;
+      btn.textContent = '\u23F3 조회중...';
+      if (info) { info.style.display = 'none'; info.textContent = ''; }
+      req('/api/scanner/top-markets?topN=20', { method: 'GET' }).then(function(topList) {
+        var arr = Array.isArray(topList) ? topList : [];
+        if (arr.length === 0) {
+          btn.textContent = '\uD83D\uDD04 TOP N';
+          btn.disabled = false;
+          if (info) { info.textContent = '\uB9C8\uCF13 \uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
+          return;
+        }
+        var topCodes = arr.map(function(m) { return m.market; });
+        if (adMarketsMs) {
+          adMarketsMs.setSelected(topCodes);
+        }
+        for (var k = 0; k < arr.length; k++) {
+          if (!marketLabel.has(String(arr[k].market))) {
+            marketLabel.set(String(arr[k].market), String(arr[k].displayName || arr[k].market));
+          }
+        }
+        btn.textContent = '\uD83D\uDD04 TOP N';
+        btn.disabled = false;
+        if (info) {
+          info.textContent = '24h \uAC70\uB798\uB300\uAE08 TOP ' + arr.length;
+          info.style.display = 'inline';
+        }
+      }).catch(function() {
         btn.textContent = '\uD83D\uDD04 TOP N';
         btn.disabled = false;
         if (info) { info.textContent = '\uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }

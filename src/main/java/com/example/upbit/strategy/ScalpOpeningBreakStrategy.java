@@ -67,6 +67,9 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     private static final int TIME_DECAY_CANDLES = 6; // 6캔들(=30분 @5min) 경과 시
     private static final double TIME_DECAY_MIN_PNL = 0.3; // 최소 수익 0.3%
 
+    // ===== OPEN_FAILED 청산 옵션 =====
+    private boolean openFailedEnabled = false;
+
     // ===== 안전 =====
     private static final int MIN_CANDLES = 30;
 
@@ -98,6 +101,11 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     public ScalpOpeningBreakStrategy withFilters(double volumeMult, double minBodyRatio) {
         this.volumeMult = volumeMult;
         this.minBodyRatio = minBodyRatio;
+        return this;
+    }
+
+    public ScalpOpeningBreakStrategy withOpenFailedEnabled(boolean enabled) {
+        this.openFailedEnabled = enabled;
         return this;
     }
 
@@ -272,13 +280,16 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         }
 
         // 4. 빠른 실패 돌파: pnl < -1.0% + 2연속 음봉 (v3: 노이즈 내성 강화)
-        int sz = candles.size();
-        if (pnlPct < -1.0 && !CandlePatterns.isBullish(last) && sz >= 2) {
-            UpbitCandle prev = candles.get(sz - 2);
-            if (!CandlePatterns.isBullish(prev)) {
-                String reason = String.format(Locale.ROOT,
-                        "OPEN_FAILED avg=%.2f close=%.2f pnl=%.2f%%", avgPrice, close, pnlPct);
-                return Signal.of(SignalAction.SELL, type(), reason);
+        //    openFailedEnabled=false 이면 이 청산 로직을 건너뜀
+        if (openFailedEnabled) {
+            int sz = candles.size();
+            if (pnlPct < -1.0 && !CandlePatterns.isBullish(last) && sz >= 2) {
+                UpbitCandle prev = candles.get(sz - 2);
+                if (!CandlePatterns.isBullish(prev)) {
+                    String reason = String.format(Locale.ROOT,
+                            "OPEN_FAILED avg=%.2f close=%.2f pnl=%.2f%%", avgPrice, close, pnlPct);
+                    return Signal.of(SignalAction.SELL, type(), reason);
+                }
             }
         }
 

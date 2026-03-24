@@ -402,9 +402,15 @@ public class BacktestService {
                                     op.entryEndHour, op.entryEndMin,
                                     op.sessionEndHour, op.sessionEndMin)
                             .withRisk(op.tpAtrMult, op.slPct, op.trailAtrMult)
-                            .withFilters(op.volumeMult, op.minBodyRatio);
+                            .withFilters(op.volumeMult, op.minBodyRatio)
+                            .withOpenFailedEnabled(op.openFailedEnabled);
             effectiveFactory = strategyFactory.withOverride(
                     com.example.upbit.strategy.StrategyType.SCALP_OPENING_BREAK, customOpening);
+
+            // Max concurrent positions
+            if (params.maxConcurrentPositions <= 0) {
+                params.maxConcurrentPositions = op.maxPositions;
+            }
 
             // BTC 방향 필터: 백테스트용 BTC 캔들 사전 조회
             if (op.btcFilterEnabled) {
@@ -452,6 +458,27 @@ public class BacktestService {
                     params.btcFilterEnabled = false;
                 }
             }
+        }
+
+        // 종일 고확신 돌파 파라미터 오버라이드
+        if (req.alldayParams != null) {
+            BacktestRequest.AlldayParams ap = req.alldayParams;
+            com.example.upbit.strategy.HighConfidenceBreakoutStrategy customAllday =
+                    new com.example.upbit.strategy.HighConfidenceBreakoutStrategy()
+                            .withRisk(ap.slPct, ap.trailAtrMult)
+                            .withFilters(ap.volumeSurgeMult, ap.minBodyRatio, ap.minConfidence)
+                            .withTiming(ap.sessionEndHour, ap.sessionEndMin)
+                            .withTimeStop(ap.timeStopCandles, ap.timeStopMinPnl);
+            effectiveFactory = effectiveFactory.withOverride(
+                    com.example.upbit.strategy.StrategyType.HIGH_CONFIDENCE_BREAKOUT, customAllday);
+
+            // Quick TP: intra-candle TP/SL simulation
+            params.quickTpEnabled = ap.quickTpEnabled;
+            params.quickTpPct = ap.quickTpPct;
+            params.quickSlPct = ap.slPct;
+
+            // Max concurrent positions
+            params.maxConcurrentPositions = ap.maxPositions;
         }
 
         TradingEngine engine = new TradingEngine(effectiveFactory, strategyCfg, tradeProps);

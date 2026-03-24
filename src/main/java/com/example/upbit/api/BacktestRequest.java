@@ -56,6 +56,12 @@ public class BacktestRequest {
      */
     public OpeningParams openingParams;
 
+    /**
+     * 종일 고확신 돌파 전략 파라미터 오버라이드 (optional).
+     * null이면 기본값 사용.
+     */
+    public AlldayParams alldayParams;
+
     public static class OpeningParams {
         public int rangeStartHour = 8;
         public int rangeStartMin = 0;
@@ -74,6 +80,27 @@ public class BacktestRequest {
         public double minBodyRatio = 0.40;
         public boolean btcFilterEnabled = false;
         public int btcEmaPeriod = 20;
+        /** OPEN_FAILED 빠른 실패 돌파 청산 활성화 여부 */
+        public boolean openFailedEnabled = false;
+        /** Maximum concurrent open positions (0 = unlimited) */
+        public int maxPositions = 3;
+    }
+
+    public static class AlldayParams {
+        public double slPct = 1.5;
+        public double trailAtrMult = 0.8;
+        public double volumeSurgeMult = 3.0;
+        public double minBodyRatio = 0.60;
+        public double minConfidence = 9.4;
+        public int timeStopCandles = 12;
+        public double timeStopMinPnl = 0.3;
+        public int sessionEndHour = 8;
+        public int sessionEndMin = 0;
+        /** Quick TP: intra-candle TP simulation using high/low prices */
+        public boolean quickTpEnabled = true;
+        public double quickTpPct = 0.7;
+        /** Maximum concurrent open positions (0 = unlimited) */
+        public int maxPositions = 2;
     }
 
     /**
