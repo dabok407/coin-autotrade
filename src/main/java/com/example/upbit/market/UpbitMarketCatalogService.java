@@ -96,8 +96,19 @@ public String displayLabel(String marketCode) {
     public Map<String, Double> get24hTradePrice(List<String> markets) {
         Map<String, Double> result = new HashMap<String, Double>();
         if (markets == null || markets.isEmpty()) return result;
+        for (TickerItem t : fetchTickers(markets)) {
+            result.put(t.market, t.acc_trade_price_24h);
+        }
+        return result;
+    }
 
-        // 업비트 ticker API는 한번에 최대 100개 마켓 처리
+    /**
+     * 지정 마켓들의 ticker 정보(거래대금 + 현재가) 일괄 조회.
+     */
+    public List<TickerItem> fetchTickers(List<String> markets) {
+        List<TickerItem> result = new ArrayList<TickerItem>();
+        if (markets == null || markets.isEmpty()) return result;
+
         int batchSize = 100;
         for (int i = 0; i < markets.size(); i += batchSize) {
             List<String> batch = markets.subList(i, Math.min(i + batchSize, markets.size()));
@@ -112,7 +123,7 @@ public String displayLabel(String marketCode) {
                 if (tickers != null) {
                     for (TickerItem t : tickers) {
                         if (t != null && t.market != null) {
-                            result.put(t.market, t.acc_trade_price_24h);
+                            result.add(t);
                         }
                     }
                 }
@@ -133,5 +144,6 @@ public String displayLabel(String marketCode) {
     public static class TickerItem {
         public String market;
         public double acc_trade_price_24h;
+        public double trade_price;
     }
 }

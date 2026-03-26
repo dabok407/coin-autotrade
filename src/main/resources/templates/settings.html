@@ -214,6 +214,10 @@
             <label>Min Body % <span class="help-icon" data-tooltip="진입 조건: 캔들 몸통 비율 최소값&#10;예: 0.40 = 전체 캔들 길이의 40% 이상 몸통" aria-label="Min body help"></span></label>
             <input class="input" type="number" id="scBodyRatio" value="0.40" step="0.05" min="0" max="1"/>
           </div>
+          <div class="config-field">
+            <label>최소 가격(원) <span class="help-icon" data-tooltip="Top N 선별 전 저가 코인 제외&#10;이 금액 미만의 코인은 스캔 대상에서 제거됩니다&#10;0 = 필터 비활성화" aria-label="Min price help"></span></label>
+            <input class="input" type="number" id="scMinPrice" value="20" step="1" min="0"/>
+          </div>
         </div>
 
         <!-- Row 5: Exclude Markets -->
@@ -358,6 +362,10 @@
           <div class="config-field">
             <label>Min Body % <span class="help-icon" data-tooltip="진입 조건: 캔들 몸통 비율 최소값&#10;예: 0.60 = 전체 캔들 길이의 60% 이상 몸통" aria-label="Min body help"></span></label>
             <input class="input" type="number" id="adBodyRatio" value="0.60" step="0.05" min="0" max="1"/>
+          </div>
+          <div class="config-field">
+            <label>최소 가격(원) <span class="help-icon" data-tooltip="Top N 선별 전 저가 코인 제외&#10;이 금액 미만의 코인은 스캔 대상에서 제거됩니다&#10;0 = 필터 비활성화" aria-label="Min price help"></span></label>
+            <input class="input" type="number" id="adMinPrice" value="20" step="1" min="0"/>
           </div>
         </div>
 

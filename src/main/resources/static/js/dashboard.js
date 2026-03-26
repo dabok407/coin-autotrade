@@ -400,7 +400,7 @@
   }
 
   /** Render open positions from BotStatus.markets */
-  function renderPositions(marketsMap){
+  function renderPositions(marketsMap, botStatus){
     if(!posCardsContainer) return;
     if(!marketsMap || typeof marketsMap !== 'object'){
       posCardsContainer.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 4px">No data</div>';
@@ -408,7 +408,25 @@
       return;
     }
     var openPositions = Object.values(marketsMap).filter(function(m){ return m && m.positionOpen && m.qty > 0; });
-    if(posCountBadge) posCountBadge.textContent = String(openPositions.length);
+
+    // 스캐너별 포지션 수 구분 표시
+    if(posCountBadge) {
+      var total = openPositions.length;
+      var mainCount = (botStatus && botStatus.mainBotPositionCount != null) ? botStatus.mainBotPositionCount : -1;
+      var openingCount = (botStatus && botStatus.openingScannerPositionCount != null) ? botStatus.openingScannerPositionCount : 0;
+      var alldayCount = (botStatus && botStatus.alldayScannerPositionCount != null) ? botStatus.alldayScannerPositionCount : 0;
+      var scannerTotal = openingCount + alldayCount;
+
+      if (scannerTotal > 0 && mainCount >= 0) {
+        var parts = [];
+        if (mainCount > 0) parts.push('Bot ' + mainCount);
+        if (openingCount > 0) parts.push('OS ' + openingCount);
+        if (alldayCount > 0) parts.push('AD ' + alldayCount);
+        posCountBadge.textContent = total + ' (' + parts.join(' / ') + ')';
+      } else {
+        posCountBadge.textContent = String(total);
+      }
+    }
 
     if(openPositions.length === 0){
       posCardsContainer.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 4px">보유 포지션 없음</div>';
@@ -431,10 +449,19 @@
       var stratDisplay = strategyLabel.get(String(strat)) || strat;
       var addBuys = p.addBuys || 0;
 
+      // 포지션 소스 구분 배지
+      var sourceBadge = '';
+      if (strat === 'SCALP_OPENING_BREAK') {
+        sourceBadge = '<span style="font-size:9px;color:#ff9800;background:rgba(255,152,0,0.12);padding:2px 6px;border-radius:4px;font-weight:600">OS</span>';
+      } else if (strat === 'HIGH_CONFIDENCE_BREAKOUT') {
+        sourceBadge = '<span style="font-size:9px;color:#ab47bc;background:rgba(171,71,188,0.12);padding:2px 6px;border-radius:4px;font-weight:600">AD</span>';
+      }
+
       return '<div class="pos-card" style="background:var(--bg-card-solid);border:1px solid var(--card-border);border-radius:12px;padding:14px 16px">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
           '<div style="display:flex;align-items:center;gap:8px">' +
             '<span style="font-weight:700;font-size:15px">' + display + '</span>' +
+            sourceBadge +
             '<span style="font-size:10px;color:var(--text-muted);background:var(--glass);padding:2px 8px;border-radius:4px">' + stratDisplay + '</span>' +
             (addBuys > 0 ? '<span style="font-size:10px;color:var(--primary);background:rgba(43,118,255,0.1);padding:2px 6px;border-radius:4px">+' + addBuys + ' 추매</span>' : '') +
           '</div>' +
@@ -718,7 +745,7 @@
     }
 
     // Render open positions
-    renderPositions(s.markets);
+    renderPositions(s.markets, s);
 
     // Re-bind tooltips for dynamically-set data-tooltip attributes
     try { AutoTrade.normalizeTooltips(document); } catch(e) {}
@@ -779,6 +806,7 @@
       layout: { background: { type: 'solid', color: 'transparent' }, textColor: isDark ? '#5a6478' : '#8892a8' },
       grid: { vertLines: { visible: false }, horzLines: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)' } },
       rightPriceScale: { borderVisible: false },
+      localization: { priceFormatter: function(p) { return p.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); } },
       timeScale: { borderVisible: false, timeVisible: true },
       crosshair: { mode: 0 },
       handleScroll: false,

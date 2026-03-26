@@ -107,6 +107,7 @@ public class OpeningScannerApiController {
         if (body.containsKey("minBodyRatio")) cfg.setMinBodyRatio(toBD(body.get("minBodyRatio")));
         if (body.containsKey("excludeMarkets")) cfg.setExcludeMarkets(String.valueOf(body.get("excludeMarkets")));
         if (body.containsKey("openFailedEnabled")) cfg.setOpenFailedEnabled(Boolean.TRUE.equals(body.get("openFailedEnabled")));
+        if (body.containsKey("minPriceKrw")) cfg.setMinPriceKrw(toInt(body.get("minPriceKrw"), 20));
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
@@ -203,7 +204,7 @@ public class OpeningScannerApiController {
         m.put("running", scannerService.isRunning());
         m.put("status", scannerService.getStatusText());
         m.put("scanCount", scannerService.getScanCount());
-        m.put("activePositions", scannerService.getActivePositions());
+        m.put("activePositions", positionRepo.countActiveByEntryStrategy("SCALP_OPENING_BREAK"));
         m.put("lastScannedMarkets", scannerService.getLastScannedMarkets());
         m.put("lastTickEpochMs", scannerService.getLastTickEpochMs());
         m.put("config", configToMap(cfg));
@@ -246,6 +247,7 @@ public class OpeningScannerApiController {
         m.put("minBodyRatio", cfg.getMinBodyRatio());
         m.put("excludeMarkets", cfg.getExcludeMarkets());
         m.put("openFailedEnabled", cfg.isOpenFailedEnabled());
+        m.put("minPriceKrw", cfg.getMinPriceKrw());
         return m;
     }
 

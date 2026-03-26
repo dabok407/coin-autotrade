@@ -872,6 +872,7 @@
       if (el('scOpenFailed')) el('scOpenFailed').value = String(cfg.openFailedEnabled !== false);
       if (el('scVolMult')) el('scVolMult').value = cfg.volumeMult || 1.5;
       if (el('scBodyRatio')) el('scBodyRatio').value = cfg.minBodyRatio || 0.40;
+      if (el('scMinPrice')) el('scMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('scExcludeMarkets')) el('scExcludeMarkets').value = cfg.excludeMarkets || '';
     } catch(e) {
       console.warn('Scanner config load failed:', e);
@@ -906,6 +907,7 @@
       openFailedEnabled: (el('scOpenFailed') ? el('scOpenFailed').value : 'true') === 'true',
       volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
       minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40,
+      minPriceKrw: parseInt(el('scMinPrice') ? el('scMinPrice').value : '20') || 0,
       excludeMarkets: el('scExcludeMarkets') ? el('scExcludeMarkets').value.trim() : ''
     };
 
@@ -962,6 +964,7 @@
       if (el('adBtcFilter')) el('adBtcFilter').value = String(cfg.btcFilterEnabled !== false);
       if (el('adVolSurge')) el('adVolSurge').value = cfg.volumeSurgeMult || 3.0;
       if (el('adBodyRatio')) el('adBodyRatio').value = cfg.minBodyRatio || 0.60;
+      if (el('adMinPrice')) el('adMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('adExcludeMarkets')) el('adExcludeMarkets').value = cfg.excludeMarkets || '';
       // Quick TP
       if (el('adQuickTpEnabled')) el('adQuickTpEnabled').value = String(cfg.quickTpEnabled !== false);
@@ -997,6 +1000,7 @@
       btcFilterEnabled: (el('adBtcFilter') ? el('adBtcFilter').value : 'true') === 'true',
       volumeSurgeMult: parseFloat(el('adVolSurge') ? el('adVolSurge').value : '3.0') || 3.0,
       minBodyRatio: parseFloat(el('adBodyRatio') ? el('adBodyRatio').value : '0.60') || 0.60,
+      minPriceKrw: parseInt(el('adMinPrice') ? el('adMinPrice').value : '20') || 0,
       excludeMarkets: el('adExcludeMarkets') ? el('adExcludeMarkets').value.trim() : '',
       // Quick TP
       quickTpEnabled: (el('adQuickTpEnabled') ? el('adQuickTpEnabled').value : 'true') === 'true',
