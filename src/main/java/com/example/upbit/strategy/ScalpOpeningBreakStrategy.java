@@ -260,14 +260,24 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
             return Signal.of(SignalAction.SELL, type(), reason);
         }
 
-        // 2. v2 합의: 범위 기반 SL — close < rangeHigh이면 즉시 청산
-        //    (돌파 실패 = 범위 안으로 재진입 = 전략 근거 소멸)
+        // 2. 범위 기반 SL — 2연속 확인 (v3: 노이즈 이탈 방지)
+        //    1캔들만 rangeHigh 아래로 내려갔다 복귀하면 유지
+        //    2캔들 연속 rangeHigh 아래면 진짜 돌파 실패 → 청산
         double rangeHigh = calcRangeHigh(candles, lastKst);
         if (rangeHigh > 0 && close < rangeHigh) {
-            String reason = String.format(Locale.ROOT,
-                    "OPEN_RANGE_SL avg=%.2f close=%.2f rH=%.2f pnl=%.2f%%",
-                    avgPrice, close, rangeHigh, pnlPct);
-            return Signal.of(SignalAction.SELL, type(), reason);
+            // 이전 캔들도 rangeHigh 아래였는지 확인 (2연속 확인)
+            int sz = candles.size();
+            if (sz >= 2) {
+                UpbitCandle prev = candles.get(sz - 2);
+                if (prev.trade_price < rangeHigh) {
+                    // 2연속 이탈 → 진짜 돌파 실패
+                    String reason = String.format(Locale.ROOT,
+                            "OPEN_RANGE_SL avg=%.2f close=%.2f rH=%.2f pnl=%.2f%%",
+                            avgPrice, close, rangeHigh, pnlPct);
+                    return Signal.of(SignalAction.SELL, type(), reason);
+                }
+                // 1캔들만 이탈 → 노이즈, 다음 틱까지 관찰
+            }
         }
 
         // 3. Hard TP: entry + tpAtrMult × ATR

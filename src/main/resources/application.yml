@@ -1,3 +1,6 @@
+report:
+  apiKey: ${REPORT_API_KEY:changeme-replace-with-random-key}
+
 server:
   port: 8080
   servlet:
@@ -74,10 +77,16 @@ upbit:
   accessKey: ${UPBIT_ACCESS_KEY:}
   secretKey: ${UPBIT_SECRET_KEY:}
 
+app:
+  version: "@project.version@"
+  build-time: "@maven.build.timestamp@"
+
 logging:
   level:
     root: INFO
     com.example.upbit.bot: INFO
+    org.apache.coyote.http11.Http11Processor: WARN
+    org.apache.coyote.http11.Http11InputBuffer: ERROR
   file:
     name: logs/autotrade.log
   pattern:
