@@ -47,7 +47,7 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     private static final int ATR_PERIOD = 10;
     private double tpAtrMult = 1.5;     // v2: 1.2→1.5
     private double slPct = 2.0;         // v2: 10%→2%
-    private double trailAtrMult = 0.6;  // v2: 0.8→0.6
+    private double trailAtrMult = 0.7;  // v3: 0.6→0.7 (노이즈 내성 강화)
 
     // ===== 진입 필터 (v2 합의: 완화 X, 강화) =====
     private static final int VOLUME_AVG_PERIOD = 20;
