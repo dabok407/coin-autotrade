@@ -8,10 +8,10 @@
   var logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function() {
-      fetch('/api/auth/logout', { method: 'POST' }).then(function() {
-        window.location.href = '/login?logout';
+      fetch(AutoTrade.basePath + '/api/auth/logout', { method: 'POST' }).then(function() {
+        window.location.href = AutoTrade.basePath + '/login?logout';
       }).catch(function() {
-        window.location.href = '/login';
+        window.location.href = AutoTrade.basePath + '/login';
       });
     });
   }
@@ -974,6 +974,7 @@
       await fetchGuardLogs(true);
       await fetchScannerStatus(true);
       await fetchAlldayStatus(true);
+      await fetchMorningRushStatus(true);
 
       // Render new dashboard sections
       if (s && Array.isArray(s.groups)) renderDashGroups(s.groups);
@@ -1135,6 +1136,82 @@
     });
   }
 
+  // ─── Morning Rush Scanner ───
+  var mrSwitch = document.getElementById('mrSwitch');
+  var mrStateBadge = document.getElementById('mrStateBadge');
+  var mrMode = document.getElementById('mrMode');
+  var mrStatus = document.getElementById('mrStatus');
+  var mrScanCount = document.getElementById('mrScanCount');
+  var mrPositions = document.getElementById('mrPositions');
+  var mrLastTick = document.getElementById('mrLastTick');
+  var mrGapThreshold = document.getElementById('mrGapThreshold');
+  var mrMarkets = document.getElementById('mrMarkets');
+
+  function setMrRunningUI(running) {
+    if (!mrSwitch) return;
+    mrSwitch.classList.toggle('on', !!running);
+    mrSwitch.setAttribute('aria-pressed', String(!!running));
+    var label = mrSwitch.querySelector('.bot-toggle-label');
+    if (label) label.textContent = running ? 'ON' : 'OFF';
+    if (mrStateBadge) {
+      mrStateBadge.textContent = running ? 'RUNNING' : 'STOPPED';
+      mrStateBadge.className = 'badge ' + (running ? 'running' : 'stopped');
+    }
+  }
+
+  async function fetchMorningRushStatus(silent) {
+    try {
+      var s = await req('/api/morning-rush/status', { method: 'GET' });
+      setMrRunningUI(!!s.running);
+      if (mrMode) mrMode.textContent = (s.config && s.config.mode) || '-';
+      if (mrStatus) mrStatus.textContent = s.status || '-';
+      if (mrScanCount) mrScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+      if (mrPositions) {
+        var maxPos = (s.config && s.config.maxPositions) || '?';
+        mrPositions.textContent = (s.activePositions != null ? s.activePositions + '/' + maxPos : '-');
+      }
+      if (mrLastTick) {
+        mrLastTick.textContent = (s.lastTickEpochMs && s.lastTickEpochMs > 0)
+          ? fmtTime(s.lastTickEpochMs) : '-';
+      }
+      if (mrGapThreshold) {
+        var gapPct = (s.config && s.config.gapThresholdPct != null) ? s.config.gapThresholdPct : '-';
+        mrGapThreshold.textContent = gapPct !== '-' ? gapPct + '%' : '-';
+      }
+      if (mrMarkets) {
+        var mkts = s.lastScannedMarkets || [];
+        if (mkts.length === 0) {
+          mrMarkets.innerHTML = '<span style="color:var(--text-muted)">-</span>';
+        } else {
+          mrMarkets.innerHTML = mkts.map(function(m) {
+            var label = marketLabel.get(String(m)) || m;
+            return '<span style="background:var(--surface-alt,rgba(255,255,255,.06));padding:2px 8px;border-radius:4px;font-family:var(--font-mono)">' + label + '</span>';
+          }).join('');
+        }
+      }
+    } catch(e) {
+      if (!silent) console.error('Morning Rush status fetch failed:', e);
+    }
+  }
+
+  if (mrSwitch) {
+    mrSwitch.addEventListener('click', async function() {
+      var next = !mrSwitch.classList.contains('on');
+      var ok = confirm(next ? '모닝 러쉬 스캐너를 시작하시겠습니까?' : '모닝 러쉬 스캐너를 중지하시겠습니까?');
+      if (!ok) return;
+      try {
+        mrSwitch.disabled = true;
+        await req(next ? '/api/morning-rush/start' : '/api/morning-rush/stop', { method: 'POST' });
+        setMrRunningUI(next);
+        await fetchMorningRushStatus(true);
+      } catch(e) {
+        showToast(e.message || '모닝 러쉬 스캐너 요청 실패', 'error');
+      } finally {
+        mrSwitch.disabled = false;
+      }
+    });
+  }
+
   botSwitch.addEventListener('click', async () => {
     const next = !botSwitch.classList.contains('on');
     const ok = confirm(next ? '봇을 START 하시겠습니까?' : '봇을 STOP 하시겠습니까?');
@@ -1220,6 +1297,6 @@
 
     // 첫 화면 렌더
     await refreshAll();
-    setInterval(() => { fetchAssetSummary(true); fetchGuardLogs(true); fetchScannerStatus(true); fetchAlldayStatus(true); }, 10000);
+    setInterval(() => { fetchAssetSummary(true); fetchGuardLogs(true); fetchScannerStatus(true); fetchAlldayStatus(true); fetchMorningRushStatus(true); }, 10000);
   })();
 })();

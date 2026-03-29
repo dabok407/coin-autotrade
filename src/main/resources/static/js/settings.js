@@ -50,6 +50,7 @@
   var settingsTabBasic = document.getElementById('settingsTabBasic');
   var settingsTabOpening = document.getElementById('settingsTabOpening');
   var settingsTabAllday = document.getElementById('settingsTabAllday');
+  var settingsTabMorningRush = document.getElementById('settingsTabMorningRush');
 
   for (var ti = 0; ti < settingsTabs.length; ti++) {
     (function(tab) {
@@ -61,6 +62,7 @@
         if (settingsTabBasic) settingsTabBasic.style.display = (target === 'basic') ? '' : 'none';
         if (settingsTabOpening) settingsTabOpening.style.display = (target === 'opening') ? '' : 'none';
         if (settingsTabAllday) settingsTabAllday.style.display = (target === 'allday') ? '' : 'none';
+        if (settingsTabMorningRush) settingsTabMorningRush.style.display = (target === 'morningRush') ? '' : 'none';
       });
     })(settingsTabs[ti]);
   }
@@ -72,10 +74,10 @@
   var logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function() {
-      fetch('/api/auth/logout', { method: 'POST' }).then(function() {
-        window.location.href = '/login?logout';
+      fetch(AutoTrade.basePath + '/api/auth/logout', { method: 'POST' }).then(function() {
+        window.location.href = AutoTrade.basePath + '/login?logout';
       }).catch(function() {
-        window.location.href = '/login';
+        window.location.href = AutoTrade.basePath + '/login';
       });
     });
   }
@@ -756,6 +758,7 @@
       // Save scanner configs together
       await saveScannerConfig();
       await saveAlldayConfig();
+      await saveMorningRushConfig();
 
       if (result && result.success) {
         showToast('Settings applied! (' + result.groupCount + ' groups + scanners)', 'success');
@@ -1013,5 +1016,84 @@
 
   // Load allday scanner config on page load
   loadAlldayConfig();
+
+  // ═══════════════════════════════════════════
+  //  Morning Rush Scanner Settings
+  // ═══════════════════════════════════════════
+
+  var mrEnabledToggle = document.getElementById('mrEnabledToggle');
+  var mrEnabled = false;
+
+  function setMrToggleUI(enabled) {
+    mrEnabled = !!enabled;
+    if (!mrEnabledToggle) return;
+    mrEnabledToggle.classList.toggle('on', mrEnabled);
+    mrEnabledToggle.setAttribute('aria-pressed', String(mrEnabled));
+    var label = mrEnabledToggle.querySelector('.bot-toggle-label');
+    if (label) label.textContent = mrEnabled ? 'ON' : 'OFF';
+  }
+
+  if (mrEnabledToggle) {
+    mrEnabledToggle.addEventListener('click', function() {
+      setMrToggleUI(!mrEnabled);
+    });
+  }
+
+  async function loadMorningRushConfig() {
+    try {
+      var cfg = await req('/api/morning-rush/config', { method: 'GET' });
+      setMrToggleUI(cfg.enabled);
+      var el = function(id) { return document.getElementById(id); };
+      if (el('mrMode')) el('mrMode').value = cfg.mode || 'PAPER';
+      if (el('mrOrderMode')) el('mrOrderMode').value = cfg.orderSizingMode || 'PCT';
+      if (el('mrGlobalCapDisplay') && cfg.globalCapitalKrw) {
+        el('mrGlobalCapDisplay').textContent = '(현재 Capital: ' + fmt(cfg.globalCapitalKrw) + '원)';
+      }
+      if (el('mrOrderValue')) el('mrOrderValue').value = cfg.orderSizingValue || 20;
+      if (el('mrGapThreshold')) el('mrGapThreshold').value = cfg.gapThresholdPct || 5.0;
+      if (el('mrVolMult')) el('mrVolMult').value = cfg.volumeMult || 5.0;
+      if (el('mrConfirmCount')) el('mrConfirmCount').value = cfg.confirmCount || 3;
+      if (el('mrCheckInterval')) el('mrCheckInterval').value = cfg.checkIntervalSec || 5;
+      if (el('mrTpPct')) el('mrTpPct').value = cfg.tpPct || 2.0;
+      if (el('mrSlPct')) el('mrSlPct').value = cfg.slPct || 3.0;
+      if (el('mrSessionEnd')) el('mrSessionEnd').value = fmtHHMM(cfg.sessionEndHour, cfg.sessionEndMin);
+      if (el('mrTopN')) el('mrTopN').value = cfg.topN || 30;
+      if (el('mrMaxPos')) el('mrMaxPos').value = cfg.maxPositions || 2;
+      if (el('mrMinTradeAmount')) el('mrMinTradeAmount').value = cfg.minTradeAmountBillion || 10;
+      if (el('mrMinPrice')) el('mrMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
+      if (el('mrExcludeMarkets')) el('mrExcludeMarkets').value = cfg.excludeMarkets || '';
+    } catch(e) {
+      console.warn('Morning Rush config load failed:', e);
+    }
+  }
+
+  async function saveMorningRushConfig() {
+    var el = function(id) { return document.getElementById(id); };
+    var se = parseHHMM(el('mrSessionEnd') ? el('mrSessionEnd').value : '10:00');
+
+    var body = {
+      enabled: mrEnabled,
+      mode: el('mrMode') ? el('mrMode').value : 'PAPER',
+      orderSizingMode: el('mrOrderMode') ? el('mrOrderMode').value : 'PCT',
+      orderSizingValue: parseFloat(el('mrOrderValue') ? el('mrOrderValue').value : '20') || 20,
+      gapThresholdPct: parseFloat(el('mrGapThreshold') ? el('mrGapThreshold').value : '5.0') || 5.0,
+      volumeMult: parseFloat(el('mrVolMult') ? el('mrVolMult').value : '5.0') || 5.0,
+      confirmCount: parseInt(el('mrConfirmCount') ? el('mrConfirmCount').value : '3') || 3,
+      checkIntervalSec: parseInt(el('mrCheckInterval') ? el('mrCheckInterval').value : '5') || 5,
+      tpPct: parseFloat(el('mrTpPct') ? el('mrTpPct').value : '2.0') || 2.0,
+      slPct: parseFloat(el('mrSlPct') ? el('mrSlPct').value : '3.0') || 3.0,
+      sessionEndHour: se[0], sessionEndMin: se[1],
+      topN: parseInt(el('mrTopN') ? el('mrTopN').value : '30') || 30,
+      maxPositions: parseInt(el('mrMaxPos') ? el('mrMaxPos').value : '2') || 2,
+      minTradeAmountBillion: parseInt(el('mrMinTradeAmount') ? el('mrMinTradeAmount').value : '10') || 10,
+      minPriceKrw: parseInt(el('mrMinPrice') ? el('mrMinPrice').value : '20') || 0,
+      excludeMarkets: el('mrExcludeMarkets') ? el('mrExcludeMarkets').value.trim() : ''
+    };
+
+    await req('/api/morning-rush/config', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  // Load morning rush config on page load
+  loadMorningRushConfig();
 
 })();

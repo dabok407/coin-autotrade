@@ -1,0 +1,176 @@
+package com.example.upbit.web;
+
+import com.example.upbit.bot.MorningRushScannerService;
+import com.example.upbit.db.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/morning-rush")
+public class MorningRushApiController {
+
+    private static final Logger log = LoggerFactory.getLogger(MorningRushApiController.class);
+
+    @Autowired
+    private MorningRushScannerService scannerService;
+
+    @Autowired
+    private MorningRushConfigRepository configRepo;
+
+    @Autowired
+    private BotConfigRepository botConfigRepo;
+
+    @Autowired
+    private PositionRepository positionRepo;
+
+    @PostMapping("/start")
+    public ResponseEntity<Map<String, Object>> start() {
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+        cfg.setEnabled(true);
+        configRepo.save(cfg);
+        scannerService.start();
+        return ResponseEntity.ok(buildStatus());
+    }
+
+    @PostMapping("/stop")
+    public ResponseEntity<Map<String, Object>> stop() {
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+        cfg.setEnabled(false);
+        configRepo.save(cfg);
+        scannerService.stop();
+        return ResponseEntity.ok(buildStatus());
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> status() {
+        return ResponseEntity.ok(buildStatus());
+    }
+
+    @GetMapping("/config")
+    public ResponseEntity<Map<String, Object>> getConfig() {
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+        return ResponseEntity.ok(configToMap(cfg));
+    }
+
+    @PostMapping("/config")
+    public ResponseEntity<Map<String, Object>> updateConfig(@RequestBody Map<String, Object> body) {
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+
+        if (body.containsKey("enabled")) cfg.setEnabled(Boolean.TRUE.equals(body.get("enabled")));
+        if (body.containsKey("mode")) cfg.setMode(String.valueOf(body.get("mode")));
+        if (body.containsKey("topN")) cfg.setTopN(toInt(body.get("topN"), 30));
+        if (body.containsKey("maxPositions")) cfg.setMaxPositions(toInt(body.get("maxPositions"), 2));
+
+        // Order sizing
+        if (body.containsKey("orderSizingMode")) cfg.setOrderSizingMode(String.valueOf(body.get("orderSizingMode")));
+        if (body.containsKey("orderSizingValue")) cfg.setOrderSizingValue(toBD(body.get("orderSizingValue")));
+
+        // Gap-up params
+        if (body.containsKey("gapThresholdPct")) cfg.setGapThresholdPct(toBD(body.get("gapThresholdPct")));
+        if (body.containsKey("volumeMult")) cfg.setVolumeMult(toBD(body.get("volumeMult")));
+        if (body.containsKey("confirmCount")) cfg.setConfirmCount(toInt(body.get("confirmCount"), 3));
+        if (body.containsKey("checkIntervalSec")) cfg.setCheckIntervalSec(toInt(body.get("checkIntervalSec"), 5));
+
+        // TP/SL
+        if (body.containsKey("tpPct")) cfg.setTpPct(toBD(body.get("tpPct")));
+        if (body.containsKey("slPct")) cfg.setSlPct(toBD(body.get("slPct")));
+
+        // Session timing
+        if (body.containsKey("sessionEndHour")) cfg.setSessionEndHour(toInt(body.get("sessionEndHour"), 10));
+        if (body.containsKey("sessionEndMin")) cfg.setSessionEndMin(toInt(body.get("sessionEndMin"), 0));
+
+        // Filters
+        if (body.containsKey("minTradeAmount")) cfg.setMinTradeAmount(toLong(body.get("minTradeAmount"), 1000000000L));
+        if (body.containsKey("excludeMarkets")) cfg.setExcludeMarkets(String.valueOf(body.get("excludeMarkets")));
+        if (body.containsKey("minPriceKrw")) cfg.setMinPriceKrw(toInt(body.get("minPriceKrw"), 20));
+
+        configRepo.save(cfg);
+        return ResponseEntity.ok(configToMap(cfg));
+    }
+
+    @GetMapping("/decisions")
+    public ResponseEntity<List<Map<String, Object>>> decisions(
+            @RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(scannerService.getRecentDecisions(Math.min(limit, 200)));
+    }
+
+    // ===== Helpers =====
+
+    private Map<String, Object> buildStatus() {
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        m.put("running", scannerService.isRunning());
+        m.put("status", scannerService.getStatusText());
+        m.put("scanCount", scannerService.getScanCount());
+        m.put("activePositions", positionRepo.countActiveByEntryStrategy("MORNING_RUSH"));
+        m.put("lastScannedMarkets", scannerService.getLastScannedMarkets());
+        m.put("lastTickEpochMs", scannerService.getLastTickEpochMs());
+        m.put("config", configToMap(cfg));
+        return m;
+    }
+
+    private Map<String, Object> configToMap(MorningRushConfigEntity cfg) {
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        m.put("enabled", cfg.isEnabled());
+        m.put("mode", cfg.getMode());
+        m.put("topN", cfg.getTopN());
+        m.put("maxPositions", cfg.getMaxPositions());
+
+        // Global Capital (read-only from bot_config)
+        List<BotConfigEntity> bcs = botConfigRepo.findAll();
+        BigDecimal globalCap = (!bcs.isEmpty() && bcs.get(0).getCapitalKrw() != null)
+                ? bcs.get(0).getCapitalKrw() : BigDecimal.valueOf(100000);
+        m.put("globalCapitalKrw", globalCap);
+
+        m.put("orderSizingMode", cfg.getOrderSizingMode());
+        m.put("orderSizingValue", cfg.getOrderSizingValue());
+
+        // Gap-up params
+        m.put("gapThresholdPct", cfg.getGapThresholdPct());
+        m.put("volumeMult", cfg.getVolumeMult());
+        m.put("confirmCount", cfg.getConfirmCount());
+        m.put("checkIntervalSec", cfg.getCheckIntervalSec());
+
+        // TP/SL
+        m.put("tpPct", cfg.getTpPct());
+        m.put("slPct", cfg.getSlPct());
+
+        // Session
+        m.put("sessionEndHour", cfg.getSessionEndHour());
+        m.put("sessionEndMin", cfg.getSessionEndMin());
+
+        // Filters
+        m.put("minTradeAmount", cfg.getMinTradeAmount());
+        m.put("excludeMarkets", cfg.getExcludeMarkets());
+        m.put("minPriceKrw", cfg.getMinPriceKrw());
+
+        return m;
+    }
+
+    private static int toInt(Object v, int def) {
+        if (v == null) return def;
+        try { return ((Number) v).intValue(); } catch (Exception e) {
+            try { return Integer.parseInt(v.toString()); } catch (Exception e2) { return def; }
+        }
+    }
+
+    private static long toLong(Object v, long def) {
+        if (v == null) return def;
+        try { return ((Number) v).longValue(); } catch (Exception e) {
+            try { return Long.parseLong(v.toString()); } catch (Exception e2) { return def; }
+        }
+    }
+
+    private static BigDecimal toBD(Object v) {
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof Number) return BigDecimal.valueOf(((Number) v).doubleValue());
+        try { return new BigDecimal(v.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
+    }
+}

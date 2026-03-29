@@ -82,6 +82,7 @@
       <div class="bt-tab active" data-tab="basic">&#x1F3AF; 타겟 전략</div>
       <div class="bt-tab" data-tab="opening">&#x1F305; 오프닝 전략</div>
       <div class="bt-tab" data-tab="allday">&#x1F319; 올데이 전략</div>
+      <div class="bt-tab" data-tab="morningRush">&#x1F680; 모닝 러쉬</div>
     </div>
 
     <!-- Tab: 타겟 전략 -->
@@ -380,6 +381,115 @@
       </div>
     </div>
     </div><!-- /settingsTabAllday -->
+
+    <!-- Tab: 모닝 러쉬 -->
+    <div class="settings-tab-content" id="settingsTabMorningRush" style="display:none">
+      <div class="card" style="margin-bottom:24px;padding:0;overflow:hidden">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+          <div class="card-title">
+            <div class="card-icon" style="background:rgba(255,87,34,.15);color:#ff5722">&#x1F680;</div>
+            Morning Rush Scanner Settings
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--text-muted)">Enabled</span>
+            <button class="bot-toggle" id="mrEnabledToggle" aria-pressed="false" style="width:100px">
+              <span class="bot-toggle-knob"></span>
+              <span class="bot-toggle-label">OFF</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="padding:16px 20px">
+        <!-- Row 1: Mode, Order Sizing -->
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
+          <div class="config-field">
+            <label>Mode <span class="help-icon" data-tooltip="PAPER: 모의매매 (실제 주문 없음)&#10;LIVE: 실거래 (업비트 실제 주문)" aria-label="Mode help"></span></label>
+            <select class="select" id="mrMode"><option value="PAPER" selected>PAPER</option><option value="LIVE">LIVE</option></select>
+          </div>
+          <div class="config-field">
+            <label>Order Sizing <span class="help-icon" data-tooltip="PCT: Global Capital 대비 비율(%)로 주문&#10;FIXED: 고정 금액(KRW)으로 주문" aria-label="Order sizing help"></span></label>
+            <select class="select" id="mrOrderMode"><option value="PCT" selected>PCT (%)</option><option value="FIXED">FIXED (KRW)</option></select>
+          </div>
+          <div class="config-field">
+            <label>Order Value <span class="help-icon" data-tooltip="PCT 모드: Global Capital의 N% (예: 20 = 20%)&#10;FIXED 모드: 고정 주문 금액(KRW)" aria-label="Order value help"></span></label>
+            <input class="input" type="number" id="mrOrderValue" value="20" step="1"/>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">
+          Global Capital 공유 &mdash; 상단 Global Settings의 Capital (KRW) 한도 내에서 운용됩니다.
+          <span id="mrGlobalCapDisplay" style="color:var(--primary)"></span>
+        </div>
+
+        <!-- Row 2: Gap & Volume -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Gap &amp; Volume</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Gap Threshold (%) <span class="help-icon" data-tooltip="전일 종가 대비 갭 상승 비율 (%)&#10;예: 5.0 = 5% 이상 갭 상승 시 감시 대상" aria-label="Gap threshold help"></span></label>
+            <input class="input" type="number" id="mrGapThreshold" value="5.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Volume Multiplier <span class="help-icon" data-tooltip="진입 조건: 현재 거래량 > 평균 x 배수&#10;예: 5.0 = 평균의 5배 이상 거래량 필요" aria-label="Volume mult help"></span></label>
+            <input class="input" type="number" id="mrVolMult" value="5.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Confirm Count <span class="help-icon" data-tooltip="연속 확인 횟수&#10;N회 연속 조건 충족 시 진입" aria-label="Confirm count help"></span></label>
+            <input class="input" type="number" id="mrConfirmCount" value="3" min="1" max="10"/>
+          </div>
+          <div class="config-field">
+            <label>Check Interval (sec) <span class="help-icon" data-tooltip="조건 확인 간격 (초)&#10;최소 3초, 최대 60초" aria-label="Check interval help"></span></label>
+            <input class="input" type="number" id="mrCheckInterval" value="5" min="3" max="60"/>
+          </div>
+        </div>
+
+        <!-- Row 3: Risk -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>TP (%) <span class="help-icon" data-tooltip="익절 목표 수익률 (%)&#10;예: 2.0 = +2% 도달 시 익절" aria-label="TP help"></span></label>
+            <input class="input" type="number" id="mrTpPct" value="2.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>SL (%) <span class="help-icon" data-tooltip="손절 한도 (진입가 대비 하락 %)&#10;예: 3.0 = -3% 하락 시 손절" aria-label="SL help"></span></label>
+            <input class="input" type="number" id="mrSlPct" value="3.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Session End <span class="help-icon" data-tooltip="강제 청산 시각 (KST)&#10;보유 중인 모든 포지션을 이 시간에 청산합니다." aria-label="Session end help"></span></label>
+            <input class="input" type="text" id="mrSessionEnd" value="10:00" placeholder="HH:MM"/>
+          </div>
+        </div>
+
+        <!-- Row 4: Scan & Filter -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Scan &amp; Filter</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Top N <span class="help-icon" data-tooltip="거래대금 상위 N개 코인을 스캔합니다." aria-label="Top N help"></span></label>
+            <input class="input" type="number" id="mrTopN" value="30" min="1" max="100"/>
+          </div>
+          <div class="config-field">
+            <label>Max Positions <span class="help-icon" data-tooltip="동시에 보유할 수 있는 최대 포지션 수" aria-label="Max positions help"></span></label>
+            <input class="input" type="number" id="mrMaxPos" value="2" min="1" max="15"/>
+          </div>
+          <div class="config-field">
+            <label>최소 거래대금(억원) <span class="help-icon" data-tooltip="24시간 거래대금 최소 기준 (억원)&#10;이 금액 미만의 코인은 스캔 대상에서 제거됩니다" aria-label="Min trade amount help"></span></label>
+            <input class="input" type="number" id="mrMinTradeAmount" value="10" step="1" min="0"/>
+          </div>
+          <div class="config-field">
+            <label>최소 가격(원) <span class="help-icon" data-tooltip="저가 코인 제외 필터&#10;이 금액 미만의 코인은 스캔 대상에서 제거됩니다&#10;0 = 필터 비활성화" aria-label="Min price help"></span></label>
+            <input class="input" type="number" id="mrMinPrice" value="20" step="1" min="0"/>
+          </div>
+        </div>
+
+        <!-- Row 5: Exclude Markets -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Exclude Markets</div>
+        <div style="margin-bottom:8px">
+          <div class="config-field">
+            <label>제외 마켓 <span class="help-icon" data-tooltip="스캐너가 절대 매수하지 않을 마켓 목록&#10;콤마(,)로 구분. 예: KRW-BTC,KRW-XRP,KRW-DOGE" aria-label="Exclude markets help"></span></label>
+            <input class="input" type="text" id="mrExcludeMarkets" value="" placeholder="KRW-BTC,KRW-XRP,KRW-DOGE" style="width:100%"/>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /settingsTabMorningRush -->
 
     <!-- ── Apply Button ── -->
     <div class="run-section" style="margin-top:32px;margin-bottom:0">
