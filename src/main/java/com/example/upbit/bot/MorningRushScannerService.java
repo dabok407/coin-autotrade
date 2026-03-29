@@ -7,6 +7,16 @@ import com.example.upbit.trade.LiveOrderService;
 import com.example.upbit.upbit.UpbitAccount;
 import com.example.upbit.upbit.UpbitPrivateClient;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,19 +32,21 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 모닝 러쉬 스캐너 — 09:00 KST 갭업 스파이크를 잡는 단기 스캐너.
  *
  * 흐름:
  * 1. 08:50 ~ 09:00 — 전일 08:00-09:00 레인지(고가) 수집 (Ticker API)
- * 2. 09:00 ~ 09:05 — 5초 간격 Ticker 폴링으로 갭업 확인
+ * 2. 09:00 ~ 09:05 — WebSocket 실시간 가격 피드로 갭업 확인
  *    - price > rangeHigh × (1 + gapThreshold%) 를 confirmCount 연속 통과 → BUY
  *    - 24시간 거래대금 > 기준 거래대금 × volumeMult
- * 3. 09:05 ~ 10:00 — 10초 간격 TP/SL 모니터링
+ * 3. 09:05 ~ 10:00 — WebSocket 실시간 TP/SL 모니터링
  * 4. 10:00 — 강제 청산
  *
- * MVP: Ticker API 폴링 방식 (WebSocket은 향후 업그레이드)
+ * WebSocket: Upbit wss://api.upbit.com/websocket/v1 (ticker)
+ * Fallback: WebSocket 5회 재연결 실패 시 REST Ticker API 폴링으로 전환
  */
 @Service
 public class MorningRushScannerService {
@@ -42,6 +54,11 @@ public class MorningRushScannerService {
     private static final Logger log = LoggerFactory.getLogger(MorningRushScannerService.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final String ENTRY_STRATEGY = "MORNING_RUSH";
+
+    private static final String WS_URL = "wss://api.upbit.com/websocket/v1";
+    private static final int WS_MAX_CODES_PER_CONN = 15;
+    private static final int WS_PING_INTERVAL_SEC = 25;
+    private static final int WS_MAX_RECONNECT = 5;
 
     // ========== Dependencies ==========
 
@@ -54,6 +71,7 @@ public class MorningRushScannerService {
     private final TransactionTemplate txTemplate;
     private final UpbitMarketCatalogService catalogService;
     private final TickerService tickerService;
+    private final ObjectMapper objectMapper;
 
     // ========== Runtime state ==========
 
@@ -71,6 +89,15 @@ public class MorningRushScannerService {
     private final ConcurrentHashMap<String, Double> rangeHighMap = new ConcurrentHashMap<String, Double>();
     private final ConcurrentHashMap<String, Double> baselineVolume = new ConcurrentHashMap<String, Double>();
     private final ConcurrentHashMap<String, Integer> confirmCounts = new ConcurrentHashMap<String, Integer>();
+
+    // WebSocket real-time prices
+    private final ConcurrentHashMap<String, Double> latestPrices = new ConcurrentHashMap<String, Double>();
+    private final List<WebSocket> activeWebSockets = new CopyOnWriteArrayList<WebSocket>();
+    private volatile OkHttpClient wsClient;
+    private volatile ScheduledFuture<?> pingTask;
+    private final AtomicBoolean wsConnected = new AtomicBoolean(false);
+    private final AtomicBoolean wsFallback = new AtomicBoolean(false);
+    private final AtomicInteger wsReconnectCount = new AtomicInteger(0);
 
     // Decision log
     private static final int MAX_DECISION_LOG = 200;
@@ -98,6 +125,7 @@ public class MorningRushScannerService {
         this.txTemplate = txTemplate;
         this.catalogService = catalogService;
         this.tickerService = tickerService;
+        this.objectMapper = new ObjectMapper();
     }
 
     // ========== Lifecycle ==========
@@ -114,11 +142,16 @@ public class MorningRushScannerService {
         confirmCounts.clear();
         rangeHighMap.clear();
         baselineVolume.clear();
+        latestPrices.clear();
+        wsConnected.set(false);
+        wsFallback.set(false);
+        wsReconnectCount.set(0);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+        scheduler = Executors.newScheduledThreadPool(2, new ThreadFactory() {
+            private int seq = 0;
             @Override
             public Thread newThread(Runnable r) {
-                Thread t = new Thread(r, "morning-rush-scanner");
+                Thread t = new Thread(r, "morning-rush-" + (seq++));
                 t.setDaemon(true);
                 return t;
             }
@@ -146,6 +179,7 @@ public class MorningRushScannerService {
         }
         log.info("[MorningRush] stopping...");
         statusText = "STOPPED";
+        closeWebSockets();
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
@@ -180,11 +214,222 @@ public class MorningRushScannerService {
         return list;
     }
 
+    // ========== WebSocket Management ==========
+
+    /**
+     * Upbit WebSocket 연결. 코드 15개씩 분할하여 다중 연결 생성.
+     */
+    private void connectWebSocket(List<String> markets) {
+        closeWebSockets();
+        latestPrices.clear();
+        wsReconnectCount.set(0);
+        wsFallback.set(false);
+
+        if (markets.isEmpty()) return;
+
+        wsClient = new OkHttpClient.Builder()
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .build();
+
+        // Split markets into chunks of WS_MAX_CODES_PER_CONN
+        List<List<String>> chunks = new ArrayList<List<String>>();
+        for (int i = 0; i < markets.size(); i += WS_MAX_CODES_PER_CONN) {
+            int end = Math.min(i + WS_MAX_CODES_PER_CONN, markets.size());
+            chunks.add(new ArrayList<String>(markets.subList(i, end)));
+        }
+
+        for (int idx = 0; idx < chunks.size(); idx++) {
+            List<String> chunk = chunks.get(idx);
+            openOneWebSocket(chunk, idx);
+        }
+
+        // Schedule ping task
+        if (scheduler != null && !scheduler.isShutdown()) {
+            pingTask = scheduler.scheduleAtFixedRate(new Runnable() {
+                @Override
+                public void run() {
+                    sendPings();
+                }
+            }, WS_PING_INTERVAL_SEC, WS_PING_INTERVAL_SEC, TimeUnit.SECONDS);
+        }
+
+        log.info("[MorningRush] WebSocket connecting: {} connections for {} markets",
+                chunks.size(), markets.size());
+    }
+
+    private void openOneWebSocket(final List<String> codes, final int connIndex) {
+        Request request = new Request.Builder().url(WS_URL).build();
+        WebSocket ws = wsClient.newWebSocket(request, new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, Response response) {
+                log.info("[MorningRush] WS[{}] connected, subscribing {} codes", connIndex, codes.size());
+                wsConnected.set(true);
+                wsReconnectCount.set(0);
+
+                // Build subscribe message
+                StringBuilder sb = new StringBuilder();
+                sb.append("[{\"ticket\":\"morning-rush-").append(connIndex).append("\"},");
+                sb.append("{\"type\":\"ticker\",\"codes\":[");
+                for (int i = 0; i < codes.size(); i++) {
+                    if (i > 0) sb.append(",");
+                    sb.append("\"").append(codes.get(i)).append("\"");
+                }
+                sb.append("]}]");
+
+                webSocket.send(sb.toString());
+            }
+
+            @Override
+            public void onMessage(WebSocket webSocket, String text) {
+                handleTickerMessage(text);
+            }
+
+            @Override
+            public void onMessage(WebSocket webSocket, ByteString bytes) {
+                // Upbit sends binary frames containing JSON
+                handleTickerMessage(bytes.utf8());
+            }
+
+            @Override
+            public void onClosing(WebSocket webSocket, int code, String reason) {
+                log.info("[MorningRush] WS[{}] closing: code={} reason={}", connIndex, code, reason);
+                webSocket.close(1000, null);
+            }
+
+            @Override
+            public void onClosed(WebSocket webSocket, int code, String reason) {
+                log.info("[MorningRush] WS[{}] closed: code={} reason={}", connIndex, code, reason);
+                activeWebSockets.remove(webSocket);
+                if (activeWebSockets.isEmpty()) {
+                    wsConnected.set(false);
+                }
+                attemptReconnect(codes, connIndex);
+            }
+
+            @Override
+            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                log.warn("[MorningRush] WS[{}] failure: {}", connIndex, t.getMessage());
+                activeWebSockets.remove(webSocket);
+                if (activeWebSockets.isEmpty()) {
+                    wsConnected.set(false);
+                }
+                attemptReconnect(codes, connIndex);
+            }
+        });
+        activeWebSockets.add(ws);
+    }
+
+    private void handleTickerMessage(String json) {
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            String type = node.has("type") ? node.get("type").asText() : "";
+            if (!"ticker".equals(type)) return;
+
+            String code = node.has("code") ? node.get("code").asText() : null;
+            double tradePrice = node.has("trade_price") ? node.get("trade_price").asDouble() : 0;
+
+            if (code != null && tradePrice > 0) {
+                latestPrices.put(code, tradePrice);
+                lastTickEpochMs = System.currentTimeMillis();
+            }
+        } catch (Exception e) {
+            log.debug("[MorningRush] WS message parse error: {}", e.getMessage());
+        }
+    }
+
+    private void attemptReconnect(final List<String> codes, final int connIndex) {
+        if (!running.get()) return;
+
+        int count = wsReconnectCount.incrementAndGet();
+        if (count > WS_MAX_RECONNECT) {
+            log.warn("[MorningRush] WS reconnect limit reached ({}), falling back to REST polling", WS_MAX_RECONNECT);
+            wsFallback.set(true);
+            addDecision("*", "SYSTEM", "WS_FALLBACK",
+                    String.format("WebSocket %d회 재연결 실패, REST 폴링으로 전환", WS_MAX_RECONNECT));
+            return;
+        }
+
+        long delayMs = 1000L * (1L << Math.min(count - 1, 4)); // 1s, 2s, 4s, 8s, 16s
+        log.info("[MorningRush] WS[{}] reconnecting in {}ms (attempt {}/{})",
+                connIndex, delayMs, count, WS_MAX_RECONNECT);
+
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    if (running.get() && !wsFallback.get()) {
+                        openOneWebSocket(codes, connIndex);
+                    }
+                }
+            }, delayMs, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void sendPings() {
+        for (WebSocket ws : activeWebSockets) {
+            try {
+                ws.send("PING");
+            } catch (Exception e) {
+                log.debug("[MorningRush] WS ping error: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void closeWebSockets() {
+        if (pingTask != null) {
+            pingTask.cancel(false);
+            pingTask = null;
+        }
+        for (WebSocket ws : activeWebSockets) {
+            try {
+                ws.close(1000, "scanner stopping");
+            } catch (Exception e) {
+                log.debug("[MorningRush] WS close error: {}", e.getMessage());
+            }
+        }
+        activeWebSockets.clear();
+        wsConnected.set(false);
+        latestPrices.clear();
+
+        if (wsClient != null) {
+            wsClient.dispatcher().executorService().shutdown();
+            wsClient = null;
+        }
+    }
+
+    /**
+     * WebSocket에서 실시간 가격을 가져오거나, fallback 시 REST API로 가져온다.
+     */
+    private Map<String, Double> getCurrentPrices(List<String> markets) {
+        if (wsFallback.get() || !wsConnected.get()) {
+            // REST fallback
+            return tickerService.getTickerPrices(markets);
+        }
+
+        // Use latestPrices from WebSocket
+        Map<String, Double> result = new LinkedHashMap<String, Double>();
+        for (String market : markets) {
+            Double price = latestPrices.get(market);
+            if (price != null && price > 0) {
+                result.put(market, price);
+            }
+        }
+
+        // If WebSocket returned no data (just connected, no messages yet), use REST as one-time fallback
+        if (result.isEmpty()) {
+            log.debug("[MorningRush] WS has no data yet, using REST fallback");
+            return tickerService.getTickerPrices(markets);
+        }
+
+        return result;
+    }
+
     // ========== Main Loop ==========
 
     /**
      * 1초마다 실행되는 메인 루프. KST 시각에 따라 다른 동작 수행.
-     * 실제 ticker 폴링은 checkIntervalSec 간격으로만 실행 (lastTickEpochMs로 스로틀링).
+     * Entry/Hold 페이즈에서는 WebSocket 가격 피드를 사용하며,
+     * checkIntervalSec 간격으로만 매매 판단을 실행 (스로틀링).
      */
     private void mainLoop() {
         if (!running.get()) return;
@@ -234,12 +479,13 @@ public class MorningRushScannerService {
                 confirmCounts.clear();
                 rangeHighMap.clear();
                 baselineVolume.clear();
+                closeWebSockets();
             }
             statusText = "IDLE (outside hours)";
             return;
         }
 
-        // Throttle: only poll at checkIntervalSec frequency
+        // Throttle: only run trade logic at checkIntervalSec frequency
         long nowMs = System.currentTimeMillis();
         int intervalSec = cfg.getCheckIntervalSec();
         if (nowMs - lastTickEpochMs < intervalSec * 1000L) {
@@ -257,6 +503,8 @@ public class MorningRushScannerService {
         // ---- Entry Phase: scan for gap-up spikes ----
         if (isEntryPhase && !entryPhaseComplete) {
             statusText = "SCANNING";
+            // Ensure WebSocket is connected for entry phase
+            ensureWebSocketConnected();
             scanForEntry(cfg);
             return;
         }
@@ -264,8 +512,22 @@ public class MorningRushScannerService {
         // ---- Hold Phase: TP/SL monitoring ----
         if (isHoldPhase) {
             statusText = "MONITORING";
+            // Ensure WebSocket is connected for monitoring
+            ensureWebSocketConnected();
             monitorPositions(cfg);
             return;
+        }
+    }
+
+    /**
+     * WebSocket이 아직 연결되지 않았으면 rangeHighMap의 마켓 코드로 연결한다.
+     */
+    private void ensureWebSocketConnected() {
+        if (wsConnected.get() || wsFallback.get()) return;
+        if (activeWebSockets.isEmpty() && !rangeHighMap.isEmpty()) {
+            List<String> markets = new ArrayList<String>(rangeHighMap.keySet());
+            log.info("[MorningRush] connecting WebSocket for {} markets", markets.size());
+            connectWebSocket(markets);
         }
     }
 
@@ -290,7 +552,7 @@ public class MorningRushScannerService {
             return;
         }
 
-        // Fetch tickers to get current prices and 24h trade amounts
+        // Fetch tickers to get current prices and 24h trade amounts (REST — range phase)
         List<UpbitMarketCatalogService.TickerItem> tickers = catalogService.fetchTickers(krwMarkets);
 
         // Filter by min trade amount and min price, then select top N
@@ -329,13 +591,16 @@ public class MorningRushScannerService {
         log.info("[MorningRush] range collection: {} markets, top={}", selectedMarkets.size(),
                 selectedMarkets.isEmpty() ? "none" : selectedMarkets.get(0));
 
-        // If we're in the last minute of range phase, mark collected
+        // If we're in the last minute of range phase, mark collected and start WebSocket
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
         if (nowKst.getMinute() >= 59 || (nowKst.getHour() == 8 && nowKst.getMinute() >= 58)) {
             rangeCollected = true;
             addDecision("*", "RANGE", "COLLECTED",
                     String.format("레인지 수집 완료: %d개 마켓, rangeHigh 설정됨", selectedMarkets.size()));
-            log.info("[MorningRush] range collection complete: {} markets", selectedMarkets.size());
+            log.info("[MorningRush] range collection complete: {} markets, starting WebSocket", selectedMarkets.size());
+
+            // Pre-connect WebSocket before entry phase begins
+            connectWebSocket(selectedMarkets);
         }
     }
 
@@ -417,11 +682,12 @@ public class MorningRushScannerService {
             }
         }
 
-        // Fetch current prices for all tracked markets
+        // Fetch current prices via WebSocket (or REST fallback)
         List<String> trackedMarkets = new ArrayList<String>(rangeHighMap.keySet());
-        Map<String, Double> currentPrices = tickerService.getTickerPrices(trackedMarkets);
+        Map<String, Double> currentPrices = getCurrentPrices(trackedMarkets);
         if (currentPrices.isEmpty()) {
-            log.warn("[MorningRush] ticker price fetch returned empty");
+            log.warn("[MorningRush] price fetch returned empty (ws={}, fallback={})",
+                    wsConnected.get(), wsFallback.get());
             return;
         }
 
@@ -444,9 +710,6 @@ public class MorningRushScannerService {
             boolean priceBreak = price > threshold;
 
             // Volume check: we use baseline 24h volume collected during range phase
-            // For simplicity, we check if current 24h trade amount exceeds baseline * volumeMult
-            // Note: in practice, the 24h volume doesn't change dramatically in 5 minutes,
-            // so this serves as a minimum liquidity filter
             Double baseVol = baselineVolume.get(market);
             boolean volumeOk = (baseVol != null && baseVol >= cfg.getMinTradeAmount());
 
@@ -505,7 +768,8 @@ public class MorningRushScannerService {
 
         if (rushPositions.isEmpty()) return;
 
-        Map<String, Double> prices = tickerService.getTickerPrices(markets);
+        // Get prices via WebSocket (or REST fallback)
+        Map<String, Double> prices = getCurrentPrices(markets);
         if (prices.isEmpty()) return;
 
         double tpPct = cfg.getTpPct().doubleValue();
@@ -572,7 +836,8 @@ public class MorningRushScannerService {
             return;
         }
 
-        Map<String, Double> prices = tickerService.getTickerPrices(markets);
+        // Try WebSocket prices first, then REST fallback
+        Map<String, Double> prices = getCurrentPrices(markets);
 
         for (PositionEntity pe : rushPositions) {
             Double currentPrice = prices.get(pe.getMarket());
@@ -598,6 +863,8 @@ public class MorningRushScannerService {
             }
         }
 
+        // Close WebSocket after session ends
+        closeWebSockets();
         statusText = "IDLE (session ended)";
     }
 

@@ -6,7 +6,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>upbit-autotrade</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>upbit-autotrade</name>
     <description>Upbit auto trading bot skeleton (Java 8, Spring Boot 2.7.x)</description>
 
@@ -21,6 +21,7 @@
         <java.version>1.8</java.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss'Z'</maven.build.timestamp.format>
     </properties>
 
     <dependencies>
@@ -103,6 +104,13 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- OkHttp3 for WebSocket client (Java 8 compatible) -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.14.9</version>
         </dependency>
 
     </dependencies>
