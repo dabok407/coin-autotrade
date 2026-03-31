@@ -9,6 +9,8 @@ import com.example.upbit.db.StrategyGroupEntity;
 import com.example.upbit.db.StrategyGroupRepository;
 import com.example.upbit.db.TradeEntity;
 
+import com.example.upbit.db.BotConfigEntity;
+import com.example.upbit.db.BotConfigRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,13 +31,16 @@ public class BotApiController {
     private final UpbitMarketCatalogService marketCatalog;
     private final StrategyGroupRepository groupRepo;
     private final MarketConfigRepository marketConfigRepo;
+    private final BotConfigRepository botConfigRepo;
 
     public BotApiController(TradingBotService bot, UpbitMarketCatalogService marketCatalog,
-                            StrategyGroupRepository groupRepo, MarketConfigRepository marketConfigRepo) {
+                            StrategyGroupRepository groupRepo, MarketConfigRepository marketConfigRepo,
+                            BotConfigRepository botConfigRepo) {
         this.bot = bot;
         this.marketCatalog = marketCatalog;
         this.groupRepo = groupRepo;
         this.marketConfigRepo = marketConfigRepo;
+        this.botConfigRepo = botConfigRepo;
     }
 
     @PostMapping("/api/bot/start")
@@ -53,6 +58,23 @@ public class BotApiController {
     @GetMapping("/api/bot/status")
     public BotStatus status() {
         return bot.getStatus();
+    }
+
+    /** Auto-Start 토글: 서버 재시작 시 봇/스캐너 자동 시작 여부 */
+    @PostMapping("/api/bot/auto-start")
+    public Map<String, Object> toggleAutoStart(@RequestBody Map<String, Object> body) {
+        Boolean enabled = (Boolean) body.get("enabled");
+        if (enabled == null) {
+            throw new IllegalArgumentException("enabled 파라미터가 필요합니다.");
+        }
+        BotConfigEntity bc = botConfigRepo.findAll().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("bot_config 없음"));
+        bc.setAutoStartEnabled(enabled);
+        botConfigRepo.save(bc);
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("success", true);
+        result.put("autoStartEnabled", enabled);
+        return result;
     }
 
     /**

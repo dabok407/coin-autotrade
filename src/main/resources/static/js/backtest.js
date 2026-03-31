@@ -43,13 +43,45 @@
   var logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function() {
-      fetch('/api/auth/logout', { method: 'POST' }).then(function() {
-        window.location.href = '/login?logout';
+      fetch(AutoTrade.basePath + '/api/auth/logout', { method: 'POST' }).then(function() {
+        window.location.href = AutoTrade.basePath + '/login?logout';
       }).catch(function() {
         window.location.href = '/login';
       });
     });
   }
+
+  // ── SSO Partner Button ──
+  (function() {
+    var ssoBtn = document.getElementById('ssoPartnerBtn');
+    if (!ssoBtn) return;
+    var bp = (window.AutoTrade && window.AutoTrade.basePath) || '';
+    setTimeout(function() {
+      fetch(bp + '/api/auth/sso-info', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(info) {
+          if (info && info.enabled === 'true' && info.partnerUrl) {
+            ssoBtn.title = info.partnerLabel || 'Partner';
+            ssoBtn.setAttribute('data-tooltip', info.partnerLabel || 'Partner');
+            ssoBtn.style.display = '';
+            ssoBtn.addEventListener('click', function() {
+              var popup = window.open('about:blank', '_blank');
+              fetch(bp + '/api/auth/sso-token', { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(td) {
+                  if (td && td.success) {
+                    var url = info.partnerUrl + '/api/auth/sso-login?token=' +
+                      encodeURIComponent(td.token) + '&username=' + encodeURIComponent(td.username) + '&ts=' + td.timestamp;
+                    if (popup && !popup.closed) popup.location.href = url;
+                    else window.open(url, '_blank');
+                  } else { if (popup && !popup.closed) popup.close(); }
+                }).catch(function() { if (popup && !popup.closed) popup.close(); });
+            });
+          }
+        })
+        .catch(function() {});
+    }, 1000);
+  })();
 
   // Generic modal close (with body overflow fix)
   document.addEventListener('click', function(e) {
@@ -94,6 +126,7 @@
   var activeTab = 'basic'; // 'basic' or 'opening'
   var obMarketsMs = null;  // opening markets multi-select instance
   var adMarketsMs = null;  // allday markets multi-select instance
+  var mrMarketsMs = null;  // morning rush markets multi-select instance
 
   function el(id) { return document.getElementById(id); }
 
@@ -1143,6 +1176,7 @@
   var btTabBasic = el('btTabBasic');
   var btTabOpening = el('btTabOpening');
   var btTabAllday = el('btTabAllday');
+  var btTabMorningRush = el('btTabMorningRush');
 
   for (var ti = 0; ti < btTabs.length; ti++) {
     (function(tab) {
@@ -1155,6 +1189,7 @@
         if (btTabBasic) btTabBasic.style.display = target === 'basic' ? '' : 'none';
         if (btTabOpening) btTabOpening.style.display = target === 'opening' ? '' : 'none';
         if (btTabAllday) btTabAllday.style.display = target === 'allday' ? '' : 'none';
+        if (btTabMorningRush) btTabMorningRush.style.display = target === 'morningRush' ? '' : 'none';
       });
     })(btTabs[ti]);
   }
@@ -1173,6 +1208,10 @@
     }
     if (activeTab === 'allday') {
       runAlldayBacktest();
+      return;
+    }
+    if (activeTab === 'morningRush') {
+      runMorningRushBacktest();
       return;
     }
 
@@ -1495,6 +1534,16 @@
               });
               initAdTopNButton();
             }
+            // Init morning rush markets multi-select
+            var mrMsRoot = document.getElementById('mrMarketsMs');
+            if (mrMsRoot) {
+              mrMarketsMs = initMultiSelect(mrMsRoot, {
+                placeholder: 'Select markets...',
+                options: obOpts.length > 0 ? obOpts : allMarketOpts,
+                initial: ['KRW-SOL', 'KRW-ADA']
+              });
+              initMrTopNButton();
+            }
           }).catch(function() {
             // Fallback to bot-configured markets
             obMarketsMs = initMultiSelect(obMsRoot, {
@@ -1505,6 +1554,14 @@
             var adMsRoot2 = document.getElementById('adMarketsMs');
             if (adMsRoot2) {
               adMarketsMs = initMultiSelect(adMsRoot2, {
+                placeholder: 'Select markets...',
+                options: allMarketOpts,
+                initial: ['KRW-SOL', 'KRW-ADA']
+              });
+            }
+            var mrMsRoot2 = document.getElementById('mrMarketsMs');
+            if (mrMsRoot2) {
+              mrMarketsMs = initMultiSelect(mrMsRoot2, {
                 placeholder: 'Select markets...',
                 options: allMarketOpts,
                 initial: ['KRW-SOL', 'KRW-ADA']
@@ -1946,6 +2003,199 @@
         if (info) { info.textContent = '\uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
       });
     });
+  }
+
+  // ===== Morning Rush TOP N =====
+  function initMrTopNButton() {
+    var btn = document.getElementById('mrTopNBtn');
+    var info = document.getElementById('mrTopNInfo');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      btn.disabled = true;
+      btn.textContent = '\u23F3 \uC870\uD68C\uC911...';
+      if (info) { info.style.display = 'none'; info.textContent = ''; }
+      req('/api/scanner/top-markets?topN=15', { method: 'GET' }).then(function(topList) {
+        var arr = Array.isArray(topList) ? topList : [];
+        if (arr.length === 0) {
+          btn.textContent = '\uD83D\uDD04 TOP N';
+          btn.disabled = false;
+          if (info) { info.textContent = '\uB9C8\uCF13 \uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
+          return;
+        }
+        var topCodes = arr.map(function(m) { return m.market; });
+        if (mrMarketsMs) {
+          mrMarketsMs.setSelected(topCodes);
+        }
+        btn.textContent = '\uD83D\uDD04 TOP N';
+        btn.disabled = false;
+        if (info) { info.textContent = 'TOP ' + arr.length + ' \uC120\uD0DD\uB428'; info.style.display = 'inline'; }
+      }).catch(function() {
+        btn.textContent = '\uD83D\uDD04 TOP N';
+        btn.disabled = false;
+        if (info) { info.textContent = '\uC870\uD68C \uC2E4\uD328'; info.style.display = 'inline'; }
+      });
+    });
+  }
+
+  // ===== Morning Rush Backtest =====
+  function runMorningRushBacktest() {
+    var e = function(id) { return document.getElementById(id); };
+    var markets = mrMarketsMs ? mrMarketsMs.getSelected() : [];
+    if (markets.length === 0) {
+      setError('\uBAA8\uB2DD \uB7EC\uC26C \uBC31\uD14C\uC2A4\uD2B8: Market\uC744 \uC120\uD0DD\uD574\uC8FC\uC138\uC694.');
+      btRun.disabled = false;
+      return;
+    }
+
+    var rs = parseHHMM(e('mrRangeStart') ? e('mrRangeStart').value : '08:00');
+    var re = parseHHMM(e('mrRangeEnd') ? e('mrRangeEnd').value : '08:59');
+    var es = parseHHMM(e('mrEntryStart') ? e('mrEntryStart').value : '09:00');
+    var ee = parseHHMM(e('mrEntryEnd') ? e('mrEntryEnd').value : '09:05');
+    var se = parseHHMM(e('mrSessionEnd') ? e('mrSessionEnd').value : '10:00');
+    var candleUnit = parseInt(e('mrCandleUnit') ? e('mrCandleUnit').value : '5') || 5;
+
+    normalizeDateRange();
+
+    var params = {
+      strategies: ['SCALP_OPENING_BREAK'],
+      markets: markets,
+      market: markets[0],
+      period: el('btPeriod').value,
+      fromDate: getDateTimeLocalValue(btFromDate, btFromTime),
+      toDate: getDateTimeLocalValue(btToDate, btToTime),
+      capitalKrw: parseNum(el('btCapital').value),
+      candleUnitMin: candleUnit,
+      takeProfitPct: 0,
+      stopLossPct: 0,
+      maxAddBuysGlobal: 0,
+      timeStopMinutes: 0,
+      openingParams: {
+        rangeStartHour: rs[0], rangeStartMin: rs[1],
+        rangeEndHour: re[0], rangeEndMin: re[1],
+        entryStartHour: es[0], entryStartMin: es[1],
+        entryEndHour: ee[0], entryEndMin: ee[1],
+        sessionEndHour: se[0], sessionEndMin: se[1],
+        tpAtrMult: parseFloat(e('mrTpPct') ? e('mrTpPct').value : '2.0') / 100 * 10 || 1.0,
+        slPct: parseFloat(e('mrSlPct') ? e('mrSlPct').value : '3.0') || 3.0,
+        trailAtrMult: 0.7,
+        volumeMult: parseFloat(e('mrVolMult') ? e('mrVolMult').value : '5.0') || 5.0,
+        minBodyRatio: parseFloat(e('mrMinBody') ? e('mrMinBody').value : '0.50') || 0.50,
+        btcFilterEnabled: false,
+        btcEmaPeriod: 20,
+        openFailedEnabled: true,
+        orderSizingMode: e('mrOrderMode') ? e('mrOrderMode').value : 'PCT',
+        orderSizingValue: parseFloat(e('mrOrderValue') ? e('mrOrderValue').value : '30') || 30,
+        maxPositions: parseInt(e('mrMaxPos') ? e('mrMaxPos').value : '2') || 2,
+        // Quick TP
+        quickTpEnabled: (e('mrQuickTpEnabled') ? e('mrQuickTpEnabled').value : 'true') === 'true',
+        quickTpPct: parseFloat(e('mrQuickTpPct') ? e('mrQuickTpPct').value : '1.0') || 1.0,
+        quickTpIntervalSec: parseInt(e('mrQuickTpInterval') ? e('mrQuickTpInterval').value : '5') || 5
+      }
+    };
+
+    showLoading('\uBAA8\uB2DD \uB7EC\uC26C \uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD589 \uC911...');
+    req('/api/backtest/run-async', {
+      method: 'POST',
+      body: JSON.stringify(params),
+      cache: 'no-store'
+    }).then(function(startRes) {
+      if (!startRes || !startRes.jobId) {
+        throw new Error('Failed to start async backtest');
+      }
+      var jobId = startRes.jobId;
+
+      function pollResult() {
+        req('/api/backtest/async-result/' + jobId, { method: 'GET' }).then(function(pollRes) {
+          if (pollRes && pollRes.status === 'running') {
+            setTimeout(pollResult, 3000);
+            return;
+          }
+          hideLoading();
+          if (pollRes && pollRes.status === 'error') {
+            setError(pollRes.message || '\uBAA8\uB2DD \uB7EC\uC26C \uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD328');
+            btRun.disabled = false;
+            btRun.textContent = '\uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD589';
+            return;
+          }
+          displayMorningRushResult(pollRes, markets);
+          btRun.disabled = false;
+          btRun.textContent = '\uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD589';
+        }).catch(function(err) {
+          hideLoading();
+          setError(err.message || 'Failed to fetch backtest result');
+          btRun.disabled = false;
+          btRun.textContent = '\uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD589';
+        });
+      }
+      setTimeout(pollResult, 3000);
+
+    }).catch(function(err) {
+      hideLoading();
+      setError(err.message || '\uBAA8\uB2DD \uB7EC\uC26C \uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD328');
+      btRun.disabled = false;
+      btRun.textContent = '\uBC31\uD14C\uC2A4\uD2B8 \uC2E4\uD589';
+    });
+  }
+
+  function displayMorningRushResult(res, markets) {
+    if (btResultsHeader) btResultsHeader.style.display = '';
+    if (btKpiGrid) btKpiGrid.style.display = '';
+
+    var roiVal = res.roi == null ? 0 : Number(res.roi);
+    btRoi.textContent = (res.roi == null ? '-' : roiVal.toFixed(2) + '%');
+    btRoi.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+    btTotalReturn.textContent = fmt(res.totalReturn);
+    if (res.totalReturn != null) btTotalReturn.style.color = res.totalReturn >= 0 ? 'var(--success)' : 'var(--danger)';
+    btTrades.textContent = fmt(res.tradesCount);
+
+    var wr = res.winRate == null ? 0 : Number(res.winRate);
+    btWinRate.textContent = wr.toFixed(1) + '%';
+    if (btWinRateText) btWinRateText.textContent = Math.round(wr) + '%';
+    if (btWinRateCircle) {
+      var circleFg = btWinRateCircle.querySelector('.circle-fg');
+      if (circleFg) {
+        var c = 2 * Math.PI * 25;
+        circleFg.style.strokeDasharray = c;
+        circleFg.style.strokeDashoffset = c * (1 - wr / 100);
+      }
+    }
+    if (btFinalCapital) {
+      var initialCap = parseNum(el('btCapital').value);
+      var finalCap = initialCap + (res.totalReturn || 0);
+      btFinalCapital.textContent = fmt(Math.round(finalCap));
+    }
+
+    var trades = res.trades || [];
+    var tpCount = 0, slCount = 0, patternCount = 0;
+    for (var ti = 0; ti < trades.length; ti++) {
+      var t = trades[ti];
+      if (t.action === 'SELL' || t.action === 'sell') {
+        var ot = (t.orderType || t.patternType || '').toUpperCase();
+        if (ot.indexOf('TAKE_PROFIT') >= 0 || ot.indexOf('TP') >= 0) tpCount++;
+        else if (ot.indexOf('STOP_LOSS') >= 0 || ot.indexOf('SL') >= 0 || ot.indexOf('TIME_STOP') >= 0) slCount++;
+        else patternCount++;
+      }
+    }
+    var distTotal = Math.max(tpCount + slCount + patternCount, 1);
+    if (btDistTp) btDistTp.style.width = (tpCount / distTotal * 100) + '%';
+    if (btDistSl) btDistSl.style.width = (slCount / distTotal * 100) + '%';
+    if (btDistPattern) btDistPattern.style.width = (patternCount / distTotal * 100) + '%';
+    if (btDistTpCount) btDistTpCount.textContent = tpCount;
+    if (btDistSlCount) btDistSlCount.textContent = slCount;
+    if (btDistPatternCount) btDistPatternCount.textContent = patternCount;
+
+    if (btResultsBadge) {
+      btResultsBadge.textContent = '\uBAA8\uB2DD \uB7EC\uC26C | ' + (res.candleUnitMin || 5) + 'min | ' + markets.join(',');
+      btResultsBadge.style.background = roiVal >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
+      btResultsBadge.style.color = roiVal >= 0 ? 'var(--success)' : 'var(--danger)';
+      btResultsBadge.style.borderColor = roiVal >= 0 ? 'rgba(32,201,151,0.2)' : 'rgba(255,77,109,0.2)';
+      btResultsBadge.style.display = '';
+    }
+
+    logs = trades;
+    page = 1;
+    render();
+    renderEquityCurve(trades, parseNum(el('btCapital').value));
   }
 
   function displayOpeningResult(res, markets) {

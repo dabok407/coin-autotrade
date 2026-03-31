@@ -3,16 +3,23 @@ package com.example.upbit.web;
 import com.example.upbit.security.RsaKeyHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +32,7 @@ public class AuthController {
 
     private static final int MAX_LOGIN_ATTEMPTS = 5;
     private static final long LOCKOUT_DURATION_MS = 15 * 60 * 1000L; // 15분
+    private static final long SSO_TOKEN_TTL_MS = 30_000L; // SSO 토큰 유효 시간 30초
 
     /** IP별 로그인 실패 추적: {ip -> [failCount, lastFailTimeMs]} */
     private final ConcurrentHashMap<String, long[]> loginAttempts = new ConcurrentHashMap<String, long[]>();
@@ -32,11 +40,23 @@ public class AuthController {
     private final RsaKeyHolder rsaKeyHolder;
     private final AuthenticationManager authManager;
     private final SessionRegistry sessionRegistry;
+    private final UserDetailsService userDetailsService;
 
-    public AuthController(RsaKeyHolder rsaKeyHolder, AuthenticationManager authManager, SessionRegistry sessionRegistry) {
+    @Value("${sso.secret:}")
+    private String ssoSecret;
+
+    @Value("${sso.partnerUrl:}")
+    private String ssoPartnerUrl;
+
+    @Value("${sso.partnerLabel:}")
+    private String ssoPartnerLabel;
+
+    public AuthController(RsaKeyHolder rsaKeyHolder, AuthenticationManager authManager,
+                          SessionRegistry sessionRegistry, UserDetailsService userDetailsService) {
         this.rsaKeyHolder = rsaKeyHolder;
         this.authManager = authManager;
         this.sessionRegistry = sessionRegistry;
+        this.userDetailsService = userDetailsService;
     }
 
     private String getClientIp(HttpServletRequest request) {
@@ -176,7 +196,7 @@ public class AuthController {
 
             log.info("로그인 성공: {} (새 세션: {})", username, newSession.getId());
             result.put("success", true);
-            result.put("redirect", "/dashboard");
+            result.put("redirect", request.getContextPath() + "/dashboard");
         } catch (BadCredentialsException e) {
             recordFailure(clientIp);
             long[] info = loginAttempts.get(clientIp);
@@ -214,5 +234,123 @@ public class AuthController {
             m.put("username", auth.getName());
         }
         return m;
+    }
+
+    /** SSO 파트너 정보 조회 (FE에서 버튼 표시용) */
+    @GetMapping("/api/auth/sso-info")
+    @ResponseBody
+    public Map<String, String> ssoInfo() {
+        Map<String, String> m = new LinkedHashMap<String, String>();
+        m.put("partnerUrl", ssoPartnerUrl != null ? ssoPartnerUrl : "");
+        m.put("partnerLabel", ssoPartnerLabel != null ? ssoPartnerLabel : "");
+        m.put("enabled", String.valueOf(ssoSecret != null && !ssoSecret.isEmpty()));
+        return m;
+    }
+
+    /** SSO 토큰 생성: 현재 인증된 사용자의 SSO 토큰 반환 */
+    @GetMapping("/api/auth/sso-token")
+    @ResponseBody
+    public Map<String, Object> generateSsoToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            Map<String, Object> err = new LinkedHashMap<String, Object>();
+            err.put("success", false);
+            err.put("message", "인증이 필요합니다.");
+            return err;
+        }
+        if (ssoSecret == null || ssoSecret.isEmpty()) {
+            Map<String, Object> err = new LinkedHashMap<String, Object>();
+            err.put("success", false);
+            err.put("message", "SSO가 설정되지 않았습니다.");
+            return err;
+        }
+        String username = auth.getName();
+        long timestamp = System.currentTimeMillis();
+        String token = generateHmac(username, timestamp);
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("success", true);
+        result.put("token", token);
+        result.put("username", username);
+        result.put("timestamp", timestamp);
+        return result;
+    }
+
+    /** SSO 로그인: 토큰 검증 후 자동 세션 생성 및 대시보드로 리다이렉트 */
+    @GetMapping("/api/auth/sso-login")
+    public String ssoLogin(@RequestParam("token") String token,
+                           @RequestParam("username") String username,
+                           @RequestParam("ts") long timestamp,
+                           HttpServletRequest request, HttpServletResponse response) {
+
+        // SSO 미설정
+        if (ssoSecret == null || ssoSecret.isEmpty()) {
+            log.warn("[SSO] SSO secret이 설정되지 않았습니다.");
+            return "redirect:/login";
+        }
+
+        // 토큰 유효기간 확인 (30초)
+        if (Math.abs(System.currentTimeMillis() - timestamp) > SSO_TOKEN_TTL_MS) {
+            log.warn("[SSO] 토큰 만료: username={}, ts={}", username, timestamp);
+            return "redirect:/login";
+        }
+
+        // HMAC 검증
+        String expected = generateHmac(username, timestamp);
+        if (expected == null || !expected.equals(token)) {
+            log.warn("[SSO] 토큰 검증 실패: username={}", username);
+            return "redirect:/login";
+        }
+
+        // 사용자 로드 및 세션 생성
+        try {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+            // 기존 세션 만료
+            List<SessionInformation> existingSessions =
+                    sessionRegistry.getAllSessions(userDetails, false);
+            for (SessionInformation si : existingSessions) {
+                si.expireNow();
+            }
+
+            HttpSession oldSession = request.getSession(false);
+            if (oldSession != null) {
+                sessionRegistry.removeSessionInformation(oldSession.getId());
+                oldSession.invalidate();
+            }
+            HttpSession newSession = request.getSession(true);
+            newSession.setMaxInactiveInterval(3600 * 4);
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            newSession.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
+            sessionRegistry.registerNewSession(newSession.getId(), userDetails);
+
+            log.info("[SSO] SSO 로그인 성공: {}", username);
+            return "redirect:/dashboard";
+        } catch (Exception e) {
+            log.error("[SSO] SSO 로그인 오류: {}", e.getMessage(), e);
+            return "redirect:/login";
+        }
+    }
+
+    /** HMAC-SHA256 토큰 생성 */
+    private String generateHmac(String username, long timestamp) {
+        try {
+            String data = username + ":" + timestamp;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec keySpec = new SecretKeySpec(ssoSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(keySpec);
+            byte[] raw = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : raw) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            log.error("[SSO] HMAC 생성 오류", e);
+            return null;
+        }
     }
 }

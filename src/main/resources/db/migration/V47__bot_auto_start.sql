@@ -1,0 +1,1 @@
+ALTER TABLE bot_config ADD COLUMN auto_start_enabled BOOLEAN DEFAULT FALSE NOT NULL;

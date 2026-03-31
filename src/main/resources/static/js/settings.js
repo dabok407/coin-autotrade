@@ -1096,4 +1096,36 @@
   // Load morning rush config on page load
   loadMorningRushConfig();
 
+  // ── SSO Partner Button ──
+  (function() {
+    var ssoBtn = document.getElementById('ssoPartnerBtn');
+    if (!ssoBtn) return;
+    var bp = (window.AutoTrade && window.AutoTrade.basePath) || '';
+    setTimeout(function() {
+      fetch(bp + '/api/auth/sso-info', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(info) {
+          if (info && info.enabled === 'true' && info.partnerUrl) {
+            ssoBtn.title = info.partnerLabel || 'Partner';
+            ssoBtn.setAttribute('data-tooltip', info.partnerLabel || 'Partner');
+            ssoBtn.style.display = '';
+            ssoBtn.addEventListener('click', function() {
+              var popup = window.open('about:blank', '_blank');
+              fetch(bp + '/api/auth/sso-token', { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(td) {
+                  if (td && td.success) {
+                    var url = info.partnerUrl + '/api/auth/sso-login?token=' +
+                      encodeURIComponent(td.token) + '&username=' + encodeURIComponent(td.username) + '&ts=' + td.timestamp;
+                    if (popup && !popup.closed) popup.location.href = url;
+                    else window.open(url, '_blank');
+                  } else { if (popup && !popup.closed) popup.close(); }
+                }).catch(function() { if (popup && !popup.closed) popup.close(); });
+            });
+          }
+        })
+        .catch(function() {});
+    }, 1000);
+  })();
+
 })();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>백테스트 - Upbit AutoTrade</title>
+  <title>백테스트 - Coin AutoTrade</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
   <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260316a)}">
   <link rel="stylesheet" th:href="@{/css/datepicker.css}">
@@ -23,7 +23,7 @@
           <circle cx="24" cy="8" r="2.5" fill="white"/>
         </svg>
       </div>
-      <span>Upbit AutoTrade</span>
+      <span>Coin AutoTrade</span>
     </a>
     <nav class="nav-tabs">
       <a class="nav-tab" th:href="@{/dashboard}">&#x1F4CA; 대시보드</a>
@@ -32,6 +32,7 @@
     </nav>
   </div>
   <div class="header-right">
+    <button class="header-btn" id="ssoPartnerBtn" title="SSO" style="display:none;font-size:16px">&#x1F504;</button>
     <button class="header-btn" id="btReset" title="Reset">&#x21bb;</button>
     <button class="header-btn" id="themeToggle" title="Theme">&#x263e;</button>
     <button class="header-btn" id="logoutBtn" title="Logout" style="color:var(--danger)">&#x23fb;</button>
@@ -82,6 +83,7 @@
       <div class="bt-tab active" data-tab="basic">&#x1F3AF; 타겟 전략</div>
       <div class="bt-tab" data-tab="opening">&#x1F305; 오프닝 전략</div>
       <div class="bt-tab" data-tab="allday">&#x1F319; 올데이 전략</div>
+      <div class="bt-tab" data-tab="morningRush">&#x1F680; 모닝 러쉬</div>
     </div>
 
     <!-- Tab: 타겟 전략 -->
@@ -360,6 +362,132 @@
               <input class="input" type="number" id="adBtcEmaPeriod" value="20" min="5" max="200"/>
             </div>
             <div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: 모닝 러쉬 -->
+    <div class="bt-tab-content" id="btTabMorningRush" style="display:none">
+      <div class="card" style="overflow:visible">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon" style="background:rgba(255,80,80,.15);color:#ff5050">&#x1F680;</div>
+            모닝 러쉬 전략 설정
+          </div>
+        </div>
+
+        <div style="padding:16px 20px">
+          <!-- 전략 설명 -->
+          <div style="background:rgba(255,80,80,.06);border:1px solid rgba(255,80,80,.15);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text-secondary);line-height:1.6">
+            <strong style="color:#ff5050">&#x1F680; 모닝 러쉬 전략</strong><br/>
+            09:00 급등 코인을 감지하여 즉시 매수. 레인지 고가 대비 급등 + 거래량 폭증 + 연속 확인 후 진입합니다.<br/>
+            08:00~08:59 레인지 측정 &#x2192; 09:00~09:05 돌파 감지 &#x2192; 세션 종료 시 강제 청산.
+          </div>
+
+          <!-- Market + Candle -->
+          <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>Markets <span class="help-icon" data-tooltip="백테스트할 마켓을 선택합니다.&#10;24시간 거래대금 상위 코인에서 급등을 감지합니다." aria-label="Markets help"></span>
+                <button type="button" id="mrTopNBtn" style="font-size:10px;padding:2px 8px;margin-left:6px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.4);color:#ff5050;border-radius:4px;cursor:pointer;vertical-align:middle" title="24시간 거래대금 기준 TOP N 마켓을 자동 선택합니다">&#x1F504; TOP N</button>
+                <span id="mrTopNInfo" style="font-size:10px;color:var(--text-muted);margin-left:4px;display:none"></span>
+              </label>
+              <div class="ms" id="mrMarketsMs">
+                <button type="button" class="ms-button"><div class="ms-value"><span class="ms-placeholder">Select markets...</span><div class="ms-chips"></div></div><span class="ms-caret">&#9662;</span></button>
+                <div class="ms-panel"><input class="ms-search" placeholder="Search market..."/><div class="ms-list"></div>
+                <div class="ms-footer"><button type="button" class="ms-link" data-ms="all">Select all</button><button type="button" class="ms-link" data-ms="none">Clear</button></div></div>
+              </div>
+            </div>
+            <div class="config-field">
+              <label>Candle Interval <span class="help-icon" data-tooltip="레인지 및 돌파 감지에 사용할&#10;캔들 간격(분)입니다." aria-label="Candle help"></span></label>
+              <select class="select" id="mrCandleUnit">
+                <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Order Sizing -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Order Sizing</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>Order Sizing <span class="help-icon" data-tooltip="PCT: Global Capital 대비 비율(%)로 주문&#10;FIXED: 고정 금액(KRW)으로 주문" aria-label="Order sizing help"></span></label>
+              <select class="select" id="mrOrderMode"><option value="PCT" selected>PCT (%)</option><option value="FIXED">FIXED (KRW)</option></select>
+            </div>
+            <div class="config-field">
+              <label>Order Value <span class="help-icon" data-tooltip="PCT 모드: Global Capital의 N% (예: 30 = 30%)&#10;FIXED 모드: 고정 주문 금액(KRW)" aria-label="Order value help"></span></label>
+              <input class="input" type="number" id="mrOrderValue" value="30" step="1"/>
+            </div>
+            <div class="config-field">
+              <label>Max Positions <span class="help-icon" data-tooltip="동시에 보유할 수 있는 최대 포지션 수&#10;초과 시 새 진입을 차단합니다." aria-label="Max positions help"></span></label>
+              <input class="input" type="number" id="mrMaxPos" value="2" min="1" max="15"/>
+            </div>
+          </div>
+
+          <!-- Timing -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>Range Start <span class="help-icon" data-tooltip="레인지 수집 시작 시각(KST)&#10;이 시간부터 고가/저가를 측정합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="mrRangeStart" value="08:00"/>
+            </div>
+            <div class="config-field">
+              <label>Range End <span class="help-icon" data-tooltip="레인지 수집 종료 시각(KST)&#10;이 시간까지의 고/저로 레인지를 확정합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="mrRangeEnd" value="08:59"/>
+            </div>
+            <div class="config-field">
+              <label>Entry Start <span class="help-icon" data-tooltip="돌파 진입 허용 시작 시각(KST)&#10;09:00 이후 급등 감지 시 매수합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="mrEntryStart" value="09:00"/>
+            </div>
+            <div class="config-field">
+              <label>Entry End <span class="help-icon" data-tooltip="돌파 진입 허용 종료 시각(KST)&#10;이 시각 이후에는 신규 진입하지 않습니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="mrEntryEnd" value="09:05"/>
+            </div>
+            <div class="config-field">
+              <label>Session End <span class="help-icon" data-tooltip="세션 종료(강제 청산) 시각(KST)&#10;미청산 포지션을 전량 매도합니다." aria-label="help"></span></label>
+              <input class="input" type="text" id="mrSessionEnd" value="10:00"/>
+            </div>
+          </div>
+
+          <!-- Risk / 급등 조건 -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk / 급등 조건</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>갭 기준 % <span class="help-icon" data-tooltip="레인지 고가 대비 최소 급등 비율(%)&#10;예: 5.0 = 레인지 고가 대비 5% 이상 상승 시 진입 조건 충족" aria-label="Gap help"></span></label>
+              <input class="input" type="number" id="mrGapPct" value="5.0" step="0.5" min="1" max="20"/>
+            </div>
+            <div class="config-field">
+              <label>거래량 배수 <span class="help-icon" data-tooltip="평균 거래량 대비 최소 배수&#10;예: 5.0 = 평균 거래량의 5배 이상일 때 진입" aria-label="Volume help"></span></label>
+              <input class="input" type="number" id="mrVolMult" value="5.0" step="0.5" min="1" max="30"/>
+            </div>
+            <div class="config-field">
+              <label>TP (%) <span class="help-icon" data-tooltip="익절 비율(%)&#10;진입가 대비 이 비율 상승 시 익절합니다." aria-label="TP help"></span></label>
+              <input class="input" type="number" id="mrTpPct" value="2.0" step="0.1" min="0.1"/>
+            </div>
+            <div class="config-field">
+              <label>SL (%) <span class="help-icon" data-tooltip="손절 비율(%)&#10;진입가 대비 이 비율 하락 시 손절합니다." aria-label="SL help"></span></label>
+              <input class="input" type="number" id="mrSlPct" value="3.0" step="0.1" min="0.1"/>
+            </div>
+            <div class="config-field">
+              <label>Min Body % <span class="help-icon" data-tooltip="진입 조건: 캔들 몸통 비율 최소값&#10;예: 0.50 = 전체 캔들 길이의 50% 이상 몸통" aria-label="Min body help"></span></label>
+              <input class="input" type="number" id="mrMinBody" value="0.50" step="0.05" min="0" max="1"/>
+            </div>
+          </div>
+
+          <!-- Quick TP -->
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Quick TP</div>
+          <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+            <div class="config-field">
+              <label>Enabled <span class="help-icon" data-tooltip="Quick TP 활성화&#10;ON: 티커 기반 실시간 익절 시뮬레이션" aria-label="Quick TP help"></span></label>
+              <select class="select" id="mrQuickTpEnabled"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+            </div>
+            <div class="config-field">
+              <label>Target (%) <span class="help-icon" data-tooltip="즉시 익절 목표 수익률 (%)" aria-label="Quick TP target help"></span></label>
+              <input class="input" type="number" id="mrQuickTpPct" value="1.0" step="0.1" min="0.1" max="10"/>
+            </div>
+            <div class="config-field">
+              <label>Check Interval (sec) <span class="help-icon" data-tooltip="티커 조회 간격 (초)" aria-label="Quick TP interval help"></span></label>
+              <input class="input" type="number" id="mrQuickTpInterval" value="5" min="3" max="60"/>
+            </div>
           </div>
         </div>
       </div>

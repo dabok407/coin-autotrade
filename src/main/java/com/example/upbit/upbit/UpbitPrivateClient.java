@@ -5,12 +5,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.upbit.db.OrderEntity;
 import com.example.upbit.db.OrderRepository;
 import com.example.upbit.security.ApiKeyStoreService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.math.BigDecimal;
 
 /**
@@ -23,6 +28,8 @@ import java.math.BigDecimal;
  */
 @Component
 public class UpbitPrivateClient {
+
+    private static final Logger log = LoggerFactory.getLogger(UpbitPrivateClient.class);
 
     private static BigDecimal bd(Double v) { return v == null ? null : BigDecimal.valueOf(v); }
 
@@ -62,7 +69,12 @@ private ApiKeyStoreService.Keys resolveKeys() {
     }
 
     public JsonNode placeOrder(String market, String side, String ordType, Double price, Double volume, String identifier) {
-        return post("/v1/orders", market, side, ordType, price, volume, identifier, false);
+        return executeWithRetry("placeOrder(" + market + "," + side + ")", new Callable<JsonNode>() {
+            @Override
+            public JsonNode call() {
+                return post("/v1/orders", market, side, ordType, price, volume, identifier, false);
+            }
+        });
     }
 
     private JsonNode post(String path, String market, String side, String ordType, Double price, Double volume, String identifier, boolean isTest) {
@@ -153,7 +165,16 @@ private ApiKeyStoreService.Keys resolveKeys() {
         return node;
     }
 
-    public JsonNode getOrderByUuidOrIdentifier(String uuid, String identifier) {
+    public JsonNode getOrderByUuidOrIdentifier(final String uuid, final String identifier) {
+        return executeWithRetry("getOrder(" + (uuid != null ? uuid : identifier) + ")", new Callable<JsonNode>() {
+            @Override
+            public JsonNode call() {
+                return doGetOrderByUuidOrIdentifier(uuid, identifier);
+            }
+        });
+    }
+
+    private JsonNode doGetOrderByUuidOrIdentifier(String uuid, String identifier) {
         if (!isConfigured()) throw new IllegalStateException("Upbit keys not configured.");
 
         Map<String, String> params = new HashMap<String, String>();
@@ -182,7 +203,16 @@ private ApiKeyStoreService.Keys resolveKeys() {
         }
     }
 
-    public JsonNode cancelOrder(String uuid) {
+    public JsonNode cancelOrder(final String uuid) {
+        return executeWithRetry("cancelOrder(" + uuid + ")", new Callable<JsonNode>() {
+            @Override
+            public JsonNode call() {
+                return doCancelOrder(uuid);
+            }
+        });
+    }
+
+    private JsonNode doCancelOrder(String uuid) {
         if (!isConfigured()) throw new IllegalStateException("Upbit keys not configured.");
 
         Map<String, String> params = new HashMap<String, String>();
@@ -217,6 +247,15 @@ private ApiKeyStoreService.Keys resolveKeys() {
      * - Dashboard에서 KRW 잔고 표시 및 Capital max 제어에 사용
      */
     public List<UpbitAccount> getAccounts() {
+        return executeWithRetry("getAccounts", new Callable<List<UpbitAccount>>() {
+            @Override
+            public List<UpbitAccount> call() {
+                return doGetAccounts();
+            }
+        });
+    }
+
+    private List<UpbitAccount> doGetAccounts() {
         if (!isConfigured()) throw new IllegalStateException("Upbit keys not configured.");
 
         ApiKeyStoreService.Keys k = resolveKeys();
@@ -244,6 +283,39 @@ private ApiKeyStoreService.Keys resolveKeys() {
         }
     }
 
+
+    private <T> T executeWithRetry(String label, Callable<T> action) {
+        int maxRetries = 3;
+        long baseDelayMs = 300;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                return action.call();
+            } catch (HttpServerErrorException e) {
+                // 5xx - retry
+                if (attempt == maxRetries) throw e;
+                sleepBackoff(attempt, baseDelayMs, label);
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                // 429 - retry with longer backoff
+                if (attempt == maxRetries) throw e;
+                sleepBackoff(attempt, baseDelayMs * 2, label);
+            } catch (Exception e) {
+                // All other errors - don't retry
+                if (e instanceof RuntimeException) throw (RuntimeException) e;
+                throw new RuntimeException(e);
+            }
+        }
+        throw new IllegalStateException("unreachable");
+    }
+
+    private void sleepBackoff(int attempt, long baseMs, String label) {
+        long ms = baseMs * (1L << Math.min(attempt, 4));
+        log.warn("[UPBIT-RETRY] {} attempt {} failed, retrying in {}ms", label, attempt + 1, ms);
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     private String buildQuery(Map<String, String> params) {
         List<String> keys = new ArrayList<String>(params.keySet());

@@ -82,7 +82,10 @@ public enum StrategyType {
     SCALP_OPENING_BREAK,
 
     // [20] 다중 확인 고확신 모멘텀 (15~60분봉, 자급자족)
-    MULTI_CONFIRM_MOMENTUM;
+    MULTI_CONFIRM_MOMENTUM,
+
+    // [21] 고확신 돌파 (5분봉, 자급자족, 종일 스캐너)
+    HIGH_CONFIDENCE_BREAKOUT;
 
     /**
      * 매도 전용 전략인지 판별.
@@ -118,6 +121,7 @@ public enum StrategyType {
             case SCALP_BREAKOUT_RANGE:
             case SCALP_OPENING_BREAK:
             case MULTI_CONFIRM_MOMENTUM:
+            case HIGH_CONFIDENCE_BREAKOUT:
                 return true;
             // SCALP_MOMENTUM, EMA_RSI_TREND는 BUY-ONLY (isBuyOnly=true)
             default:
@@ -181,6 +185,7 @@ public enum StrategyType {
             case SCALP_BREAKOUT_RANGE:
             case SCALP_OPENING_BREAK:
             case MULTI_CONFIRM_MOMENTUM:
+            case HIGH_CONFIDENCE_BREAKOUT:
                 return "INTERNAL";
             default:
                 return "NONE";
@@ -238,6 +243,7 @@ public enum StrategyType {
             case SCALP_BREAKOUT_RANGE:
                 return 15;
             case SCALP_OPENING_BREAK:
+            case HIGH_CONFIDENCE_BREAKOUT:
                 return 5;
 
             // 다중 확인 고확신 모멘텀

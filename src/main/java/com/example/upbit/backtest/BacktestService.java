@@ -263,16 +263,17 @@ public class BacktestService {
                     for (int intv : allIntervals) {
                         List<UpbitCandle> cs = null;
 
-                        // 1) 캐시 우선 조회
-                        if (candleCacheService.hasCachedData(m, intv)) {
-                            List<UpbitCandle> cached = candleCacheService.getCached(m, intv);
-                            if (cached != null && !cached.isEmpty()) {
+                        // 1) 파일 캐시 → DB 캐시 → API 순으로 조회
+                        if (intv == 5 && candleCacheService.hasFileCache(m)) {
+                            // CSV 파일 기반 로드 (H2 대비 수십 배 빠름)
+                            List<UpbitCandle> fileCandles = candleCacheService.loadFromFile(m);
+                            if (fileCandles != null && !fileCandles.isEmpty()) {
                                 if (reqFromDate != null && reqToDate != null
                                         && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
                                     String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
                                     String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
                                     List<UpbitCandle> filtered = new ArrayList<UpbitCandle>();
-                                    for (UpbitCandle c : cached) {
+                                    for (UpbitCandle c : fileCandles) {
                                         if (c.candle_date_time_utc == null) continue;
                                         if (c.candle_date_time_utc.compareTo(fromUtc) >= 0
                                                 && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
@@ -281,9 +282,33 @@ public class BacktestService {
                                     }
                                     cs = filtered;
                                 } else {
-                                    cs = cached;
+                                    // period 기반: 최근 N일만 필터
+                                    java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC);
+                                    String fromUtc = now.minusDays(totalDays).toLocalDateTime().format(UPBIT_ISO);
+                                    List<UpbitCandle> filtered = new ArrayList<UpbitCandle>();
+                                    for (UpbitCandle c : fileCandles) {
+                                        if (c.candle_date_time_utc != null && c.candle_date_time_utc.compareTo(fromUtc) >= 0) {
+                                            filtered.add(c);
+                                        }
+                                    }
+                                    cs = filtered;
                                 }
-                                log.debug("캐시 사용: {} {}분 → {}건", m, intv, cs.size());
+                                log.debug("파일 캐시 사용: {} {}분 → {}건", m, intv, cs.size());
+                            }
+                        } else if (candleCacheService.hasCachedData(m, intv)) {
+                            if (reqFromDate != null && reqToDate != null
+                                    && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
+                                String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
+                                String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
+                                cs = candleCacheService.getCachedBetween(m, intv, fromUtc, toUtcExclusive);
+                            } else {
+                                java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC);
+                                String toUtc = now.toLocalDateTime().format(UPBIT_ISO);
+                                String fromUtc = now.minusDays(totalDays).toLocalDateTime().format(UPBIT_ISO);
+                                cs = candleCacheService.getCachedBetween(m, intv, fromUtc, toUtc);
+                            }
+                            if (cs != null) {
+                                log.debug("DB 캐시 사용: {} {}분 → {}건", m, intv, cs.size());
                             }
                         }
 
@@ -418,24 +443,44 @@ public class BacktestService {
                 params.btcEmaPeriod = Math.max(5, op.btcEmaPeriod);
                 try {
                     List<com.example.upbit.market.UpbitCandle> btcCandles = null;
-                    // 캐시 우선 조회
-                    if (candleCacheService.hasCachedData("KRW-BTC", unit)) {
-                        btcCandles = candleCacheService.getCached("KRW-BTC", unit);
-                        if (btcCandles != null && !btcCandles.isEmpty()
-                                && reqFromDate != null && reqToDate != null
+                    // 파일 캐시 → DB 캐시 순으로 조회
+                    if (unit == 5 && candleCacheService.hasFileCache("KRW-BTC")) {
+                        List<com.example.upbit.market.UpbitCandle> fileCandles = candleCacheService.loadFromFile("KRW-BTC");
+                        if (fileCandles != null && !fileCandles.isEmpty()) {
+                            if (reqFromDate != null && reqToDate != null
+                                    && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
+                                String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
+                                String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
+                                btcCandles = new ArrayList<com.example.upbit.market.UpbitCandle>();
+                                for (com.example.upbit.market.UpbitCandle c : fileCandles) {
+                                    if (c.candle_date_time_utc != null
+                                            && c.candle_date_time_utc.compareTo(fromUtc) >= 0
+                                            && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
+                                        btcCandles.add(c);
+                                    }
+                                }
+                            } else {
+                                java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC);
+                                String fromUtc = now.minusDays(days).toLocalDateTime().format(UPBIT_ISO);
+                                btcCandles = new ArrayList<com.example.upbit.market.UpbitCandle>();
+                                for (com.example.upbit.market.UpbitCandle c : fileCandles) {
+                                    if (c.candle_date_time_utc != null && c.candle_date_time_utc.compareTo(fromUtc) >= 0) {
+                                        btcCandles.add(c);
+                                    }
+                                }
+                            }
+                        }
+                    } else if (candleCacheService.hasCachedData("KRW-BTC", unit)) {
+                        if (reqFromDate != null && reqToDate != null
                                 && !reqFromDate.trim().isEmpty() && !reqToDate.trim().isEmpty()) {
                             String fromUtc = toUpbitUtcIsoStart(reqFromDate.trim());
                             String toUtcExclusive = toUpbitUtcIsoExclusive(reqToDate.trim());
-                            List<com.example.upbit.market.UpbitCandle> filtered =
-                                    new ArrayList<com.example.upbit.market.UpbitCandle>();
-                            for (com.example.upbit.market.UpbitCandle c : btcCandles) {
-                                if (c.candle_date_time_utc == null) continue;
-                                if (c.candle_date_time_utc.compareTo(fromUtc) >= 0
-                                        && c.candle_date_time_utc.compareTo(toUtcExclusive) < 0) {
-                                    filtered.add(c);
-                                }
-                            }
-                            btcCandles = filtered;
+                            btcCandles = candleCacheService.getCachedBetween("KRW-BTC", unit, fromUtc, toUtcExclusive);
+                        } else {
+                            java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC);
+                            String toUtc = now.toLocalDateTime().format(UPBIT_ISO);
+                            String fromUtc = now.minusDays(days).toLocalDateTime().format(UPBIT_ISO);
+                            btcCandles = candleCacheService.getCachedBetween("KRW-BTC", unit, fromUtc, toUtc);
                         }
                     }
                     // 캐시에 없으면 API 조회

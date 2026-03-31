@@ -1,5 +1,20 @@
 window.AutoTrade = (() => {
 
+  // ── Context Path 감지 (Spring context-path 자동 대응) ──
+  var basePath = (function() {
+    // /coin/js/autotrade-common.js → basePath = "/coin"
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].src || '';
+      var idx = src.indexOf('/js/autotrade-common.js');
+      if (idx >= 0) {
+        var path = new URL(src).pathname;
+        return path.substring(0, path.indexOf('/js/autotrade-common.js'));
+      }
+    }
+    return '';
+  })();
+
   // ── CSRF 토큰 (Spring Security CookieCsrfTokenRepository) ──
   function getCsrfToken() {
     var match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
@@ -27,7 +42,7 @@ window.AutoTrade = (() => {
       return originalFetch.call(this, url, options).then(function(resp) {
         // 401 → redirect to login (except for auth endpoints)
         if (resp.status === 401 && String(url).indexOf('/api/auth/') === -1) {
-          window.location.href = '/login?expired';
+          window.location.href = basePath + '/login?expired';
         }
         return resp;
       });
@@ -35,15 +50,19 @@ window.AutoTrade = (() => {
   })();
 
   const API = {
-    botStart:  '/api/bot/start',
-    botStop:   '/api/bot/stop',
-    botStatus: '/api/bot/status',
-    botTrades: '/api/bot/trades',
-    botSettings:'/api/bot/settings',
-    backtestRun:'/api/backtest/run'
+    botStart:  basePath + '/api/bot/start',
+    botStop:   basePath + '/api/bot/stop',
+    botStatus: basePath + '/api/bot/status',
+    botTrades: basePath + '/api/bot/trades',
+    botSettings: basePath + '/api/bot/settings',
+    backtestRun: basePath + '/api/backtest/run'
   };
 
   async function req(url, options){
+    // 절대경로에 basePath 자동 추가
+    if (url && url.charAt(0) === '/' && url.indexOf(basePath) !== 0) {
+      url = basePath + url;
+    }
     const res = await fetch(url, Object.assign({
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store'
@@ -52,7 +71,7 @@ window.AutoTrade = (() => {
     // 세션 만료 감지: 다른 기기에서 로그인하면 이 세션이 만료됨
     if(res.status === 401){
       if(!url.includes('/api/auth/login') && !url.includes('/api/auth/pubkey')){
-        window.location.href = '/login?expired';
+        window.location.href = basePath + '/login?expired';
         throw new Error('세션이 만료되었습니다.');
       }
     }
@@ -900,11 +919,28 @@ window.AutoTrade = (() => {
     }
   }
 
-  return { API, req, fmt, initMultiSelect, initTheme, applyTheme, getTheme, bindStrategyHelp, autoBindStrategyHelp, closeStrategyModal, normalizeTooltips, showToast, showConfirm, GROUP_PRESETS, buildPresetBarHtml, applyGroupPreset, bindPresetBar, restorePresetChips };
+  return { basePath, API, req, fmt, initMultiSelect, initTheme, applyTheme, getTheme, bindStrategyHelp, autoBindStrategyHelp, closeStrategyModal, normalizeTooltips, showToast, showConfirm, GROUP_PRESETS, buildPresetBarHtml, applyGroupPreset, bindPresetBar, restorePresetChips };
 })();
 
 // Auto-bind on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   try{ window.AutoTrade && window.AutoTrade.autoBindStrategyHelp && window.AutoTrade.autoBindStrategyHelp(); }catch(e){}
   try{ window.AutoTrade && window.AutoTrade.normalizeTooltips && window.AutoTrade.normalizeTooltips(document); }catch(e){}
+
+  // Build info footer
+  (function() {
+    var el = document.getElementById('buildFooter');
+    if (!el) return;
+    fetch((window.AutoTrade && window.AutoTrade.basePath || '') + '/api/build-info').then(function(r){ return r.json(); }).then(function(info) {
+      var bt = info.buildTime;
+      try {
+        var bd = new Date(bt);
+        if (!isNaN(bd.getTime())) {
+          var p = function(n){ return String(n).length < 2 ? '0'+n : ''+n; };
+          bt = bd.getFullYear()+'-'+p(bd.getMonth()+1)+'-'+p(bd.getDate())+' '+p(bd.getHours())+':'+p(bd.getMinutes())+':'+p(bd.getSeconds());
+        }
+      } catch(e){}
+      el.textContent = 'v' + info.version + '  |  Built: ' + bt;
+    }).catch(function() {});
+  })();
 });

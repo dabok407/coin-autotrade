@@ -35,7 +35,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             // ── URL 권한 설정 ──
             .authorizeRequests()
                 // 로그인 페이지, RSA 공개키, 정적 자원만 허용
-                .antMatchers("/login", "/api/auth/pubkey", "/api/auth/login").permitAll()
+                .antMatchers("/login", "/api/auth/pubkey", "/api/auth/login", "/api/auth/sso-login", "/api/auth/sso-info").permitAll()
                 .antMatchers("/css/**", "/js/**", "/favicon.ico").permitAll()
                 // 백테스트 API는 조회성(시뮬레이션)이므로 인증 없이 허용
                 .antMatchers("/api/backtest/**", "/api/strategies").permitAll()
@@ -55,7 +55,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .authenticationEntryPoint((req, resp, ex) -> {
                     String accept = req.getHeader("Accept");
                     String xReq = req.getHeader("X-Requested-With");
-                    boolean isApi = req.getRequestURI().startsWith("/api/")
+                    String uri = req.getRequestURI();
+                    String ctx = req.getContextPath();
+                    boolean isApi = uri.startsWith(ctx + "/api/")
                             || "XMLHttpRequest".equals(xReq)
                             || (accept != null && accept.contains("application/json"));
                     if (isApi) {
@@ -63,7 +65,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                         resp.setContentType("application/json;charset=UTF-8");
                         resp.getWriter().write("{\"error\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다. 로그인해주세요.\"}");
                     } else {
-                        resp.sendRedirect("/login");
+                        resp.sendRedirect(ctx + "/login");
                     }
                 })
             .and()
@@ -80,7 +82,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .csrf()
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 // 로그인/공개키 엔드포인트만 CSRF 면제
-                .ignoringAntMatchers("/api/auth/login", "/api/auth/pubkey", "/api/backtest/**", "/api/report/**")
+                .ignoringAntMatchers("/api/auth/login", "/api/auth/pubkey", "/api/auth/sso-login", "/api/backtest/**", "/api/report/**")
             .and()
 
             // ── iframe 클릭재킹 방어: DENY (H2 콘솔 미사용) ──

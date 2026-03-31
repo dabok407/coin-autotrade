@@ -926,7 +926,7 @@ public class AllDayScannerService {
         Map<String, Double> prices = tickerService.getTickerPrices(markets);
         if (prices.isEmpty()) return;
 
-        double quickTpPct = cfg.getQuickTpPct();
+        double baseQuickTpPct = cfg.getQuickTpPct();
         double slPct = cfg.getSlPct().doubleValue();
 
         // 3. Check each position
@@ -938,6 +938,17 @@ public class AllDayScannerService {
             if (avgPrice <= 0) continue;
 
             double pnlPct = (currentPrice - avgPrice) / avgPrice * 100.0;
+
+            // 고신뢰(confidence >= 9.7) 포지션은 Quick TP 목표 상향 (최소 1.0%)
+            double quickTpPct = baseQuickTpPct;
+            try {
+                TradeEntity buyTrade = tradeLogRepo.findTop1ByMarketAndActionOrderByTsEpochMsDesc(pe.getMarket(), "BUY");
+                if (buyTrade != null && buyTrade.getConfidence() != null && buyTrade.getConfidence() >= 9.7) {
+                    quickTpPct = Math.max(baseQuickTpPct, 1.0);
+                }
+            } catch (Exception e) {
+                log.debug("[AllDayScanner] Failed to lookup confidence for {}: {}", pe.getMarket(), e.getMessage());
+            }
 
             String sellReason = null;
             String sellType = null;

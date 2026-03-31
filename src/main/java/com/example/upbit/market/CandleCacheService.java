@@ -269,10 +269,73 @@ public class CandleCacheService {
     }
 
     /**
+     * 날짜 범위로 캐시된 캔들 데이터를 조회합니다 (DB 레벨 필터링).
+     */
+    public List<UpbitCandle> getCachedBetween(String market, int intervalMin, String fromUtc, String toUtc) {
+        List<CandleCacheEntity> entities =
+                cacheRepo.findByMarketAndIntervalMinAndCandleTsUtcBetweenOrderByCandleTsUtcAsc(
+                        market, intervalMin, fromUtc, toUtc);
+        List<UpbitCandle> candles = new ArrayList<UpbitCandle>(entities.size());
+        for (CandleCacheEntity e : entities) {
+            candles.add(toUpbitCandle(e));
+        }
+        return candles;
+    }
+
+    /**
      * 특정 마켓/인터벌에 캐시가 있는지 확인합니다.
      */
     public boolean hasCachedData(String market, int intervalMin) {
         return cacheRepo.countByMarketAndIntervalMin(market, intervalMin) > 0;
+    }
+
+    // ===== 파일 기반 캐시 (CSV) =====
+
+    private static final String FILE_CACHE_DIR = "data/candles/5m";
+
+    /**
+     * CSV 파일에서 캔들 데이터를 로드합니다 (DB보다 훨씬 빠름).
+     * 파일 형식: epoch_sec,open,high,low,close,volume
+     */
+    public List<UpbitCandle> loadFromFile(String market) {
+        String symbol = market.replace("KRW-", "");
+        java.io.File file = new java.io.File(FILE_CACHE_DIR + "/" + symbol + ".csv");
+        if (!file.exists()) return null;
+
+        List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
+        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(file))) {
+            br.readLine(); // skip header
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length < 6) continue;
+                long epochSec = Long.parseLong(parts[0].trim());
+                UpbitCandle c = new UpbitCandle();
+                c.market = market;
+                c.candle_date_time_utc = java.time.Instant.ofEpochSecond(epochSec)
+                        .atZone(java.time.ZoneOffset.UTC).toLocalDateTime()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+                c.opening_price = Double.parseDouble(parts[1].trim());
+                c.high_price = Double.parseDouble(parts[2].trim());
+                c.low_price = Double.parseDouble(parts[3].trim());
+                c.trade_price = Double.parseDouble(parts[4].trim());
+                c.candle_acc_trade_volume = Double.parseDouble(parts[5].trim());
+                candles.add(c);
+            }
+        } catch (Exception e) {
+            log.warn("CSV 파일 로드 실패: {} - {}", file, e.getMessage());
+            return null;
+        }
+        log.info("CSV 파일 로드: {} → {}건", file.getName(), candles.size());
+        return candles;
+    }
+
+    /**
+     * CSV 파일 캐시가 있는지 확인합니다.
+     */
+    public boolean hasFileCache(String market) {
+        String symbol = market.replace("KRW-", "");
+        return new java.io.File(FILE_CACHE_DIR + "/" + symbol + ".csv").exists();
     }
 
     // ===== 유틸 =====

@@ -100,8 +100,9 @@ window.ChartPopup = (() => {
 
     // Fetch candles
     try {
-      const url = `/api/chart/candles?market=${encodeURIComponent(market)}&unit=${unit}&tsEpochMs=${tsMs}&count=80`;
-      const resp = await fetch(url, { cache: 'no-store' });
+      const bp = (window.AutoTrade && window.AutoTrade.basePath) || '';
+      const url = `${bp}/api/chart/candles?market=${encodeURIComponent(market)}&unit=${unit}&tsEpochMs=${tsMs}&count=80`;
+      const resp = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const candles = await resp.json();
 

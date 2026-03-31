@@ -287,6 +287,10 @@ if (boundarySchedulerEnabled) {
         }
     }
 
+    public boolean isRunning() {
+        return running.get();
+    }
+
     public boolean start() {
         boolean changed = running.compareAndSet(false, true);
         if (changed) {
@@ -642,13 +646,29 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
 
         s.setMarkets(ms);
 
+        // 스캐너별 포지션 수 카운트
+        int mainBotPosCount = 0;
+        int openingScannerPosCount = 0;
+        int alldayScannerPosCount = 0;
+
         // 자본 현황: 모든 열린 포지션의 투입금(avgPrice * qty) 합산
         double usedCapital = 0.0;
         for (BotStatus.MarketStatus m : ms.values()) {
             if (m.isPositionOpen()) {
                 usedCapital += m.getAvgPrice() * m.getQty();
+                String es = m.getEntryStrategy();
+                if ("SCALP_OPENING_BREAK".equals(es)) {
+                    openingScannerPosCount++;
+                } else if ("HIGH_CONFIDENCE_BREAKOUT".equals(es)) {
+                    alldayScannerPosCount++;
+                } else {
+                    mainBotPosCount++;
+                }
             }
         }
+        s.setMainBotPositionCount(mainBotPosCount);
+        s.setOpeningScannerPositionCount(openingScannerPosCount);
+        s.setAlldayScannerPositionCount(alldayScannerPosCount);
         s.setUsedCapitalKrw(usedCapital);
         s.setAvailableCapitalKrw(bd(bc.getCapitalKrw()) - usedCapital);
 
@@ -691,6 +711,7 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
         s.setTotalTrades((int) tradeRepo.count());
         s.setWins(winCount);
         s.setWinRate(sellCount == 0 ? 0.0 : (winCount * 100.0 / sellCount));
+        s.setAutoStartEnabled(bc.isAutoStartEnabled());
         return s;
     }
 

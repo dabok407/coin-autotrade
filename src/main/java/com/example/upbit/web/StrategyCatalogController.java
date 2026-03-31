@@ -95,6 +95,19 @@ public class StrategyCatalogController {
                 return "볼린저 스퀴즈 돌파(BSB)";
             case TRIANGLE_CONVERGENCE:
                 return "삼각수렴 돌파(TRI)";
+
+            case SCALP_RSI_BOUNCE:
+                return "스캘핑 RSI 반등(SRB)";
+            case SCALP_EMA_PULLBACK:
+                return "스캘핑 EMA 눌림(SEP)";
+            case SCALP_BREAKOUT_RANGE:
+                return "스캘핑 레인지 돌파(SBR)";
+            case SCALP_OPENING_BREAK:
+                return "오프닝 돌파(SOB)";
+            case MULTI_CONFIRM_MOMENTUM:
+                return "다중확인 모멘텀(MCM)";
+            case HIGH_CONFIDENCE_BREAKOUT:
+                return "고확신 돌파(HCB)";
         }
         return t.name();
     }
@@ -249,6 +262,19 @@ public class StrategyCatalogController {
                     + "\n• 수렴 깊이 (+0~1.0점): 수렴 비율 40%이하 강한 압축"
                     + "\n• 스윙 수 (+0~1.0점): 6개 이상 스윙 = 신뢰도 높은 패턴"
                     + "\n\n■ 권장: 60~240분봉, TP 자동(삼각형 높이), SL 1.5*ATR";
+
+            case HIGH_CONFIDENCE_BREAKOUT:
+                return "8개 요소(거래량·EMA·MACD·RSI·ADX·신고가·캔들·ATR) 합류 점수가 높을 때만 진입하는 종일 스캐너 돌파 전략입니다. Hard SL + EMA Break + MACD Fade + Trailing + Time Stop + Session End 6단계 청산으로 수익을 보호합니다."
+                    + "\n\n📊 8-Factor Scoring (max 10.0):"
+                    + "\n• Volume Surge (+1.5점): 평균 대비 2배+ 거래량 급증"
+                    + "\n• EMA Alignment (+1.5점): EMA20>EMA50>EMA120 정렬"
+                    + "\n• MACD Confirmation (+1.3점): 히스토그램 양수 + 상승"
+                    + "\n• RSI Sweet Spot (+1.0점): RSI 50~65 최적 구간"
+                    + "\n• ADX Strength (+1.2점): ADX 25+ 강한 추세"
+                    + "\n• New High Breakout (+1.5점): 20봉 신고가 돌파"
+                    + "\n• Body Quality (+1.0점): 양봉 몸통비 60%+"
+                    + "\n• ATR Range (+1.0점): ATR 대비 적정 변동성"
+                    + "\n\n■ 권장: 5분봉, TP 4%, SL 2%, minConfidence 7";
         }
         return "";
     }

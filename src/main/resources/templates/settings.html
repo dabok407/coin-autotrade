@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>Upbit AutoTrade - Settings</title>
+  <title>Coin AutoTrade - Settings</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232b76ff'/%3E%3Cstop offset='100%25' stop-color='%2320c997'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M8 22 L14 12 L18 17 L24 8' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E"/>
   <link rel="stylesheet" th:href="@{/css/autotrade.css(v=20260316a)}">
 </head>
@@ -21,7 +21,7 @@
           <circle cx="24" cy="8" r="2.5" fill="white"/>
         </svg>
       </div>
-      <span>Upbit AutoTrade</span>
+      <span>Coin AutoTrade</span>
     </a>
     <nav class="nav-tabs">
       <a class="nav-tab" th:href="@{/dashboard}">&#x1F4CA; 대시보드</a>
@@ -30,6 +30,7 @@
     </nav>
   </div>
   <div class="header-right">
+    <button class="header-btn" id="ssoPartnerBtn" title="SSO" style="display:none;font-size:16px">&#x1F504;</button>
     <button class="header-btn" id="refreshBtn" title="Refresh" onclick="location.reload()">&#x21bb;</button>
     <button class="header-btn" id="themeToggle" title="Theme">&#x263e;</button>
     <button class="header-btn" id="logoutBtn" title="Logout" style="color:var(--danger)">&#x23fb;</button>

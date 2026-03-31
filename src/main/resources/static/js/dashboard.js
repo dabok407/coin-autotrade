@@ -30,8 +30,8 @@
   const totalPnl = document.getElementById('totalPnl');
   const roi = document.getElementById('roi');
   const winRate = document.getElementById('winRate');
-  const modeSnap = document.getElementById('modeSnap');
-  const intervalSnap = document.getElementById('intervalSnap');
+  const modeSnap = document.getElementById('modeSnap');         // may be null (removed from UI)
+  const intervalSnap = document.getElementById('intervalSnap'); // may be null (removed from UI)
 
   const refreshBtn = document.getElementById('refreshBtn');
 
@@ -399,6 +399,72 @@
     botSwitch.setAttribute('aria-pressed', String(!!running));
   }
 
+  // ── Auto Start toggle ──
+  var autoStartToggle = document.getElementById('autoStartToggle');
+  if (autoStartToggle) {
+    autoStartToggle.addEventListener('change', async function() {
+      try {
+        await req('/api/bot/auto-start', {
+          method: 'POST',
+          body: JSON.stringify({ enabled: autoStartToggle.checked })
+        });
+        showToast('Auto Start ' + (autoStartToggle.checked ? 'ON' : 'OFF'), 'success');
+      } catch(e) {
+        showToast('Auto Start 변경 실패: ' + (e.message || ''), 'error');
+        autoStartToggle.checked = !autoStartToggle.checked;
+      }
+    });
+  }
+
+  // ── SSO Partner Button ──
+  var ssoPartnerBtn = document.getElementById('ssoPartnerBtn');
+  var _ssoInfo = null;
+
+  async function initSsoButton() {
+    if (_ssoInfo || !ssoPartnerBtn) return;
+    try {
+      var info = await req('/api/auth/sso-info');
+      if (info && info.enabled === 'true' && info.partnerUrl) {
+        _ssoInfo = info;
+        ssoPartnerBtn.title = info.partnerLabel || 'Partner';
+        ssoPartnerBtn.setAttribute('data-tooltip', info.partnerLabel || 'Partner');
+        ssoPartnerBtn.style.display = '';
+      }
+    } catch(e) { console.warn('SSO init:', e); }
+  }
+
+  if (ssoPartnerBtn) {
+    ssoPartnerBtn.addEventListener('click', function() {
+      if (!_ssoInfo) { showToast('SSO 미설정', 'error'); return; }
+      // 팝업 차단 방지: 클릭 즉시 새 창을 열고, 나중에 URL 변경
+      var popup = window.open('about:blank', '_blank');
+      ssoPartnerBtn.disabled = true;
+      req('/api/auth/sso-token').then(function(tokenData) {
+        if (tokenData && tokenData.success) {
+          var url = _ssoInfo.partnerUrl + '/api/auth/sso-login?token=' +
+            encodeURIComponent(tokenData.token) +
+            '&username=' + encodeURIComponent(tokenData.username) +
+            '&ts=' + tokenData.timestamp;
+          if (popup && !popup.closed) {
+            popup.location.href = url;
+          } else {
+            window.open(url, '_blank');
+          }
+        } else {
+          if (popup && !popup.closed) popup.close();
+          showToast(tokenData.message || 'SSO 토큰 생성 실패', 'error');
+        }
+        ssoPartnerBtn.disabled = false;
+      }).catch(function(e) {
+        if (popup && !popup.closed) popup.close();
+        console.error('SSO click error:', e);
+        showToast('SSO 오류: ' + (e.message || ''), 'error');
+        ssoPartnerBtn.disabled = false;
+      });
+    });
+  }
+  setTimeout(initSsoButton, 1000);
+
   /** Render open positions from BotStatus.markets */
   function renderPositions(marketsMap, botStatus){
     if(!posCardsContainer) return;
@@ -623,6 +689,11 @@
     const s = await req(API.botStatus, { method:'GET' });
     setRunningUI(!!s.running);
 
+    // Sync auto-start toggle
+    if (autoStartToggle) {
+      autoStartToggle.checked = !!s.autoStartEnabled;
+    }
+
     // Groups-aware strategy/market display
     const hasGroups = Array.isArray(s.groups) && s.groups.length > 0;
     if (hasGroups) {
@@ -642,9 +713,11 @@
       });
       var allMkts = [];
       s.groups.forEach(function(g) { (g.markets || []).forEach(function(m) { allMkts.push(m); }); });
-      statusMarkets.textContent = allMkts.length + ' markets';
-      statusMarkets.setAttribute('title', mktTips.join(' | '));
-      statusMarkets.setAttribute('data-tooltip', mktTips.join('\n'));
+      if (statusMarkets) {
+        statusMarkets.textContent = allMkts.length + ' markets';
+        statusMarkets.setAttribute('title', mktTips.join(' | '));
+        statusMarkets.setAttribute('data-tooltip', mktTips.join('\n'));
+      }
     } else {
       const keys = Array.isArray(s.strategies) && s.strategies.length
         ? s.strategies
@@ -666,17 +739,19 @@
       const enabled = (s.markets && typeof s.markets === 'object')
         ? Object.values(s.markets).filter(x => x && x.enabled).map(x => x.market)
         : [];
-      if(enabled.length){
-        const labels = enabled.map(m => marketLabel.get(String(m)) || String(m));
-        const head = labels[0];
-        const rest = labels.length - 1;
-        statusMarkets.textContent = rest > 0 ? `${head} 외 ${rest}건` : head;
-        statusMarkets.setAttribute('title', labels.join(', '));
-        statusMarkets.setAttribute('data-tooltip', labels.join('\n'));
-      }else{
-        statusMarkets.textContent = '-';
-        statusMarkets.removeAttribute('title');
-        statusMarkets.removeAttribute('data-tooltip');
+      if (statusMarkets) {
+        if(enabled.length){
+          const labels = enabled.map(m => marketLabel.get(String(m)) || String(m));
+          const head = labels[0];
+          const rest = labels.length - 1;
+          statusMarkets.textContent = rest > 0 ? `${head} 외 ${rest}건` : head;
+          statusMarkets.setAttribute('title', labels.join(', '));
+          statusMarkets.setAttribute('data-tooltip', labels.join('\n'));
+        }else{
+          statusMarkets.textContent = '-';
+          statusMarkets.removeAttribute('title');
+          statusMarkets.removeAttribute('data-tooltip');
+        }
       }
     }
     totalPnl.textContent = fmt(s.totalPnlKrw);
@@ -684,14 +759,14 @@
     roi.textContent = (s.roi == null) ? '-' : `${Number(s.roi).toFixed(2)}%`;
     roi.style.color = (s.roi != null && s.roi >= 0) ? 'var(--success)' : (s.roi != null ? 'var(--danger)' : '');
     winRate.textContent = (s.winRate == null) ? '-' : `${Number(s.winRate).toFixed(1)}%`;
-    modeSnap.textContent = s.mode || '-';
+    if (modeSnap) modeSnap.textContent = s.mode || '-';
 
     // Update current candle unit for chart popup fallback
     if(s.candleUnitMin != null) currentCandleUnitMin = Number(s.candleUnitMin);
     const unitMin = (s.candleUnitMin != null ? s.candleUnitMin : null);
     const key = unitMin != null ? ((Number(unitMin) >= 1440) ? '1d' : `${Number(unitMin)}m`) : '';
     const intervalText = intervalLabel.get(String(key)) || (unitMin != null ? `${unitMin}분` : '-');
-    intervalSnap.textContent = intervalText;
+    if (intervalSnap) intervalSnap.textContent = intervalText;
 
     // Update status bar mode/interval
     var sbMode = document.getElementById('statusBarMode');
@@ -937,6 +1012,8 @@
     }
 
     section.style.display = '';
+    var badge = document.getElementById('groupCountBadge');
+    if (badge) badge.textContent = groups.length;
     grid.innerHTML = groups.map(function(g, gi) {
       var markets = (g.markets || []).map(function(m) {
         var label = marketLabel.get(String(m)) || m;
@@ -955,14 +1032,44 @@
         '</div>';
       }).join('');
 
-      return '<div class="group-card">' +
+      // Settings summary chips
+      var unitLabel = g.candleUnitMin >= 1440 ? '1D' : g.candleUnitMin + 'm';
+      var orderLabel = (g.orderSizingMode === 'PCT' ? g.orderSizingValue + '%' : fmt(g.orderSizingValue) + ' KRW');
+      var settingsChips =
+        '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' +
+          '<span class="group-chip">' + unitLabel + '</span>' +
+          '<span class="group-chip">TP ' + g.takeProfitPct + '%</span>' +
+          '<span class="group-chip">SL ' + g.stopLossPct + '%</span>' +
+          (g.maxAddBuys > 0 ? '<span class="group-chip">+' + g.maxAddBuys + '회</span>' : '') +
+          (g.minConfidence > 0 ? '<span class="group-chip">신뢰 ' + g.minConfidence + '+</span>' : '') +
+          (g.strategyLock ? '<span class="group-chip">Lock</span>' : '') +
+          (g.timeStopMinutes > 0 ? '<span class="group-chip">T-Stop ' + g.timeStopMinutes + 'm</span>' : '') +
+        '</div>';
+
+      // Tooltip with full details
+      var tooltipText = 'Interval: ' + unitLabel +
+        '\\nOrder: ' + (g.orderSizingMode || 'PCT') + ' ' + orderLabel +
+        '\\nTP: ' + g.takeProfitPct + '% | SL: ' + g.stopLossPct + '%' +
+        '\\nMax Add Buys: ' + g.maxAddBuys +
+        (g.minConfidence > 0 ? '\\nMin Confidence: ' + g.minConfidence : '') +
+        (g.strategyLock ? '\\nStrategy Lock: ON' : '') +
+        (g.timeStopMinutes > 0 ? '\\nTime Stop: ' + g.timeStopMinutes + 'min' : '') +
+        (g.strategyIntervalsCsv ? '\\nStrategy Intervals: ' + g.strategyIntervalsCsv : '') +
+        (g.emaFilterCsv ? '\\nEMA Filter: ' + g.emaFilterCsv : '');
+
+      return '<div class="group-card" data-tooltip="' + tooltipText + '">' +
         '<div class="group-header" onclick="this.parentElement.querySelector(\'.group-body\').style.display=this.parentElement.querySelector(\'.group-body\').style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.group-toggle\').textContent=this.parentElement.querySelector(\'.group-body\').style.display===\'none\'?\'▶\':\'▼\'">' +
           '<div class="group-name">' + markets + ' ' + (g.groupName || 'Group ' + (gi+1)) + '</div>' +
           '<span class="group-toggle">▼</span>' +
         '</div>' +
-        '<div class="group-body">' + (stratRows || '<div style="color:var(--text-muted);font-size:12px">전략 없음</div>') + '</div>' +
+        '<div class="group-body">' +
+          (stratRows || '<div style="color:var(--text-muted);font-size:12px">전략 없음</div>') +
+          settingsChips +
+        '</div>' +
       '</div>';
     }).join('');
+    // Re-bind tooltips for new elements
+    try { AutoTrade.normalizeTooltips(document.getElementById('dashGroupsGrid')); } catch(e) {}
   }
 
   async function refreshAll(){
@@ -994,6 +1101,47 @@
     }
   }
 
+  // ─── Scanned Symbols Modal ───
+  var _scannerSymbolsCache = {};
+  var scanSymbolsModal = document.getElementById('scanSymbolsModal');
+  if (scanSymbolsModal) {
+    scanSymbolsModal.querySelectorAll('[data-scan-close]').forEach(function(el) {
+      el.addEventListener('click', function() { scanSymbolsModal.setAttribute('aria-hidden', 'true'); });
+    });
+  }
+  function showScanSymbolsModal(label, symbols) {
+    if (!scanSymbolsModal) return;
+    document.getElementById('scanSymbolsModalTitle').textContent = label + ' (' + symbols.length + '개)';
+    var tbody = document.getElementById('scanSymbolsTbody');
+    if (symbols.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="2" style="color:var(--text-muted);padding:16px;text-align:center">스캔 종목 없음</td></tr>';
+    } else {
+      tbody.innerHTML = symbols.map(function(sym, i) {
+        return '<tr><td style="text-align:center;color:var(--text-muted)">' + (i + 1) + '</td><td style="font-family:var(--font-mono)">' + sym + '</td></tr>';
+      }).join('');
+    }
+    scanSymbolsModal.setAttribute('aria-hidden', 'false');
+  }
+  function makeScanCountClickable(el, cacheKey, label) {
+    if (!el) return;
+    var syms = _scannerSymbolsCache[cacheKey] || [];
+    if (syms.length > 0) {
+      el.style.color = 'var(--primary)';
+      el.style.textDecoration = 'underline';
+      el.style.cursor = 'pointer';
+      if (!el._scanClickBound) {
+        el._scanClickBound = true;
+        el.addEventListener('click', function() {
+          showScanSymbolsModal(label, _scannerSymbolsCache[cacheKey] || []);
+        });
+      }
+    } else {
+      el.style.color = '';
+      el.style.textDecoration = '';
+      el.style.cursor = '';
+    }
+  }
+
   // ─── Opening Scanner ───
   var scannerSwitch = document.getElementById('scannerSwitch');
   var scannerStateBadge = document.getElementById('scannerStateBadge');
@@ -1021,8 +1169,22 @@
       var s = await req('/api/scanner/status', { method: 'GET' });
       setScannerRunningUI(!!s.running);
       if (scannerMode) scannerMode.textContent = (s.config && s.config.mode) || '-';
+      // Update top status bar
+      var openingState = document.getElementById('statusOpeningState');
+      var modeSnapOpening = document.getElementById('modeSnapOpening');
+      if (openingState) {
+        var mode = (s.config && s.config.mode) || '-';
+        openingState.textContent = s.running ? mode : 'OFF';
+        openingState.style.color = s.running ? 'var(--success)' : 'var(--text-muted)';
+      }
+      if (modeSnapOpening) modeSnapOpening.textContent = s.running ? ((s.config && s.config.mode) || 'ON') : 'OFF';
+      if (modeSnapOpening) modeSnapOpening.style.color = s.running ? 'var(--success)' : 'var(--text-muted)';
       if (scannerStatus) scannerStatus.textContent = s.status || '-';
-      if (scannerScanCount) scannerScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+      if (scannerScanCount) {
+        scannerScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+        _scannerSymbolsCache['opening'] = s.lastScannedMarkets || [];
+        makeScanCountClickable(scannerScanCount, 'opening', 'Opening Scanner 스캔 종목');
+      }
       if (scannerPositions) {
         var maxPos = (s.config && s.config.maxPositions) || '?';
         scannerPositions.textContent = (s.activePositions != null ? s.activePositions + '/' + maxPos : '-');
@@ -1092,8 +1254,23 @@
       var s = await req('/api/allday-scanner/status', { method: 'GET' });
       setAlldayRunningUI(!!s.running);
       if (alldayMode) alldayMode.textContent = (s.config && s.config.mode) || '-';
+      // Update top status bar
+      var alldayState = document.getElementById('statusAlldayState');
+      var modeSnapAllday = document.getElementById('modeSnapAllday');
+      if (alldayState) {
+        alldayState.textContent = s.running ? ((s.config && s.config.mode) || 'ON') : 'OFF';
+        alldayState.style.color = s.running ? 'var(--success)' : 'var(--text-muted)';
+      }
+      if (modeSnapAllday) {
+        modeSnapAllday.textContent = s.running ? ((s.config && s.config.mode) || 'ON') : 'OFF';
+        modeSnapAllday.style.color = s.running ? 'var(--success)' : 'var(--text-muted)';
+      }
       if (alldayStatus) alldayStatus.textContent = s.status || '-';
-      if (alldayScanCount) alldayScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+      if (alldayScanCount) {
+        alldayScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+        _scannerSymbolsCache['allday'] = s.lastScannedMarkets || [];
+        makeScanCountClickable(alldayScanCount, 'allday', 'AllDay Scanner 스캔 종목');
+      }
       if (alldayPositions) {
         var maxPos = (s.config && s.config.maxPositions) || '?';
         alldayPositions.textContent = (s.activePositions != null ? s.activePositions + '/' + maxPos : '-');
@@ -1164,8 +1341,23 @@
       var s = await req('/api/morning-rush/status', { method: 'GET' });
       setMrRunningUI(!!s.running);
       if (mrMode) mrMode.textContent = (s.config && s.config.mode) || '-';
+      // Update top status bar
+      var mrState = document.getElementById('statusMRState');
+      var modeSnapMR = document.getElementById('modeSnapMR');
+      if (mrState) {
+        mrState.textContent = s.running ? ((s.config && s.config.mode) || 'ON') : 'OFF';
+        mrState.style.color = s.running ? 'var(--success)' : 'var(--text-muted)';
+      }
+      if (modeSnapMR) {
+        modeSnapMR.textContent = s.running ? ((s.config && s.config.mode) || 'ON') : 'OFF';
+        modeSnapMR.style.color = s.running ? 'var(--success)' : 'var(--text-muted)';
+      }
       if (mrStatus) mrStatus.textContent = s.status || '-';
-      if (mrScanCount) mrScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+      if (mrScanCount) {
+        mrScanCount.textContent = (s.scanCount != null ? s.scanCount + '개' : '-');
+        _scannerSymbolsCache['mr'] = s.lastScannedMarkets || [];
+        makeScanCountClickable(mrScanCount, 'mr', 'Morning Rush 스캔 종목');
+      }
       if (mrPositions) {
         var maxPos = (s.config && s.config.maxPositions) || '?';
         mrPositions.textContent = (s.activePositions != null ? s.activePositions + '/' + maxPos : '-');

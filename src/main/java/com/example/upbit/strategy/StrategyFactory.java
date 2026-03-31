@@ -74,6 +74,9 @@ public class StrategyFactory {
 
         // 다중 확인 고확신 모멘텀
         strategies.put(StrategyType.MULTI_CONFIRM_MOMENTUM, new MultiConfirmMomentumStrategy());
+
+        // 고확신 돌파 (종일 스캐너)
+        strategies.put(StrategyType.HIGH_CONFIDENCE_BREAKOUT, new HighConfidenceBreakoutStrategy());
     }
 
     public TradingStrategy get(StrategyType type) {

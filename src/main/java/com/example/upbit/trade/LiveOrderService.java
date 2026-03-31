@@ -115,7 +115,15 @@ public class LiveOrderService {
         long interval = tradeProps.getLive().getOrderPollIntervalMs();
 
         while (true) {
-            JsonNode cur = upbit.getOrderByUuidOrIdentifier(uuid, identifier);
+            JsonNode cur;
+            try {
+                cur = upbit.getOrderByUuidOrIdentifier(uuid, identifier);
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e404) {
+                // 주문이 즉시 체결되어 업비트 API에서 조회 불가 → 체결 완료로 간주
+                log.warn("[LIVE-POLL] 404 주문 조회 불가 (즉시 체결 추정) uuid={} identifier={}", uuid, identifier);
+                updateOrderRow(identifier, uuid, "order_not_found", 0.0, 0.0);
+                return new OrderResult(identifier, uuid, "order_not_found", 0.0, 0.0, null);
+            }
             String state = cur.has("state") ? cur.get("state").asText() : null;
             double executedVolume = cur.has("executed_volume") ? cur.get("executed_volume").asDouble(0.0) : 0.0;
             double avgPrice = computeAvgPrice(cur);
@@ -209,6 +217,8 @@ public class LiveOrderService {
         public boolean isFilled() {
             if ("done".equalsIgnoreCase(state)) return true;
             if ("cancel".equalsIgnoreCase(state) && executedVolume > 0) return true;
+            // 주문 전송 후 404 → 즉시 체결되어 조회 불가 (placeOrder 성공 후에만 도달)
+            if ("order_not_found".equalsIgnoreCase(state)) return true;
             return false;
         }
     }

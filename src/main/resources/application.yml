@@ -4,6 +4,7 @@ report:
 server:
   port: 8080
   servlet:
+    context-path: /coin
     session:
       timeout: 4h
       cookie:
@@ -76,6 +77,11 @@ trade:
 upbit:
   accessKey: ${UPBIT_ACCESS_KEY:}
   secretKey: ${UPBIT_SECRET_KEY:}
+
+sso:
+  secret: ${SSO_SECRET:upbit-stocks-shared-sso-key-change-me}
+  partnerUrl: ${SSO_PARTNER_URL:https://mkgalaxy.kr/stocks}
+  partnerLabel: "\uC8FC\uC2DD\uBD07\uC73C\uB85C \uC774\uB3D9"
 
 app:
   version: "@project.version@"

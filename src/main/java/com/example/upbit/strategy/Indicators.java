@@ -320,4 +320,15 @@ public final class Indicators {
         }
         return low;
     }
+
+    // ======================== 최근 N봉 최고가 ========================
+    /** 최근 lookback 봉(현재 봉 제외)의 최고 high */
+    public static double recentHigh(List<UpbitCandle> candles, int lookback) {
+        if (candles == null || candles.size() < lookback + 1) return Double.MIN_VALUE;
+        double high = Double.MIN_VALUE;
+        for (int i = candles.size() - 1 - lookback; i < candles.size() - 1; i++) {
+            if (i >= 0 && candles.get(i).high_price > high) high = candles.get(i).high_price;
+        }
+        return high;
+    }
 }

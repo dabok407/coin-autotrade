@@ -36,6 +36,14 @@ public class SimulationParams {
     public int btcEmaPeriod;
     public List<com.example.upbit.market.UpbitCandle> btcCandles;
 
+    /** Maximum concurrent open positions across all markets (0 = unlimited) */
+    public int maxConcurrentPositions;
+
+    /** Quick TP: intra-candle TP/SL simulation using high/low prices (allday strategy) */
+    public boolean quickTpEnabled;
+    public double quickTpPct;
+    public double quickSlPct;
+
     /** 그룹 모드 여부 및 그룹별 설정 */
     public boolean hasGroups;
     public Map<String, MarketGroupSettings> marketGroupMap;

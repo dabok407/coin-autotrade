@@ -327,6 +327,7 @@ body[data-theme="light"] .card:hover {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  padding: 16px 20px;
 }
 .card-title {
   font-size: 15px;
@@ -1361,6 +1362,12 @@ body[data-theme="light"] .switch .knob { background: rgba(255,255,255,.98); box-
   justify-content: space-between; padding: 6px 0; font-size: 13px;
 }
 .group-strategy-row + .group-strategy-row { border-top: 1px solid var(--border-subtle); }
+.group-chip {
+  font-size: 10px; font-weight: 600; font-family: var(--font-mono);
+  padding: 2px 7px; border-radius: 100px;
+  background: rgba(43,118,255,.12); color: var(--primary);
+  white-space: nowrap;
+}
 .group-strategy-name { color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
 .group-strategy-type {
   font-size: 10px; padding: 1px 6px;

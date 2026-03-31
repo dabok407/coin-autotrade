@@ -234,12 +234,24 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
                     String.format(Locale.ROOT, "HC_SL pnl=%.2f%%", pnlPct));
         }
 
-        // 2. EMA Trend Break
+        // 2. EMA Trend Break (수익 중이면 2연속 확인)
         double ema8 = Indicators.ema(candles, EMA_FAST);
         double ema21 = Indicators.ema(candles, EMA_MID);
         if (!Double.isNaN(ema8) && !Double.isNaN(ema21) && ema8 < ema21) {
-            return Signal.of(SignalAction.SELL, type(),
-                    String.format(Locale.ROOT, "HC_EMA_BREAK ema8=%.2f ema21=%.2f", ema8, ema21));
+            if (pnlPct <= 0.3) {
+                // 손실 또는 미미한 수익 → 즉시 청산
+                return Signal.of(SignalAction.SELL, type(),
+                        String.format(Locale.ROOT, "HC_EMA_BREAK ema8=%.2f ema21=%.2f pnl=%.2f%%", ema8, ema21, pnlPct));
+            }
+            // 수익 중 → 직전 캔들에서도 EMA8 < EMA21인지 2연속 확인
+            int prevTail = candles.size() - 1; // 마지막 캔들 제외
+            double prevEma8 = Indicators.ema(candles, EMA_FAST, prevTail);
+            double prevEma21 = Indicators.ema(candles, EMA_MID, prevTail);
+            if (!Double.isNaN(prevEma8) && !Double.isNaN(prevEma21) && prevEma8 < prevEma21) {
+                return Signal.of(SignalAction.SELL, type(),
+                        String.format(Locale.ROOT, "HC_EMA_BREAK_2X ema8=%.2f ema21=%.2f prev8=%.2f prev21=%.2f pnl=%.2f%%",
+                                ema8, ema21, prevEma8, prevEma21, pnlPct));
+            }
         }
 
         // 3. MACD Momentum Fade (only when in profit)

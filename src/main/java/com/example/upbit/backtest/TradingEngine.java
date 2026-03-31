@@ -281,6 +281,36 @@ public class TradingEngine {
                 }
             }
 
+            // ===== Quick TP: intra-candle TP using high price (allday positions only) =====
+            // SL은 캔들 경계에서 기존 6개 청산 조건으로 체크
+            if (params.quickTpEnabled && open
+                    && "HIGH_CONFIDENCE_BREAKOUT".equals(mp.entryStrategy)
+                    && mp.avg > 0) {
+                double quickTpPrice = mp.avg * (1.0 + params.quickTpPct / 100.0);
+                if (nextCur.high_price > 0 && nextCur.high_price >= quickTpPrice) {
+                    double fill = quickTpPrice;
+                    double gross = mp.qty * fill;
+                    double fee = gross * strategyCfg.getFeeRate();
+                    double realized = (gross - fee) - (mp.qty * mp.avg);
+                    st.sellCount++;
+                    st.tpSellCount++;
+                    if (realized > 0) st.winCount++;
+                    if (detailed) {
+                        String reason = String.format(Locale.ROOT,
+                                "QUICK_TP avg=%.2f tp=%.2f high=%.2f pct=%.2f%%",
+                                mp.avg, quickTpPrice, nextCur.high_price, params.quickTpPct);
+                        BacktestTradeRow row = makeRow(nextCur, nextMarket, "SELL", "QUICK_TP",
+                                fill, mp.qty, realized, reason, mp.avg);
+                        row.confidence = 0;
+                        row.candleUnitMin = nextInterval;
+                        st.trades.add(row);
+                    }
+                    mp.reset();
+                    st.capital += (gross - fee);
+                    continue;
+                }
+            }
+
             // ===== 전략 평가: 동시 타임스탬프의 모든 인터벌 전략을 평가하고 최적 선택 =====
             com.example.upbit.db.PositionEntity syntheticPos = null;
             if (mp.qty > 0) {
@@ -356,6 +386,14 @@ public class TradingEngine {
 
             // ===== BUY: 신규 포지션 진입 =====
             if (evalResult.signal.action == SignalAction.BUY && !open && !btcBlocked) {
+                // maxConcurrentPositions 체크: 열린 포지션 수가 제한에 도달하면 신규 매수 차단
+                if (params.maxConcurrentPositions > 0) {
+                    int openCount = 0;
+                    for (Map.Entry<String, Pos> entry : posByMarket.entrySet()) {
+                        if (entry.getValue().qty > 0) openCount++;
+                    }
+                    if (openCount >= params.maxConcurrentPositions) continue;
+                }
                 if (effMinConfidence > 0 && evalResult.confidence < effMinConfidence) continue;
                 double orderKrw = effBaseOrderKrw;
                 if (orderKrw < tradeProps.getMinOrderKrw()) orderKrw = tradeProps.getMinOrderKrw();

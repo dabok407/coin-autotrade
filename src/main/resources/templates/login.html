@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Login — Upbit AutoTrade</title>
+  <title>Coin AutoTrade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -201,7 +201,7 @@
         <circle cx="24" cy="8" r="2.5" fill="white"/>
       </svg>
     </div>
-    <h1>Login</h1>
+    <h1>Coin AutoTrade</h1>
     <p>인증된 사용자만 접근할 수 있습니다</p>
   </div>
 
@@ -213,6 +213,11 @@
   <div class="field">
     <label for="password">비밀번호</label>
     <input type="password" id="password" placeholder="비밀번호 입력" autocomplete="current-password">
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+    <input type="checkbox" id="rememberIdChk" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer">
+    <label for="rememberIdChk" style="font-size:13px;color:var(--muted);cursor:pointer;user-select:none">아이디 기억</label>
   </div>
 
   <button class="login-btn" id="loginBtn">로그인</button>
@@ -234,6 +239,15 @@
   var loginBtn = document.getElementById('loginBtn');
   var errorMsg = document.getElementById('errorMsg');
   var infoMsg = document.getElementById('infoMsg');
+  var rememberIdChk = document.getElementById('rememberIdChk');
+
+  // Restore remembered ID
+  var savedId = localStorage.getItem('rememberedId');
+  if (savedId) {
+    usernameEl.value = savedId;
+    rememberIdChk.checked = true;
+    passwordEl.focus();
+  }
 
   var rsaPublicKey = null;
 
@@ -247,7 +261,13 @@
   }
 
   // Fetch RSA public key on page load
-  fetch('/api/auth/pubkey')
+  // context-path 감지: URL에서 /login 앞부분 추출 (예: /coin/login → /coin)
+  var ctxPath = (function() {
+    var path = window.location.pathname;
+    var idx = path.indexOf('/login');
+    return idx > 0 ? path.substring(0, idx) : '';
+  })();
+  fetch(ctxPath + '/api/auth/pubkey')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       rsaPublicKey = data.publicKey;
@@ -289,7 +309,7 @@
     loginBtn.disabled = true;
     loginBtn.innerHTML = '<span class="spinner"></span>인증 중…';
 
-    fetch('/api/auth/login', {
+    fetch(ctxPath + '/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -300,11 +320,17 @@
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {
+        // Save or clear remembered ID
+        if (rememberIdChk.checked) {
+          localStorage.setItem('rememberedId', usernameEl.value.trim());
+        } else {
+          localStorage.removeItem('rememberedId');
+        }
         loginBtn.innerHTML = '✓ 로그인 성공';
         loginBtn.style.borderColor = 'rgba(32,201,151,.55)';
         loginBtn.style.background = 'rgba(32,201,151,.18)';
         setTimeout(function() {
-          window.location.href = data.redirect || '/dashboard';
+          window.location.href = data.redirect || (ctxPath + '/dashboard');
         }, 300);
       } else {
         errorMsg.textContent = data.message || '로그인에 실패했습니다.';

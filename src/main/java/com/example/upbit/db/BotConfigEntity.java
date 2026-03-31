@@ -84,6 +84,10 @@ public class BotConfigEntity {
     @Column(name="daily_loss_limit_pct", nullable=false, precision=10, scale=4)
     private BigDecimal dailyLossLimitPct = BigDecimal.ZERO;
 
+    // 서버 재시작 시 이전에 활성화되어 있던 봇/스캐너들을 자동으로 시작
+    @Column(name="auto_start_enabled", nullable=false)
+    private boolean autoStartEnabled = false;
+
     public Long getId() { return id; }
 
     public String getMode() { return mode; }
@@ -150,6 +154,9 @@ public class BotConfigEntity {
 
     public BigDecimal getDailyLossLimitPct() { return dailyLossLimitPct; }
     public void setDailyLossLimitPct(BigDecimal v) { this.dailyLossLimitPct = (v == null ? BigDecimal.ZERO : v); }
+
+    public boolean isAutoStartEnabled() { return autoStartEnabled; }
+    public void setAutoStartEnabled(boolean autoStartEnabled) { this.autoStartEnabled = autoStartEnabled; }
 
     /**
      * 전략별 유효 인터벌을 계산합니다.

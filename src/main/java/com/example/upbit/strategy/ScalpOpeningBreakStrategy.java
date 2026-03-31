@@ -51,10 +51,10 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
 
     // ===== 진입 필터 (v2 합의: 완화 X, 강화) =====
     private static final int VOLUME_AVG_PERIOD = 20;
-    private double volumeMult = 1.5;    // v2 합의: 1.5 유지 (완화 금지)
+    private double volumeMult = 4.0;    // v3: 1.5→4.0 (1주일 실거래 분석 기반)
     private double minBodyRatio = 0.45; // v2 합의: 0.40→0.45 (강화)
     private static final double MIN_ATR_PCT = 0.001;
-    private static final double MIN_BREAKOUT_PCT = 0.2; // v2 합의: 0.1→0.2% (강화)
+    private static final double MIN_BREAKOUT_PCT = 1.0; // v3: 0.2→1.0% (1주일 실거래 분석 기반 상향)
 
     // ===== EMA 트렌드 필터 =====
     private static final int EMA_PERIOD = 20;

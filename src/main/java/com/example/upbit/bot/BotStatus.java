@@ -59,8 +59,16 @@ public class BotStatus {
 
     private Map<String, MarketStatus> markets;
 
+    // 스캐너별 포지션 수 (프론트엔드 구분 표시용)
+    private int mainBotPositionCount;
+    private int openingScannerPositionCount;
+    private int alldayScannerPositionCount;
+
     // Strategy Groups (null/empty = legacy mode using flat config)
     private List<StrategyGroupInfo> groups;
+
+    // 서버 재시작 시 자동 시작 여부
+    private boolean autoStartEnabled;
 
     public boolean isRunning() { return running; }
     public void setRunning(boolean running) { this.running = running; }
@@ -159,8 +167,20 @@ public class BotStatus {
     public Map<String, MarketStatus> getMarkets() { return markets; }
     public void setMarkets(Map<String, MarketStatus> markets) { this.markets = markets; }
 
+    public int getMainBotPositionCount() { return mainBotPositionCount; }
+    public void setMainBotPositionCount(int mainBotPositionCount) { this.mainBotPositionCount = mainBotPositionCount; }
+
+    public int getOpeningScannerPositionCount() { return openingScannerPositionCount; }
+    public void setOpeningScannerPositionCount(int openingScannerPositionCount) { this.openingScannerPositionCount = openingScannerPositionCount; }
+
+    public int getAlldayScannerPositionCount() { return alldayScannerPositionCount; }
+    public void setAlldayScannerPositionCount(int alldayScannerPositionCount) { this.alldayScannerPositionCount = alldayScannerPositionCount; }
+
     public List<StrategyGroupInfo> getGroups() { return groups; }
     public void setGroups(List<StrategyGroupInfo> groups) { this.groups = groups; }
+
+    public boolean isAutoStartEnabled() { return autoStartEnabled; }
+    public void setAutoStartEnabled(boolean autoStartEnabled) { this.autoStartEnabled = autoStartEnabled; }
 
     /**
      * 전략 그룹 요약 정보 (FE 표시용).
