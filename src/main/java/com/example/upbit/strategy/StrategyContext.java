@@ -22,20 +22,28 @@ public class StrategyContext {
     public final int downStreak;
     /** 전략별 EMA 트렌드 필터 기간 맵. key=StrategyType.name(), value=EMA period (0=비활성) */
     public final Map<String, Integer> emaTrendFilterMap;
+    /** 당일 09:00 시가 (Daily Change 계산용, 0이면 미설정) */
+    public final double dailyOpenPrice;
 
     /** 기존 호환 생성자 (EMA 맵 없음 → 기본값 50 사용) */
     public StrategyContext(String market, int candleUnitMin, List<UpbitCandle> candles, PositionEntity position, int downStreak) {
-        this(market, candleUnitMin, candles, position, downStreak, Collections.<String, Integer>emptyMap());
+        this(market, candleUnitMin, candles, position, downStreak, Collections.<String, Integer>emptyMap(), 0);
     }
 
     /** EMA 트렌드 필터 맵 포함 생성자 */
     public StrategyContext(String market, int candleUnitMin, List<UpbitCandle> candles, PositionEntity position, int downStreak, Map<String, Integer> emaTrendFilterMap) {
+        this(market, candleUnitMin, candles, position, downStreak, emaTrendFilterMap, 0);
+    }
+
+    /** 전체 파라미터 생성자 */
+    public StrategyContext(String market, int candleUnitMin, List<UpbitCandle> candles, PositionEntity position, int downStreak, Map<String, Integer> emaTrendFilterMap, double dailyOpenPrice) {
         this.market = market;
         this.candleUnitMin = candleUnitMin;
         this.candles = candles;
         this.position = position;
         this.downStreak = downStreak;
         this.emaTrendFilterMap = (emaTrendFilterMap != null) ? emaTrendFilterMap : Collections.<String, Integer>emptyMap();
+        this.dailyOpenPrice = dailyOpenPrice;
     }
 
     /**

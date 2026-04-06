@@ -22,7 +22,7 @@ public class OpeningScannerConfigEntity {
     private String mode = "PAPER";
 
     @Column(name = "top_n", nullable = false)
-    private int topN = 15;
+    private int topN = 50;
 
     @Column(name = "max_positions", nullable = false)
     private int maxPositions = 3;
@@ -56,13 +56,13 @@ public class OpeningScannerConfigEntity {
     private int entryStartHour = 9;
 
     @Column(name = "entry_start_min", nullable = false)
-    private int entryStartMin = 5;
+    private int entryStartMin = 0;  // V51: 09:05 → 09:00
 
     @Column(name = "entry_end_hour", nullable = false)
     private int entryEndHour = 10;
 
     @Column(name = "entry_end_min", nullable = false)
-    private int entryEndMin = 30;
+    private int entryEndMin = 25;  // V49: 10:30 → 10:25
 
     @Column(name = "session_end_hour", nullable = false)
     private int sessionEndHour = 12;
@@ -113,7 +113,7 @@ public class OpeningScannerConfigEntity {
     public void setMode(String mode) { this.mode = mode != null ? mode.toUpperCase() : "PAPER"; }
 
     public int getTopN() { return topN; }
-    public void setTopN(int topN) { this.topN = Math.max(1, Math.min(50, topN)); }
+    public void setTopN(int topN) { this.topN = Math.max(1, Math.min(100, topN)); }
 
     public int getMaxPositions() { return maxPositions; }
     public void setMaxPositions(int maxPositions) { this.maxPositions = Math.max(1, Math.min(15, maxPositions)); }
@@ -189,7 +189,7 @@ public class OpeningScannerConfigEntity {
     public void setOpenFailedEnabled(boolean openFailedEnabled) { this.openFailedEnabled = openFailedEnabled; }
 
     public int getMinPriceKrw() { return minPriceKrw; }
-    public void setMinPriceKrw(int v) { this.minPriceKrw = Math.max(0, v); }
+    public void setMinPriceKrw(int v) { this.minPriceKrw = v; }
 
     public String getExcludeMarkets() { return excludeMarkets != null ? excludeMarkets : ""; }
     public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }

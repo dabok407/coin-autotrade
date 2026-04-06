@@ -7,15 +7,8 @@ import com.example.upbit.trade.LiveOrderService;
 import com.example.upbit.upbit.UpbitAccount;
 import com.example.upbit.upbit.UpbitPrivateClient;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
-import okio.ByteString;
+import com.example.upbit.market.PriceUpdateListener;
+import com.example.upbit.market.SharedPriceService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +25,6 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 모닝 러쉬 스캐너 — 09:00 KST 갭업 스파이크를 잡는 단기 스캐너.
@@ -55,11 +47,6 @@ public class MorningRushScannerService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final String ENTRY_STRATEGY = "MORNING_RUSH";
 
-    private static final String WS_URL = "wss://api.upbit.com/websocket/v1";
-    private static final int WS_MAX_CODES_PER_CONN = 15;
-    private static final int WS_PING_INTERVAL_SEC = 25;
-    private static final int WS_MAX_RECONNECT = 5;
-
     // ========== Dependencies ==========
 
     private final MorningRushConfigRepository configRepo;
@@ -71,12 +58,22 @@ public class MorningRushScannerService {
     private final TransactionTemplate txTemplate;
     private final UpbitMarketCatalogService catalogService;
     private final TickerService tickerService;
-    private final ObjectMapper objectMapper;
+    private final SharedPriceService sharedPriceService;
 
     // ========== Runtime state ==========
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ScheduledExecutorService scheduler;
+
+    // 실시간 TP/SL 매도 전용 스레드 (mainLoop과 독립)
+    private final ExecutorService tpSlExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, "morning-rush-tp-sell");
+            t.setDaemon(true);
+            return t;
+        }
+    });
 
     // Dashboard state
     private volatile String statusText = "STOPPED";
@@ -92,16 +89,25 @@ public class MorningRushScannerService {
 
     // WebSocket real-time prices
     private final ConcurrentHashMap<String, Double> latestPrices = new ConcurrentHashMap<String, Double>();
-    private final List<WebSocket> activeWebSockets = new CopyOnWriteArrayList<WebSocket>();
-    private volatile OkHttpClient wsClient;
-    private volatile ScheduledFuture<?> pingTask;
-    private final AtomicBoolean wsConnected = new AtomicBoolean(false);
-    private final AtomicBoolean wsFallback = new AtomicBoolean(false);
-    private final AtomicInteger wsReconnectCount = new AtomicInteger(0);
+    // 실시간 TP/SL 체크용 캐시 (mainLoop에서 업데이트, WebSocket 스레드에서 읽기)
+    private final ConcurrentHashMap<String, double[]> positionCache = new ConcurrentHashMap<String, double[]>(); // market → [avgPrice, qty]
+    private volatile double cachedTpPct = 2.0;
+    private volatile double cachedSlPct = 3.0;
+    private volatile String cachedMode = "PAPER";
+    private volatile double cachedGapPct = 2.0;
+    private volatile double cachedSurgePct = 3.0;
+    private volatile int cachedSurgeWindowSec = 30;
+    private volatile int cachedConfirmCount = 3;
+    // Surge detection: market → deque of (epochMs, price) for rolling window
+    private final ConcurrentHashMap<String, Deque<long[]>> priceHistory = new ConcurrentHashMap<String, Deque<long[]>>();
+    private volatile PriceUpdateListener priceListener;
 
     // Decision log
     private static final int MAX_DECISION_LOG = 200;
     private final Deque<Map<String, Object>> decisionLog = new ArrayDeque<Map<String, Object>>();
+
+    // Hourly trade throttle: 동일 마켓 1시간 내 최대 2회 매수
+    private final HourlyTradeThrottle hourlyThrottle = new HourlyTradeThrottle(2);
 
     // Session phase tracking
     private volatile boolean rangeCollected = false;
@@ -115,7 +121,8 @@ public class MorningRushScannerService {
                                       UpbitPrivateClient privateClient,
                                       TransactionTemplate txTemplate,
                                       UpbitMarketCatalogService catalogService,
-                                      TickerService tickerService) {
+                                      TickerService tickerService,
+                                      SharedPriceService sharedPriceService) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -125,7 +132,7 @@ public class MorningRushScannerService {
         this.txTemplate = txTemplate;
         this.catalogService = catalogService;
         this.tickerService = tickerService;
-        this.objectMapper = new ObjectMapper();
+        this.sharedPriceService = sharedPriceService;
     }
 
     // ========== Lifecycle ==========
@@ -143,9 +150,7 @@ public class MorningRushScannerService {
         rangeHighMap.clear();
         baselineVolume.clear();
         latestPrices.clear();
-        wsConnected.set(false);
-        wsFallback.set(false);
-        wsReconnectCount.set(0);
+        priceHistory.clear();
 
         scheduler = Executors.newScheduledThreadPool(2, new ThreadFactory() {
             private int seq = 0;
@@ -156,6 +161,33 @@ public class MorningRushScannerService {
                 return t;
             }
         });
+
+        // Register SharedPriceService listener for realtime price updates
+        priceListener = new PriceUpdateListener() {
+            @Override
+            public void onPriceUpdate(String market, double price) {
+                long tsMs = System.currentTimeMillis();
+                latestPrices.put(market, price);
+
+                // Record price for surge detection (only if tracking this market)
+                Deque<long[]> history = priceHistory.get(market);
+                if (history != null) {
+                    history.addLast(new long[]{tsMs, Double.doubleToLongBits(price)});
+                    // Keep max 120 seconds of data
+                    long cutoff = tsMs - 120_000L;
+                    while (!history.isEmpty() && history.peekFirst()[0] < cutoff) {
+                        history.pollFirst();
+                    }
+                }
+
+                // Real-time entry check (entry phase, memory only)
+                checkRealtimeEntry(market, price, tsMs);
+
+                // Real-time TP/SL check (hold phase, memory cache only)
+                checkRealtimeTpSl(market, price);
+            }
+        };
+        sharedPriceService.addGlobalListener(priceListener);
 
         // Schedule the main loop at 1-second resolution to detect time phases
         scheduler.scheduleAtFixedRate(new Runnable() {
@@ -179,7 +211,10 @@ public class MorningRushScannerService {
         }
         log.info("[MorningRush] stopping...");
         statusText = "STOPPED";
-        closeWebSockets();
+        if (priceListener != null) {
+            sharedPriceService.removeGlobalListener(priceListener);
+            priceListener = null;
+        }
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
@@ -214,199 +249,220 @@ public class MorningRushScannerService {
         return list;
     }
 
-    // ========== WebSocket Management ==========
+    // ========== Price Service Integration ==========
 
     /**
-     * Upbit WebSocket 연결. 코드 15개씩 분할하여 다중 연결 생성.
+     * WebSocket 가격 수신 시 즉시 갭/급등 진입 체크 (entry phase).
+     * DB 접근 없이 메모리(rangeHighMap, priceHistory, confirmCounts)만 사용.
+     * 조건 충족 시 scheduler에 매수 스케줄링.
      */
-    private void connectWebSocket(List<String> markets) {
-        closeWebSockets();
-        latestPrices.clear();
-        wsReconnectCount.set(0);
-        wsFallback.set(false);
+    private void checkRealtimeEntry(String code, double price, long tsMs) {
+        if (!running.get() || rangeHighMap.isEmpty()) return;
+        // entry phase 체크 (09:00~09:05)
+        ZonedDateTime nowKst = ZonedDateTime.now(KST);
+        int nowMin = nowKst.getHour() * 60 + nowKst.getMinute();
+        if (nowMin < 9 * 60 || nowMin >= 9 * 60 + 5) return;
+        if (entryPhaseComplete) return;
 
-        if (markets.isEmpty()) return;
+        // 이미 확인된 마켓 스킵
+        if (positionCache.containsKey(code)) return;
 
-        wsClient = new OkHttpClient.Builder()
-                .readTimeout(0, TimeUnit.MILLISECONDS)
-                .build();
+        Double rangeHigh = rangeHighMap.get(code);
+        if (rangeHigh == null || rangeHigh <= 0) return;
 
-        // Split markets into chunks of WS_MAX_CODES_PER_CONN
-        List<List<String>> chunks = new ArrayList<List<String>>();
-        for (int i = 0; i < markets.size(); i += WS_MAX_CODES_PER_CONN) {
-            int end = Math.min(i + WS_MAX_CODES_PER_CONN, markets.size());
-            chunks.add(new ArrayList<String>(markets.subList(i, end)));
+        // 거래대금 체크 (메모리)
+        Double baseVol = baselineVolume.get(code);
+        if (baseVol == null || baseVol < 1000000000L) return; // minTradeAmount
+
+        double gapThreshold = cachedGapPct / 100.0;
+        double surgeThreshold = cachedSurgePct / 100.0;
+        double threshold = rangeHigh * (1.0 + gapThreshold);
+        boolean gapCondition = price > threshold;
+
+        // Surge condition (priceHistory 기반)
+        boolean surgeCondition = false;
+        if (cachedSurgePct > 0) {
+            Deque<long[]> history = priceHistory.get(code);
+            if (history != null && !history.isEmpty()) {
+                long cutoff = tsMs - cachedSurgeWindowSec * 1000L;
+                double minInWindow = Double.MAX_VALUE;
+                for (long[] entry : history) {
+                    if (entry[0] >= cutoff) {
+                        double p = Double.longBitsToDouble(entry[1]);
+                        if (p < minInWindow) minInWindow = p;
+                    }
+                }
+                if (minInWindow < Double.MAX_VALUE && minInWindow > 0) {
+                    double surgePct = (price - minInWindow) / minInWindow;
+                    if (surgePct >= surgeThreshold) surgeCondition = true;
+                }
+            }
         }
 
-        for (int idx = 0; idx < chunks.size(); idx++) {
-            List<String> chunk = chunks.get(idx);
-            openOneWebSocket(chunk, idx);
-        }
-
-        // Schedule ping task
-        if (scheduler != null && !scheduler.isShutdown()) {
-            pingTask = scheduler.scheduleAtFixedRate(new Runnable() {
-                @Override
-                public void run() {
-                    sendPings();
-                }
-            }, WS_PING_INTERVAL_SEC, WS_PING_INTERVAL_SEC, TimeUnit.SECONDS);
-        }
-
-        log.info("[MorningRush] WebSocket connecting: {} connections for {} markets",
-                chunks.size(), markets.size());
-    }
-
-    private void openOneWebSocket(final List<String> codes, final int connIndex) {
-        Request request = new Request.Builder().url(WS_URL).build();
-        WebSocket ws = wsClient.newWebSocket(request, new WebSocketListener() {
-            @Override
-            public void onOpen(WebSocket webSocket, Response response) {
-                log.info("[MorningRush] WS[{}] connected, subscribing {} codes", connIndex, codes.size());
-                wsConnected.set(true);
-                wsReconnectCount.set(0);
-
-                // Build subscribe message
-                StringBuilder sb = new StringBuilder();
-                sb.append("[{\"ticket\":\"morning-rush-").append(connIndex).append("\"},");
-                sb.append("{\"type\":\"ticker\",\"codes\":[");
-                for (int i = 0; i < codes.size(); i++) {
-                    if (i > 0) sb.append(",");
-                    sb.append("\"").append(codes.get(i)).append("\"");
-                }
-                sb.append("]}]");
-
-                webSocket.send(sb.toString());
-            }
-
-            @Override
-            public void onMessage(WebSocket webSocket, String text) {
-                handleTickerMessage(text);
-            }
-
-            @Override
-            public void onMessage(WebSocket webSocket, ByteString bytes) {
-                // Upbit sends binary frames containing JSON
-                handleTickerMessage(bytes.utf8());
-            }
-
-            @Override
-            public void onClosing(WebSocket webSocket, int code, String reason) {
-                log.info("[MorningRush] WS[{}] closing: code={} reason={}", connIndex, code, reason);
-                webSocket.close(1000, null);
-            }
-
-            @Override
-            public void onClosed(WebSocket webSocket, int code, String reason) {
-                log.info("[MorningRush] WS[{}] closed: code={} reason={}", connIndex, code, reason);
-                activeWebSockets.remove(webSocket);
-                if (activeWebSockets.isEmpty()) {
-                    wsConnected.set(false);
-                }
-                attemptReconnect(codes, connIndex);
-            }
-
-            @Override
-            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                log.warn("[MorningRush] WS[{}] failure: {}", connIndex, t.getMessage());
-                activeWebSockets.remove(webSocket);
-                if (activeWebSockets.isEmpty()) {
-                    wsConnected.set(false);
-                }
-                attemptReconnect(codes, connIndex);
-            }
-        });
-        activeWebSockets.add(ws);
-    }
-
-    private void handleTickerMessage(String json) {
-        try {
-            JsonNode node = objectMapper.readTree(json);
-            String type = node.has("type") ? node.get("type").asText() : "";
-            if (!"ticker".equals(type)) return;
-
-            String code = node.has("code") ? node.get("code").asText() : null;
-            double tradePrice = node.has("trade_price") ? node.get("trade_price").asDouble() : 0;
-
-            if (code != null && tradePrice > 0) {
-                latestPrices.put(code, tradePrice);
-                lastTickEpochMs = System.currentTimeMillis();
-            }
-        } catch (Exception e) {
-            log.debug("[MorningRush] WS message parse error: {}", e.getMessage());
-        }
-    }
-
-    private void attemptReconnect(final List<String> codes, final int connIndex) {
-        if (!running.get()) return;
-
-        int count = wsReconnectCount.incrementAndGet();
-        if (count > WS_MAX_RECONNECT) {
-            log.warn("[MorningRush] WS reconnect limit reached ({}), falling back to REST polling", WS_MAX_RECONNECT);
-            wsFallback.set(true);
-            addDecision("*", "SYSTEM", "WS_FALLBACK",
-                    String.format("WebSocket %d회 재연결 실패, REST 폴링으로 전환", WS_MAX_RECONNECT));
+        boolean entrySignal = gapCondition || surgeCondition;
+        if (!entrySignal) {
+            if (confirmCounts.containsKey(code)) confirmCounts.put(code, 0);
             return;
         }
 
-        long delayMs = 1000L * (1L << Math.min(count - 1, 4)); // 1s, 2s, 4s, 8s, 16s
-        log.info("[MorningRush] WS[{}] reconnecting in {}ms (attempt {}/{})",
-                connIndex, delayMs, count, WS_MAX_RECONNECT);
+        Integer count = confirmCounts.get(code);
+        int newCount = (count != null ? count : 0) + 1;
+        confirmCounts.put(code, newCount);
 
+        int requiredConfirm = cachedConfirmCount;
+        if (newCount < requiredConfirm) {
+            log.debug("[MorningRush] realtime {} confirm {}/{} price={} gap={} surge={}",
+                    code, newCount, requiredConfirm, price, gapCondition, surgeCondition);
+            return;
+        }
+
+        // Confirmed! scheduler에 매수 스케줄링
+        double gapPct = (price - rangeHigh) / rangeHigh * 100.0;
+        final String triggerType = (gapCondition && surgeCondition) ? "GAP+SURGE" :
+                (gapCondition ? "GAP_UP" : "SURGE");
+        final String reason = String.format(Locale.ROOT,
+                "%s price=%.2f rangeHigh=%.2f gap=+%.2f%% confirm=%d/%d (realtime)",
+                triggerType, price, rangeHigh, gapPct, newCount, requiredConfirm);
+
+        log.info("[MorningRush] realtime BUY signal: {} | {}", code, reason);
+
+        confirmCounts.remove(code);
+        positionCache.put(code, new double[]{price, 0}); // 중복 진입 방지
+
+        final String fCode = code;
+        final double fPrice = price;
         if (scheduler != null && !scheduler.isShutdown()) {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
-                    if (running.get() && !wsFallback.get()) {
-                        openOneWebSocket(codes, connIndex);
+                    try {
+                        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+                        if (!cfg.isEnabled()) return;
+                        String mode = cfg.getMode();
+                        boolean isLive = "LIVE".equalsIgnoreCase(mode);
+
+                        // 포지션 수 체크
+                        int rushPosCount = 0;
+                        List<PositionEntity> allPos = positionRepo.findAll();
+                        for (PositionEntity pe : allPos) {
+                            if (ENTRY_STRATEGY.equals(pe.getEntryStrategy())
+                                    && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                                rushPosCount++;
+                            }
+                            if (fCode.equals(pe.getMarket()) && pe.getQty() != null
+                                    && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                                log.info("[MorningRush] realtime skip: {} already held", fCode);
+                                return;
+                            }
+                        }
+                        if (rushPosCount >= cfg.getMaxPositions()) {
+                            log.info("[MorningRush] realtime skip: max positions {} reached", cfg.getMaxPositions());
+                            addDecision(fCode, "BUY", "BLOCKED", "MAX_POSITIONS",
+                                    String.format("최대 포지션 수(%d) 도달 (realtime)", cfg.getMaxPositions()));
+                            return;
+                        }
+
+                        BigDecimal orderKrw = calcOrderSize(cfg);
+                        // Hourly throttle check
+                        if (!hourlyThrottle.canBuy(fCode)) {
+                            addDecision(fCode, "BUY", "BLOCKED", "HOURLY_LIMIT",
+                                    String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(fCode) / 1000));
+                            return;
+                        }
+                        executeBuy(fCode, fPrice, reason, cfg, orderKrw, isLive);
+                        hourlyThrottle.recordBuy(fCode);
+                        addDecision(fCode, "BUY", "EXECUTED", reason);
+                    } catch (Exception e) {
+                        log.error("[MorningRush] realtime buy failed for {}", fCode, e);
                     }
                 }
-            }, delayMs, TimeUnit.MILLISECONDS);
-        }
-    }
-
-    private void sendPings() {
-        for (WebSocket ws : activeWebSockets) {
-            try {
-                ws.send("PING");
-            } catch (Exception e) {
-                log.debug("[MorningRush] WS ping error: {}", e.getMessage());
-            }
-        }
-    }
-
-    private void closeWebSockets() {
-        if (pingTask != null) {
-            pingTask.cancel(false);
-            pingTask = null;
-        }
-        for (WebSocket ws : activeWebSockets) {
-            try {
-                ws.close(1000, "scanner stopping");
-            } catch (Exception e) {
-                log.debug("[MorningRush] WS close error: {}", e.getMessage());
-            }
-        }
-        activeWebSockets.clear();
-        wsConnected.set(false);
-        latestPrices.clear();
-
-        if (wsClient != null) {
-            wsClient.dispatcher().executorService().shutdown();
-            wsClient = null;
+            }, 0, TimeUnit.MILLISECONDS);
         }
     }
 
     /**
-     * WebSocket에서 실시간 가격을 가져오거나, fallback 시 REST API로 가져온다.
+     * WebSocket 가격 수신 시 즉시 TP/SL 체크 (지연 0초).
+     * DB 접근 없이 메모리 캐시만 사용. mainLoop에서 캐시 업데이트.
+     * TP/SL 도달 감지 시 mainLoop에 매도 스케줄링.
+     */
+    private void checkRealtimeTpSl(String market, double price) {
+        if (!running.get()) return;
+        // entryPhaseComplete와 무관하게 포지션이 있으면 즉시 TP/SL 체크
+
+        // 메모리 캐시에서 포지션 확인 (DB 접근 없음)
+        double[] pos = positionCache.get(market);
+        if (pos == null) return;
+
+        double avgPrice = pos[0];
+        if (avgPrice <= 0) return;
+
+        double pnlPct = (price - avgPrice) / avgPrice * 100.0;
+
+        if (pnlPct >= cachedTpPct || pnlPct <= -cachedSlPct) {
+            final String sellType = pnlPct >= cachedTpPct ? "TP" : "SL";
+            final String reason = String.format(Locale.ROOT,
+                    "%s pnl=%.2f%% price=%.2f avg=%.2f (realtime)",
+                    sellType, pnlPct, price, avgPrice);
+
+            log.info("[MorningRush] realtime {} detected | {} | {}", sellType, market, reason);
+
+            // 매도 전용 스레드에서 즉시 실행 (mainLoop과 독립, DB 접근 안전)
+            {
+                final String fMarket = market;
+                final double fPrice = price;
+                tpSlExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            PositionEntity fresh = positionRepo.findById(fMarket).orElse(null);
+                            if (fresh == null || fresh.getQty() == null
+                                    || fresh.getQty().compareTo(BigDecimal.ZERO) <= 0) return;
+                            if (!ENTRY_STRATEGY.equals(fresh.getEntryStrategy())) return;
+                            MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+                            double freshPnl = (fPrice - fresh.getAvgPrice().doubleValue())
+                                    / fresh.getAvgPrice().doubleValue() * 100.0;
+                            executeSell(fresh, fPrice, freshPnl, reason, sellType, cfg);
+                        } catch (Exception e) {
+                            log.error("[MorningRush] realtime sell failed for {}", fMarket, e);
+                        }
+                    }
+                });
+            }
+
+            // 캐시에서 제거 (중복 매도 방지)
+            positionCache.remove(market);
+        }
+    }
+
+    /**
+     * mainLoop에서 호출: 포지션+설정 캐시 업데이트.
+     */
+    private void updatePositionCache(MorningRushConfigEntity cfg) {
+        cachedTpPct = cfg.getTpPct().doubleValue();
+        cachedSlPct = cfg.getSlPct().doubleValue();
+        cachedMode = cfg.getMode();
+
+        positionCache.clear();
+        try {
+            List<PositionEntity> allPos = positionRepo.findAll();
+            for (PositionEntity pe : allPos) {
+                if (ENTRY_STRATEGY.equals(pe.getEntryStrategy())
+                        && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0
+                        && pe.getAvgPrice() != null) {
+                    positionCache.put(pe.getMarket(),
+                            new double[]{pe.getAvgPrice().doubleValue(), pe.getQty().doubleValue()});
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[MorningRush] position cache update failed: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * SharedPriceService 또는 REST API에서 실시간 가격을 가져온다.
      */
     private Map<String, Double> getCurrentPrices(List<String> markets) {
-        if (wsFallback.get() || !wsConnected.get()) {
-            // REST fallback
-            return tickerService.getTickerPrices(markets);
-        }
-
-        // Use latestPrices from WebSocket
+        // SharedPriceService의 latestPrices에서 우선 조회
         Map<String, Double> result = new LinkedHashMap<String, Double>();
         for (String market : markets) {
             Double price = latestPrices.get(market);
@@ -415,9 +471,9 @@ public class MorningRushScannerService {
             }
         }
 
-        // If WebSocket returned no data (just connected, no messages yet), use REST as one-time fallback
+        // SharedPriceService에 아직 데이터가 없으면 REST fallback
         if (result.isEmpty()) {
-            log.debug("[MorningRush] WS has no data yet, using REST fallback");
+            log.debug("[MorningRush] no cached prices yet, using REST fallback");
             return tickerService.getTickerPrices(markets);
         }
 
@@ -439,6 +495,14 @@ public class MorningRushScannerService {
             statusText = "DISABLED";
             return;
         }
+        // 실시간 체크용 config 캐시 업데이트
+        cachedTpPct = cfg.getTpPct().doubleValue();
+        cachedSlPct = cfg.getSlPct().doubleValue();
+        cachedGapPct = cfg.getGapThresholdPct().doubleValue();
+        cachedSurgePct = cfg.getSurgeThresholdPct().doubleValue();
+        cachedSurgeWindowSec = cfg.getSurgeWindowSec();
+        cachedConfirmCount = cfg.getConfirmCount();
+        cachedMode = cfg.getMode();
 
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
         int hour = nowKst.getHour();
@@ -479,7 +543,7 @@ public class MorningRushScannerService {
                 confirmCounts.clear();
                 rangeHighMap.clear();
                 baselineVolume.clear();
-                closeWebSockets();
+                latestPrices.clear();
             }
             statusText = "IDLE (outside hours)";
             return;
@@ -503,33 +567,24 @@ public class MorningRushScannerService {
         // ---- Entry Phase: scan for gap-up spikes ----
         if (isEntryPhase && !entryPhaseComplete) {
             statusText = "SCANNING";
-            // Ensure WebSocket is connected for entry phase
-            ensureWebSocketConnected();
             scanForEntry(cfg);
             return;
         }
 
         // ---- Hold Phase: TP/SL monitoring ----
         if (isHoldPhase) {
+            if (!entryPhaseComplete) {
+                entryPhaseComplete = true;
+                log.info("[MorningRush] Entry phase complete, switching to MONITORING");
+            }
             statusText = "MONITORING";
-            // Ensure WebSocket is connected for monitoring
-            ensureWebSocketConnected();
+            // 포지션+설정 캐시 업데이트 (실시간 TP/SL 체크용)
+            updatePositionCache(cfg);
             monitorPositions(cfg);
             return;
         }
     }
 
-    /**
-     * WebSocket이 아직 연결되지 않았으면 rangeHighMap의 마켓 코드로 연결한다.
-     */
-    private void ensureWebSocketConnected() {
-        if (wsConnected.get() || wsFallback.get()) return;
-        if (activeWebSockets.isEmpty() && !rangeHighMap.isEmpty()) {
-            List<String> markets = new ArrayList<String>(rangeHighMap.keySet());
-            log.info("[MorningRush] connecting WebSocket for {} markets", markets.size());
-            connectWebSocket(markets);
-        }
-    }
 
     // ========== Phase 1: Range Collection ==========
 
@@ -597,10 +652,10 @@ public class MorningRushScannerService {
             rangeCollected = true;
             addDecision("*", "RANGE", "COLLECTED",
                     String.format("레인지 수집 완료: %d개 마켓, rangeHigh 설정됨", selectedMarkets.size()));
-            log.info("[MorningRush] range collection complete: {} markets, starting WebSocket", selectedMarkets.size());
+            log.info("[MorningRush] range collection complete: {} markets, subscribing to SharedPriceService", selectedMarkets.size());
 
-            // Pre-connect WebSocket before entry phase begins
-            connectWebSocket(selectedMarkets);
+            // Ensure SharedPriceService subscribes to our selected markets
+            sharedPriceService.ensureMarketsSubscribed(selectedMarkets);
         }
     }
 
@@ -682,20 +737,31 @@ public class MorningRushScannerService {
             }
         }
 
-        // Fetch current prices via WebSocket (or REST fallback)
+        // Initialize surge history deques for all tracked markets (idempotent)
+        for (String m : rangeHighMap.keySet()) {
+            if (!priceHistory.containsKey(m)) {
+                priceHistory.put(m, new ArrayDeque<long[]>());
+            }
+        }
+
+        // Fetch current prices via SharedPriceService (or REST fallback)
         List<String> trackedMarkets = new ArrayList<String>(rangeHighMap.keySet());
         Map<String, Double> currentPrices = getCurrentPrices(trackedMarkets);
         if (currentPrices.isEmpty()) {
-            log.warn("[MorningRush] price fetch returned empty (ws={}, fallback={})",
-                    wsConnected.get(), wsFallback.get());
+            log.warn("[MorningRush] price fetch returned empty (shared={})",
+                    sharedPriceService.isConnected());
             return;
         }
 
         double gapThreshold = cfg.getGapThresholdPct().doubleValue() / 100.0;
         double volumeMultiplier = cfg.getVolumeMult().doubleValue();
         int requiredConfirm = cfg.getConfirmCount();
+        double surgeThreshold = cfg.getSurgeThresholdPct().doubleValue() / 100.0;
+        int surgeWindowSec = cfg.getSurgeWindowSec();
+        boolean surgeEnabled = surgeThreshold > 0;
+        long nowMs2 = System.currentTimeMillis();
 
-        // Check each market for gap-up condition
+        // Check each market for gap-up OR mid-candle surge
         for (Map.Entry<String, Double> entry : currentPrices.entrySet()) {
             String market = entry.getKey();
             double price = entry.getValue();
@@ -706,30 +772,98 @@ public class MorningRushScannerService {
             Double rangeHigh = rangeHighMap.get(market);
             if (rangeHigh == null || rangeHigh <= 0) continue;
 
-            double threshold = rangeHigh * (1.0 + gapThreshold);
-            boolean priceBreak = price > threshold;
-
             // Volume check: we use baseline 24h volume collected during range phase
             Double baseVol = baselineVolume.get(market);
             boolean volumeOk = (baseVol != null && baseVol >= cfg.getMinTradeAmount());
+            if (!volumeOk) continue;
 
-            if (priceBreak && volumeOk) {
+            // --- Condition 1: Gap-up (price > rangeHigh × (1 + gapThreshold)) ---
+            double threshold = rangeHigh * (1.0 + gapThreshold);
+            boolean gapCondition = price > threshold;
+
+            // --- Condition 2: Mid-candle surge (price rose surgeThreshold% within surgeWindowSec) ---
+            boolean surgeCondition = false;
+            double surgeFromPrice = 0;
+            if (surgeEnabled) {
+                Deque<long[]> history = priceHistory.get(market);
+                if (history == null) {
+                    history = new ArrayDeque<long[]>();
+                    priceHistory.put(market, history);
+                }
+                // Record current price
+                history.addLast(new long[]{nowMs2, Double.doubleToLongBits(price)});
+                // Trim entries outside the window
+                long cutoff = nowMs2 - surgeWindowSec * 1000L;
+                while (!history.isEmpty() && history.peekFirst()[0] < cutoff) {
+                    history.pollFirst();
+                }
+                // Find min price in the window
+                double minInWindow = Double.MAX_VALUE;
+                for (long[] entry2 : history) {
+                    double p = Double.longBitsToDouble(entry2[1]);
+                    if (p < minInWindow) minInWindow = p;
+                }
+                if (minInWindow < Double.MAX_VALUE && minInWindow > 0) {
+                    double surgePct = (price - minInWindow) / minInWindow;
+                    if (surgePct >= surgeThreshold) {
+                        surgeCondition = true;
+                        surgeFromPrice = minInWindow;
+                    }
+                }
+            }
+
+            // Hybrid: either gap OR surge triggers entry
+            boolean entrySignal = gapCondition || surgeCondition;
+
+            if (entrySignal) {
                 Integer count = confirmCounts.get(market);
                 int newCount = (count != null ? count : 0) + 1;
                 confirmCounts.put(market, newCount);
 
                 if (newCount >= requiredConfirm) {
-                    // Confirmed gap-up! Execute BUY
-                    double gapPct = (price - rangeHigh) / rangeHigh * 100.0;
-                    String reason = String.format(Locale.ROOT,
-                            "GAP_UP price=%.2f rangeHigh=%.2f gap=+%.2f%% confirm=%d/%d",
-                            price, rangeHigh, gapPct, newCount, requiredConfirm);
+                    // Confirmed! Execute BUY
+                    String triggerType;
+                    String reason;
+                    if (gapCondition && surgeCondition) {
+                        double gapPct = (price - rangeHigh) / rangeHigh * 100.0;
+                        double surgePct2 = (price - surgeFromPrice) / surgeFromPrice * 100.0;
+                        triggerType = "GAP+SURGE";
+                        reason = String.format(Locale.ROOT,
+                                "%s price=%.2f rangeHigh=%.2f gap=+%.2f%% surge=+%.2f%%(%ds) confirm=%d/%d",
+                                triggerType, price, rangeHigh, gapPct, surgePct2, surgeWindowSec, newCount, requiredConfirm);
+                    } else if (gapCondition) {
+                        double gapPct = (price - rangeHigh) / rangeHigh * 100.0;
+                        triggerType = "GAP_UP";
+                        reason = String.format(Locale.ROOT,
+                                "%s price=%.2f rangeHigh=%.2f gap=+%.2f%% confirm=%d/%d",
+                                triggerType, price, rangeHigh, gapPct, newCount, requiredConfirm);
+                    } else {
+                        double surgePct2 = (price - surgeFromPrice) / surgeFromPrice * 100.0;
+                        triggerType = "SURGE";
+                        reason = String.format(Locale.ROOT,
+                                "%s price=%.2f from=%.2f surge=+%.2f%%(%ds) confirm=%d/%d",
+                                triggerType, price, surgeFromPrice, surgePct2, surgeWindowSec, newCount, requiredConfirm);
+                    }
 
                     log.info("[MorningRush] BUY signal confirmed: {} | {}", market, reason);
 
+                    // Hourly throttle check
+                    if (!hourlyThrottle.canBuy(market)) {
+                        addDecision(market, "BUY", "BLOCKED", "HOURLY_LIMIT",
+                                String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(market) / 1000));
+                        confirmCounts.remove(market);
+                        priceHistory.remove(market);
+                        continue;
+                    }
+
                     try {
                         executeBuy(market, price, reason, cfg, orderKrw, isLive);
+                        hourlyThrottle.recordBuy(market);
                         rushPosCount++;
+                        // 실시간 TP/SL 캐시에 추가
+                        positionCache.put(market, new double[]{price, 0});
+                        cachedTpPct = cfg.getTpPct().doubleValue();
+                        cachedSlPct = cfg.getSlPct().doubleValue();
                         addDecision(market, "BUY", "EXECUTED", reason);
                     } catch (Exception e) {
                         log.error("[MorningRush] buy execution failed for {}", market, e);
@@ -738,12 +872,14 @@ public class MorningRushScannerService {
 
                     // Remove from tracking to prevent duplicate entries
                     confirmCounts.remove(market);
+                    priceHistory.remove(market);
                     ownedMarkets.add(market);
                 } else {
-                    log.debug("[MorningRush] {} gap confirm {}/{}", market, newCount, requiredConfirm);
+                    log.debug("[MorningRush] {} entry confirm {}/{} (gap={} surge={})",
+                            market, newCount, requiredConfirm, gapCondition, surgeCondition);
                 }
             } else {
-                // Reset confirm count if condition not met
+                // Reset confirm count if neither condition met
                 if (confirmCounts.containsKey(market)) {
                     confirmCounts.put(market, 0);
                 }
@@ -863,8 +999,6 @@ public class MorningRushScannerService {
             }
         }
 
-        // Close WebSocket after session ends
-        closeWebSockets();
         statusText = "IDLE (session ended)";
     }
 
@@ -1076,6 +1210,9 @@ public class MorningRushScannerService {
         synchronized (decisionLog) {
             decisionLog.addFirst(d);
             while (decisionLog.size() > MAX_DECISION_LOG) decisionLog.removeLast();
+        }
+        if ("SKIPPED".equals(result) || "BLOCKED".equals(result) || "ERROR".equals(result)) {
+            log.info("[MorningRush] {} {} {} {} | {}", market, action, result, reasonCode, reasonKo);
         }
     }
 }

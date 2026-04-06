@@ -92,6 +92,7 @@
   const pageSize = document.getElementById('pageSize');
 
   let logTypeMs = null;
+  let logTypeAllOptions = new Set();
   let strategyLabel = new Map();
   let intervalLabel = new Map(); // key->label
   let marketLabel = new Map();   // market code -> display label
@@ -591,6 +592,8 @@
       var selectedTypes = new Set(logTypeMs.getSelected());
       if(selectedTypes.size > 0) filtered = filtered.filter(function(x){
         var type = x.patternType || x.orderType || '';
+        // 미등록 타입(MORNING_RUSH 등)은 항상 통과
+        if(type && !logTypeAllOptions.has(type)) return true;
         return selectedTypes.has(type);
       });
     }
@@ -1474,6 +1477,7 @@
       ];
       var opts = (strategyCatalog || []).map(function(x){ return {value: x.key, label: x.label}; });
       opts = opts.concat(SYSTEM_TYPES);
+      logTypeAllOptions = new Set(opts.map(function(o){ return o.value; }));
       // 기본값: STRATEGY_LOCK 제외한 전부
       var initial = opts.filter(function(o){ return o.value !== 'STRATEGY_LOCK'; }).map(function(o){ return o.value; });
       var root = document.getElementById('logTypeMs');

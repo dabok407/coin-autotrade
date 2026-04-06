@@ -61,7 +61,7 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
 
     // ===== RSI 과매수 필터 =====
     private static final int RSI_PERIOD = 14;
-    private static final double RSI_OVERBOUGHT = 75.0;
+    private static final double RSI_OVERBOUGHT = 83.0; // v4: 75→83 (10일 분석: RSI 70-83 Good율 30-40%)
 
     // ===== 시간 감쇠 파라미터 =====
     private static final int TIME_DECAY_CANDLES = 6; // 6캔들(=30분 @5min) 경과 시
@@ -305,7 +305,8 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
 
         // 5. 트레일링 스탑: peak - trailAtrMult × ATR (이익 구간)
         if (close > avgPrice) {
-            double peakHigh = Indicators.peakHighSinceEntry(candles, avgPrice);
+            java.time.Instant openedAt = ctx.position != null ? ctx.position.getOpenedAt() : null;
+            double peakHigh = Indicators.peakHighSinceEntry(candles, avgPrice, openedAt);
             double trailStop = peakHigh - trailAtrMult * atr;
             if (trailStop > avgPrice && close <= trailStop) {
                 double trailPnl = ((close - avgPrice) / avgPrice) * 100.0;

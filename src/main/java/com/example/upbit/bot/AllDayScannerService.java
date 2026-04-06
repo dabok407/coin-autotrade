@@ -6,9 +6,13 @@ import com.example.upbit.market.TickerService;
 import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.market.UpbitMarketCatalogService;
 import com.example.upbit.strategy.*;
+import com.example.upbit.strategy.Indicators;
 import com.example.upbit.trade.LiveOrderService;
 import com.example.upbit.upbit.UpbitAccount;
 import com.example.upbit.upbit.UpbitPrivateClient;
+
+import com.example.upbit.market.PriceUpdateListener;
+import com.example.upbit.market.SharedPriceService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +42,6 @@ public class AllDayScannerService {
 
     private static final Logger log = LoggerFactory.getLogger(AllDayScannerService.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-
     private final AllDayScannerConfigRepository configRepo;
     private final BotConfigRepository botConfigRepo;
     private final PositionRepository positionRepo;
@@ -49,9 +52,27 @@ public class AllDayScannerService {
     private final UpbitPrivateClient privateClient;
     private final TransactionTemplate txTemplate;
     private final TickerService tickerService;
+    private final SharedPriceService sharedPriceService;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ScheduledExecutorService scheduler;
+
+    // ── 실시간 WebSocket TP (매도 전용 스레드, tick()과 독립) ──
+    private final ExecutorService wsTpExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, "allday-ws-tp-sell");
+            t.setDaemon(true);
+            return t;
+        }
+    });
+    private final ConcurrentHashMap<String, double[]> tpPositionCache = new ConcurrentHashMap<String, double[]>(); // market → [avgPrice]
+    private volatile double cachedTpPct = 2.1;  // 실시간 TP 목표 (%)
+    private volatile PriceUpdateListener priceListener;
+
+    // 당일 09:00 시가 캐시 (Daily Change 계산용)
+    private final ConcurrentHashMap<String, Double> dailyOpenPriceCache = new ConcurrentHashMap<String, Double>();
+    private volatile int dailyOpenCacheDay = -1; // 캐시된 날짜(dayOfYear), 날짜 변경 시 초기화
 
     // Quick TP ticker
     private volatile ScheduledExecutorService tickerExec;
@@ -81,6 +102,9 @@ public class AllDayScannerService {
     // Decision Log (대시보드에서 차단/실행 사유 확인용)
     private static final int MAX_DECISION_LOG = 200;
     private final Deque<ScannerDecision> decisionLog = new ArrayDeque<ScannerDecision>();
+
+    // Hourly trade throttle: 동일 마켓 1시간 내 최대 2회 매수
+    private final HourlyTradeThrottle hourlyThrottle = new HourlyTradeThrottle(2);
 
     /** Result holder for parallel candle fetching */
     private static class CandleFetchResult {
@@ -119,7 +143,8 @@ public class AllDayScannerService {
                                 LiveOrderService liveOrders,
                                 UpbitPrivateClient privateClient,
                                 TransactionTemplate txTemplate,
-                                TickerService tickerService) {
+                                TickerService tickerService,
+                                SharedPriceService sharedPriceService) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -130,6 +155,7 @@ public class AllDayScannerService {
         this.privateClient = privateClient;
         this.txTemplate = txTemplate;
         this.tickerService = tickerService;
+        this.sharedPriceService = sharedPriceService;
     }
 
     // ========== Decision Log ==========
@@ -172,6 +198,10 @@ public class AllDayScannerService {
             decisionLog.addFirst(d);
             while (decisionLog.size() > MAX_DECISION_LOG) decisionLog.removeLast();
         }
+        // 파일 로그 기록 (EXECUTED/ERROR는 이미 별도 로그가 있으므로 SKIP/BLOCKED만)
+        if ("SKIPPED".equals(result) || "BLOCKED".equals(result) || "ERROR".equals(result)) {
+            log.info("[AllDayScanner] {} {} {} {} | {}", market, action, result, reasonCode, reasonKo);
+        }
     }
 
     public List<Map<String, Object>> getRecentDecisions(int limit) {
@@ -204,6 +234,16 @@ public class AllDayScannerService {
                 return t;
             }
         });
+
+        // Register SharedPriceService listener for realtime TP
+        priceListener = new PriceUpdateListener() {
+            @Override
+            public void onPriceUpdate(String market, double price) {
+                checkRealtimeTp(market, price);
+            }
+        };
+        sharedPriceService.addGlobalListener(priceListener);
+
         scheduleTick();
         startQuickTpTicker();
         return true;
@@ -217,6 +257,11 @@ public class AllDayScannerService {
         log.info("[AllDayScanner] stopping...");
         statusText = "STOPPED";
         stopQuickTpTicker();
+        if (priceListener != null) {
+            sharedPriceService.removeGlobalListener(priceListener);
+            priceListener = null;
+        }
+        tpPositionCache.clear();
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
@@ -227,6 +272,11 @@ public class AllDayScannerService {
     @PreDestroy
     public void destroy() {
         stopQuickTpTicker();
+        if (priceListener != null) {
+            sharedPriceService.removeGlobalListener(priceListener);
+            priceListener = null;
+        }
+        wsTpExecutor.shutdownNow();
         parallelExecutor.shutdownNow();
         log.info("[AllDayScanner] parallel executor shut down");
     }
@@ -354,7 +404,10 @@ public class AllDayScannerService {
                         cfg.getMinBodyRatio().doubleValue(),
                         cfg.getMinConfidence().doubleValue())
                 .withTiming(cfg.getSessionEndHour(), cfg.getSessionEndMin())
-                .withTimeStop(cfg.getTimeStopCandles(), cfg.getTimeStopMinPnl().doubleValue());
+                .withTimeStop(cfg.getTimeStopCandles(), cfg.getTimeStopMinPnl().doubleValue())
+                .withTrailActivate(cfg.getTrailActivatePct())
+                .withGracePeriod(cfg.getGracePeriodCandles())
+                .withExitFlags(cfg.isEmaExitEnabled(), cfg.isMacdExitEnabled());
 
         int candleUnit = cfg.getCandleUnitMin();
 
@@ -406,13 +459,24 @@ public class AllDayScannerService {
         lastScannedMarkets = topMarkets;
         scanCount = topMarkets.size();
 
-        // BTC 방향 필터
+        // 당일 09:00 시가 캐시 수집 (날짜 변경 시 또는 첫 틱)
+        int todayDoy = nowKst.getDayOfYear();
+        if (dailyOpenCacheDay != todayDoy) {
+            dailyOpenPriceCache.clear();
+            dailyOpenCacheDay = todayDoy;
+            log.info("[AllDayScanner] 당일 시가 캐시 초기화 (day={})", todayDoy);
+        }
+        if (dailyOpenPriceCache.isEmpty() && !topMarkets.isEmpty()) {
+            collectDailyOpenPrices(topMarkets, candleUnit);
+        }
+
+        // BTC 방향 필터 (C안: 고확신 시그널은 바이패스)
         boolean btcAllowLong = true;
         if (cfg.isBtcFilterEnabled()) {
             btcAllowLong = checkBtcFilter(candleUnit, cfg.getBtcEmaPeriod());
             if (!btcAllowLong) {
-                addDecision("*", "BUY", "BLOCKED", "BTC_FILTER",
-                        "BTC가 EMA" + cfg.getBtcEmaPeriod() + " 아래에 있어 모든 진입이 차단되었습니다.");
+                log.info("[AllDayScanner] BTC filter: close < EMA({}), 고확신 시그널만 진입 허용",
+                        cfg.getBtcEmaPeriod());
             }
         }
 
@@ -423,6 +487,9 @@ public class AllDayScannerService {
             if (pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) continue;
             scannerPositions.add(pe);
         }
+
+        // 실시간 TP WebSocket 동기화 (포지션 캐시 + 연결 관리)
+        syncTpWebSocket(scannerPositions);
 
         if (!scannerPositions.isEmpty()) {
             // Submit parallel candle fetches for all scanner positions
@@ -479,11 +546,10 @@ public class AllDayScannerService {
         }
 
         // ========== Phase 2: BUY signal detection - Parallel candle fetch + evaluation ==========
-        boolean canEnter = btcAllowLong && scannerPosCount < cfg.getMaxPositions() && inEntryWindow;
+        // C안: BTC 필터는 per-signal로 바이패스하므로 canEnter 조건에서 제외
+        boolean canEnter = scannerPosCount < cfg.getMaxPositions() && inEntryWindow;
 
-        if (!canEnter && !btcAllowLong) {
-            // BTC 필터 때문에 진입 불가 (이미 위에서 로깅)
-        } else if (!canEnter && !inEntryWindow) {
+        if (!canEnter && !inEntryWindow) {
             // 엔트리 윈도우 밖 — 매수 차단, 매도만 처리
         } else if (!canEnter) {
             addDecision("*", "BUY", "BLOCKED", "MAX_POSITIONS",
@@ -577,7 +643,9 @@ public class AllDayScannerService {
                     if (candles.isEmpty()) continue;
                     Collections.reverse(candles);
 
-                    StrategyContext ctx = new StrategyContext(market, candleUnit, candles, null, 0);
+                    Double dop = dailyOpenPriceCache.get(market);
+                    StrategyContext ctx = new StrategyContext(market, candleUnit, candles, null, 0,
+                            Collections.<String, Integer>emptyMap(), dop != null ? dop : 0);
                     Signal signal = evalStrategy.evaluate(ctx);
 
                     entryAttempts++;
@@ -588,10 +656,61 @@ public class AllDayScannerService {
                                     "score " + signal.confidence + " < min " + cfgMinConfidence);
                             continue;
                         }
+                        // BTC filter: 고확신 시그널은 바이패스
+                        if (!btcAllowLong) {
+                            addDecision(market, "BUY", "BTC_BYPASS", "BTC_FILTER_BYPASS",
+                                    String.format("BTC 약세지만 고확신(%.1f) 바이패스 진입", signal.confidence));
+                        }
                         buySignals.add(new BuySignal(market, candles.get(candles.size() - 1), signal, candles));
                     } else {
-                        String rejectReason = signal.reason != null ? signal.reason : "UNKNOWN";
-                        addDecision(market, "BUY", "SKIPPED", "NO_SIGNAL", rejectReason);
+                        // Mode 2: Surge Catcher — Mode 1 미통과 시 급등 조건 체크
+                        // 조건: vol≥10x + body≥60% + bo≥0.3% + 양봉 + 시간 10:35~19:30
+                        boolean surgeEntry = false;
+                        if (nowMinOfDay <= 21 * 60) { // 21:00 이전만
+                            UpbitCandle lastCandle = candles.get(candles.size() - 1);
+                            if (lastCandle.trade_price > lastCandle.opening_price) { // 양봉
+                                // Mode2 하락세 필터: EMA50 기울기 -0.3% 이상 하락이면 차단
+                                boolean downtrend = false;
+                                if (candles.size() >= 60) {
+                                    double ema50now = Indicators.ema(candles, 50);
+                                    List<UpbitCandle> prevCandles = candles.subList(0, candles.size() - 10);
+                                    double ema50prev = Indicators.ema(prevCandles, 50);
+                                    if (ema50now > 0 && ema50prev > 0) {
+                                        double slopePct = (ema50now - ema50prev) / ema50prev * 100;
+                                        if (slopePct < -0.3) {
+                                            downtrend = true;
+                                            addDecision(market, "BUY", "SKIPPED", "M2_DOWNTREND",
+                                                    String.format(Locale.ROOT, "M2 하락세 차단 ema50slope=%.3f%%", slopePct));
+                                        }
+                                    }
+                                }
+                                if (downtrend) { /* skip */ }
+                                else {
+                                double avgVolM2 = Indicators.smaVolume(candles, 20);
+                                double volRatioM2 = avgVolM2 > 0 ? lastCandle.candle_acc_trade_volume / avgVolM2 : 0;
+                                double rangeM2 = lastCandle.high_price - lastCandle.low_price;
+                                double bodyRatioM2 = rangeM2 > 0 ? Math.abs(lastCandle.trade_price - lastCandle.opening_price) / rangeM2 : 0;
+                                double recentHighM2 = Indicators.recentHigh(candles, 20);
+                                double boM2 = recentHighM2 > 0 ? (lastCandle.trade_price - recentHighM2) / recentHighM2 * 100 : 0;
+
+                                if (volRatioM2 >= 10.0 && bodyRatioM2 >= 0.60 && boM2 >= 0.3) {
+                                    surgeEntry = true;
+                                    String surgeReason = String.format(Locale.ROOT,
+                                            "[M2_SURGE] close=%.2f vol=%.1fx body=%.0f%% bo=%.2f%%",
+                                            lastCandle.trade_price, volRatioM2, bodyRatioM2 * 100, boM2);
+                                    log.info("[AllDayScanner] Mode2 surge detected: {} | {}", market, surgeReason);
+                                    Signal surgeSignal = Signal.of(SignalAction.BUY,
+                                            StrategyType.HIGH_CONFIDENCE_BREAKOUT, surgeReason, 10.0);
+                                    buySignals.add(new BuySignal(market, lastCandle, surgeSignal, candles));
+                                    addDecision(market, "BUY", "M2_SURGE", "SURGE_DETECTED", surgeReason);
+                                }
+                                } // else (not downtrend)
+                            }
+                        }
+                        if (!surgeEntry) {
+                            String rejectReason = signal.reason != null ? signal.reason : "UNKNOWN";
+                            addDecision(market, "BUY", "SKIPPED", "NO_SIGNAL", rejectReason);
+                        }
                     }
                 } catch (TimeoutException e) {
                     log.error("[AllDayScanner] entry candle fetch timeout for {}", market);
@@ -646,11 +765,21 @@ public class AllDayScannerService {
                     orderKrw = BigDecimal.valueOf(remainingBudget2).setScale(0, RoundingMode.DOWN);
                 }
 
+                // Hourly throttle check
+                if (!hourlyThrottle.canBuy(bs.market)) {
+                    addDecision(bs.market, "BUY", "BLOCKED", "HOURLY_LIMIT",
+                            String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(bs.market) / 1000));
+                    continue;
+                }
+
                 try {
                     executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                    hourlyThrottle.recordBuy(bs.market);
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
+                    // 실시간 TP 캐시에 즉시 등록
+                    tpPositionCache.put(bs.market, new double[]{bs.candle.trade_price});
                     addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
                 } catch (Exception e) {
                     log.error("[AllDayScanner] buy execution failed for {}", bs.market, e);
@@ -1040,6 +1169,144 @@ public class AllDayScannerService {
         addDecision(market, "SELL", "EXECUTED", fSellType, fReason);
     }
 
+    // ========== WebSocket Real-time TP (+2.1% 즉시 익절) ==========
+
+    /**
+     * 실시간 TP 체크: +2.1% 도달 시 즉시 매도 스케줄.
+     * WebSocket 스레드에서 호출 → DB 접근 금지 → scheduler 스레드에서 매도 실행.
+     */
+    private void checkRealtimeTp(final String market, final double price) {
+        double[] pos = tpPositionCache.get(market);
+        if (pos == null) return;
+
+        double avgPrice = pos[0];
+        if (avgPrice <= 0) return;
+
+        double pnlPct = (price - avgPrice) / avgPrice * 100.0;
+
+        if (pnlPct >= cachedTpPct) {
+            // 중복 방지: 캐시에서 즉시 제거
+            if (tpPositionCache.remove(market) == null) return;
+
+            final double fPnlPct = pnlPct;
+            log.info("[AllDayScanner] WS_TP triggered: {} price={} avg={} pnl=+{}%",
+                    market, price, avgPrice, String.format(Locale.ROOT, "%.2f", pnlPct));
+
+            // 매도 전용 스레드에서 즉시 실행 (tick()과 독립, DB 접근 안전)
+            try {
+                wsTpExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        executeSellForWsTp(market, price, fPnlPct);
+                    }
+                });
+            } catch (Exception e) {
+                log.error("[AllDayScanner] WS_TP schedule failed for {}", market, e);
+                // 복구: 캐시 재삽입
+                tpPositionCache.put(market, pos);
+            }
+        }
+    }
+
+    /**
+     * WebSocket TP 매도 실행 (scheduler 스레드에서 호출, DB 접근 안전).
+     */
+    private void executeSellForWsTp(String market, double wsPrice, double pnlPct) {
+        PositionEntity pe = positionRepo.findById(market).orElse(null);
+        if (pe == null || pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("[AllDayScanner] WS_TP: position not found for {} (already sold?)", market);
+            return;
+        }
+
+        AllDayScannerConfigEntity cfg = configRepo.loadOrCreate();
+        double qty = pe.getQty().doubleValue();
+        double avgPrice = pe.getAvgPrice().doubleValue();
+        double fillPrice;
+
+        if ("PAPER".equalsIgnoreCase(cfg.getMode())) {
+            fillPrice = wsPrice * 0.999; // 0.1% slippage
+        } else {
+            if (!liveOrders.isConfigured()) {
+                log.error("[AllDayScanner] WS_TP: LIVE mode but no API key for {}", market);
+                return;
+            }
+            try {
+                LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(market, qty);
+                boolean filled = r.isFilled() || r.executedVolume > 0;
+                if (!filled) {
+                    log.warn("[AllDayScanner] WS_TP: sell not filled for {}", market);
+                    return;
+                }
+                fillPrice = r.avgPrice > 0 ? r.avgPrice : wsPrice;
+            } catch (Exception e) {
+                log.error("[AllDayScanner] WS_TP: sell order failed for {}", market, e);
+                return;
+            }
+        }
+
+        final double fFillPrice = fillPrice;
+        final double fQty = qty;
+        final double pnlKrw = (fFillPrice - avgPrice) * fQty;
+        final double roiPct = avgPrice > 0 ? (fFillPrice - avgPrice) / avgPrice * 100.0 : 0;
+        final String reason = String.format(Locale.ROOT,
+                "WS_TP pnl=+%.2f%% price=%.2f avg=%.2f (realtime)", pnlPct, fFillPrice, avgPrice);
+
+        txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
+                TradeEntity tl = new TradeEntity();
+                tl.setTsEpochMs(System.currentTimeMillis());
+                tl.setMarket(market);
+                tl.setAction("SELL");
+                tl.setPrice(BigDecimal.valueOf(fFillPrice));
+                tl.setQty(BigDecimal.valueOf(fQty));
+                tl.setPnlKrw(BigDecimal.valueOf(Math.round(pnlKrw)));
+                tl.setRoiPercent(BigDecimal.valueOf(roiPct).setScale(2, RoundingMode.HALF_UP));
+                tl.setMode(cfg.getMode());
+                tl.setPatternType("HIGH_CONFIDENCE_BREAKOUT");
+                tl.setPatternReason(reason);
+                tl.setAvgBuyPrice(BigDecimal.valueOf(avgPrice));
+                tl.setCandleUnitMin(cfg.getCandleUnitMin());
+                tradeLogRepo.save(tl);
+                positionRepo.deleteById(market);
+            }
+        });
+
+        log.info("[AllDayScanner] WS_TP SELL {} price={} pnl={} roi={}%",
+                market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
+        addDecision(market, "SELL", "EXECUTED", "WS_TP", reason);
+    }
+
+    /**
+     * tick()에서 호출: 포지션 캐시 동기화 + SharedPriceService 구독 관리.
+     */
+    private void syncTpWebSocket(List<PositionEntity> scannerPositions) {
+        // 1. TP % — DB의 quick_tp_pct를 실시간 WebSocket TP 기준으로 사용
+        AllDayScannerConfigEntity cfg = configRepo.loadOrCreate();
+        cachedTpPct = cfg.getQuickTpPct();
+
+        // 2. 포지션 캐시 동기화
+        Set<String> currentMarkets = new HashSet<String>();
+        for (PositionEntity pe : scannerPositions) {
+            String market = pe.getMarket();
+            currentMarkets.add(market);
+            if (!tpPositionCache.containsKey(market)) {
+                tpPositionCache.put(market, new double[]{pe.getAvgPrice().doubleValue()});
+            }
+        }
+        // 없어진 포지션 제거
+        for (String market : new ArrayList<String>(tpPositionCache.keySet())) {
+            if (!currentMarkets.contains(market)) {
+                tpPositionCache.remove(market);
+            }
+        }
+
+        // 3. SharedPriceService에 포지션 마켓 구독 요청
+        if (!currentMarkets.isEmpty()) {
+            sharedPriceService.ensureMarketsSubscribed(currentMarkets);
+        }
+    }
+
     // ========== Helpers ==========
 
     private BigDecimal calcOrderSize(AllDayScannerConfigEntity cfg) {
@@ -1172,5 +1439,43 @@ public class AllDayScannerService {
             log.error("[AllDayScanner] BTC filter check failed", e);
             return true; // 에러 시 허용
         }
+    }
+
+    /**
+     * 당일 09:00 시가 수집 (Daily Change 계산용).
+     * 각 코인의 09:00 KST 캔들 시가를 조회하여 캐시.
+     */
+    /**
+     * 당일 09:00 시가 수집. 09:05 UTC 기준으로 캔들 1개만 조회하여 시가 확보.
+     * 80개 캔들 의존 없이, 직접 09:00 캔들을 타겟 조회.
+     */
+    private void collectDailyOpenPrices(List<String> markets, int candleUnit) {
+        ZonedDateTime now = ZonedDateTime.now(KST);
+        // 09:05 KST = 00:05 UTC → to 파라미터로 사용
+        String toUtc = now.toLocalDate() + "T00:05:00";
+        for (String market : markets) {
+            try {
+                List<UpbitCandle> candles = candleService.getMinuteCandles(market, candleUnit, 2, toUtc);
+                if (candles == null || candles.isEmpty()) continue;
+                // desc 순서로 반환되므로, 09:00 캔들이 첫 번째 또는 두 번째
+                for (UpbitCandle c : candles) {
+                    ZonedDateTime kst = null;
+                    if (c.candle_date_time_utc != null) {
+                        try {
+                            java.time.LocalDateTime utcLdt = java.time.LocalDateTime.parse(c.candle_date_time_utc);
+                            kst = utcLdt.atZone(java.time.ZoneOffset.UTC).withZoneSameInstant(KST);
+                        } catch (Exception e) { continue; }
+                    }
+                    if (kst != null && kst.toLocalDate().equals(now.toLocalDate())
+                            && kst.getHour() == 9 && kst.getMinute() < candleUnit) {
+                        dailyOpenPriceCache.put(market, c.opening_price);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("[AllDayScanner] dailyOpen fetch failed for {}: {}", market, e.getMessage());
+            }
+        }
+        log.info("[AllDayScanner] 당일 09:00 시가 캐시: {}개 마켓", dailyOpenPriceCache.size());
     }
 }

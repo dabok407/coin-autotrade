@@ -22,7 +22,7 @@ public class AllDayScannerConfigEntity {
     private String mode = "PAPER";
 
     @Column(name = "top_n", nullable = false)
-    private int topN = 15;
+    private int topN = 50;
 
     @Column(name = "max_positions", nullable = false)
     private int maxPositions = 2;
@@ -66,7 +66,7 @@ public class AllDayScannerConfigEntity {
     private BigDecimal minConfidence = BigDecimal.valueOf(9.4);
 
     @Column(name = "time_stop_candles", nullable = false)
-    private int timeStopCandles = 12;
+    private int timeStopCandles = 0;  // V55: 비활성화 (0 = OFF)
 
     @Column(name = "time_stop_min_pnl", nullable = false, precision = 5, scale = 2)
     private BigDecimal timeStopMinPnl = BigDecimal.valueOf(0.3);
@@ -95,10 +95,23 @@ public class AllDayScannerConfigEntity {
     private boolean quickTpEnabled = true;
 
     @Column(name = "quick_tp_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal quickTpPct = BigDecimal.valueOf(0.70);
+    private BigDecimal quickTpPct = BigDecimal.valueOf(2.10);
 
     @Column(name = "quick_tp_interval_sec", nullable = false)
     private int quickTpIntervalSec = 5;
+
+    // ── 신규 청산 파라미터 ──
+    @Column(name = "trail_activate_pct", nullable = false)
+    private double trailActivatePct = 0.5;
+
+    @Column(name = "grace_period_candles", nullable = false)
+    private int gracePeriodCandles = 0;
+
+    @Column(name = "ema_exit_enabled", nullable = false)
+    private boolean emaExitEnabled = true;
+
+    @Column(name = "macd_exit_enabled", nullable = false)
+    private boolean macdExitEnabled = true;
 
     // ========== Getters & Setters ==========
 
@@ -111,7 +124,7 @@ public class AllDayScannerConfigEntity {
     public void setMode(String mode) { this.mode = mode != null ? mode.toUpperCase() : "PAPER"; }
 
     public int getTopN() { return topN; }
-    public void setTopN(int topN) { this.topN = Math.max(1, Math.min(50, topN)); }
+    public void setTopN(int topN) { this.topN = Math.max(1, Math.min(100, topN)); }
 
     public int getMaxPositions() { return maxPositions; }
     public void setMaxPositions(int maxPositions) { this.maxPositions = Math.max(1, Math.min(15, maxPositions)); }
@@ -171,7 +184,7 @@ public class AllDayScannerConfigEntity {
     public void setMinBodyRatio(BigDecimal v) { this.minBodyRatio = v != null ? v : BigDecimal.valueOf(0.60); }
 
     public int getMinPriceKrw() { return minPriceKrw; }
-    public void setMinPriceKrw(int v) { this.minPriceKrw = Math.max(0, v); }
+    public void setMinPriceKrw(int v) { this.minPriceKrw = v; }
 
     public String getExcludeMarkets() { return excludeMarkets != null ? excludeMarkets : ""; }
     public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }
@@ -179,12 +192,24 @@ public class AllDayScannerConfigEntity {
     public boolean isQuickTpEnabled() { return quickTpEnabled; }
     public void setQuickTpEnabled(boolean quickTpEnabled) { this.quickTpEnabled = quickTpEnabled; }
 
-    public double getQuickTpPct() { return quickTpPct != null ? quickTpPct.doubleValue() : 0.70; }
-    public BigDecimal getQuickTpPctBD() { return quickTpPct != null ? quickTpPct : BigDecimal.valueOf(0.70); }
-    public void setQuickTpPct(BigDecimal v) { this.quickTpPct = v != null ? v : BigDecimal.valueOf(0.70); }
+    public double getQuickTpPct() { return quickTpPct != null ? quickTpPct.doubleValue() : 2.10; }
+    public BigDecimal getQuickTpPctBD() { return quickTpPct != null ? quickTpPct : BigDecimal.valueOf(2.10); }
+    public void setQuickTpPct(BigDecimal v) { this.quickTpPct = v != null ? v : BigDecimal.valueOf(2.10); }
 
     public int getQuickTpIntervalSec() { return quickTpIntervalSec; }
     public void setQuickTpIntervalSec(int v) { this.quickTpIntervalSec = Math.max(3, Math.min(60, v)); }
+
+    public double getTrailActivatePct() { return trailActivatePct; }
+    public void setTrailActivatePct(double v) { this.trailActivatePct = Math.max(0, v); }
+
+    public int getGracePeriodCandles() { return gracePeriodCandles; }
+    public void setGracePeriodCandles(int v) { this.gracePeriodCandles = Math.max(0, v); }
+
+    public boolean isEmaExitEnabled() { return emaExitEnabled; }
+    public void setEmaExitEnabled(boolean v) { this.emaExitEnabled = v; }
+
+    public boolean isMacdExitEnabled() { return macdExitEnabled; }
+    public void setMacdExitEnabled(boolean v) { this.macdExitEnabled = v; }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public java.util.Set<String> getExcludeMarketsSet() {

@@ -2,6 +2,7 @@ package com.example.upbit.strategy;
 
 import com.example.upbit.db.PositionEntity;
 import com.example.upbit.market.UpbitCandle;
+import com.example.upbit.strategy.Indicators;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -439,6 +440,75 @@ public class HighConfidenceBreakoutStrategyTest {
                 "Should produce SELL signal for time stop (12+ candles, low PnL)");
         assertNotNull(signal.reason);
         // Could be time stop or any other exit that fires first
+    }
+
+    // ===== Downtrend Filter Tests =====
+
+    /** EMA50 slope < -0.3% → entry blocked as DOWNTREND */
+    @Test
+    public void testDowntrendFilterBlocksEntry() {
+        // Build candles with a steep downtrend: prices declining sharply over 80 candles
+        // EMA50(all 80) vs EMA50(first 70) should show > 0.3% decline
+        List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
+        ZonedDateTime startTime = ZonedDateTime.now(ZoneOffset.UTC).minusMinutes(80 * 5 + 60);
+        double basePrice = 60000;
+        for (int i = 0; i < 80; i++) {
+            UpbitCandle c = new UpbitCandle();
+            c.market = "KRW-TEST";
+            ZonedDateTime candleTime = startTime.plusMinutes((long) i * 5);
+            c.candle_date_time_utc = candleTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+
+            // Steep decline: each candle drops ~200 (total 16000, ~27% drop)
+            double price = basePrice - i * 200;
+            c.opening_price = price + 20;
+            c.trade_price = price - 20;  // bearish candles for most of the series
+            c.high_price = price + 30;
+            c.low_price = price - 30;
+            c.candle_acc_trade_volume = 5000;
+            candles.add(c);
+        }
+        // Make the last candle bullish (to pass the bullish gate) with volume surge
+        UpbitCandle last = candles.get(79);
+        double lastClose = last.trade_price;
+        last.opening_price = lastClose;
+        last.trade_price = lastClose + 300;
+        last.high_price = last.trade_price + 50;
+        last.low_price = last.opening_price - 10;
+        last.candle_acc_trade_volume = 50000; // high volume
+
+        // Verify EMA50 slope is indeed negative (debug)
+        double ema50now = Indicators.ema(candles, 50);
+        double ema50prev = Indicators.ema(candles.subList(0, candles.size() - 10), 50);
+        double slopePct = (ema50now - ema50prev) / ema50prev * 100;
+
+        Signal signal = strategy.evaluate(entryContext(candles));
+        assertEquals(SignalAction.NONE, signal.action,
+                String.format("Clear downtrend should block entry. ema50now=%.2f ema50prev=%.2f slope=%.4f%%",
+                        ema50now, ema50prev, slopePct));
+        assertTrue(signal.reason != null && signal.reason.contains("DOWNTREND"),
+                String.format("Reason should contain DOWNTREND, got: %s (slope=%.4f%%)",
+                        signal.reason, slopePct));
+    }
+
+    /** Sideways/flat market (EMA50 slope ~0) → entry NOT blocked by downtrend filter */
+    @Test
+    public void testSidewaysMarketPassesDowntrendFilter() {
+        // Build flat candles with last candle having a surge
+        List<UpbitCandle> candles = buildFlatCandles(80, 50000);
+        // Make last candle strongly bullish with high volume
+        UpbitCandle last = candles.get(79);
+        last.opening_price = 50000;
+        last.trade_price = 51000;
+        last.high_price = 51100;
+        last.low_price = 49900;
+        last.candle_acc_trade_volume = 50000;
+
+        Signal signal = strategy.evaluate(entryContext(candles));
+        // Should NOT be blocked by DOWNTREND (may be blocked by other reasons)
+        if (signal.action == SignalAction.NONE && signal.reason != null) {
+            assertFalse(signal.reason.contains("DOWNTREND"),
+                    "Sideways market should NOT be blocked by downtrend filter, got: " + signal.reason);
+        }
     }
 
     // ===== Type verification =====

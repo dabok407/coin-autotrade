@@ -195,27 +195,54 @@ public final class Indicators {
      * 못 찾으면 최근 캔들 high를 반환.
      */
     public static double peakHighSinceEntry(List<UpbitCandle> candles, double avgPrice) {
-        if (candles == null || candles.isEmpty()) return avgPrice;
-        double threshold = avgPrice * 0.01; // 1% 범위
-        int entryIdx = -1;
+        return peakHighSinceEntry(candles, avgPrice, null);
+    }
 
-        // 뒤에서부터 탐색 → avgPrice 근처를 지난 캔들 찾기
-        for (int i = candles.size() - 1; i >= 0; i--) {
-            UpbitCandle c = candles.get(i);
-            // 이 캔들의 범위가 avgPrice를 포함하는지 (매수 체결 가능 구간)
-            if (c.low_price <= avgPrice + threshold && c.high_price >= avgPrice - threshold) {
-                entryIdx = i;
-                break;
+    /**
+     * 진입 이후 최고가. openedAt이 주어지면 해당 시각 이후 캔들만 사용.
+     */
+    public static double peakHighSinceEntry(List<UpbitCandle> candles, double avgPrice,
+                                             java.time.Instant openedAt) {
+        if (candles == null || candles.isEmpty()) return avgPrice;
+
+        int startIdx = 0;
+
+        // openedAt 기반 필터링 (있으면 해당 시각 이후 캔들만 사용)
+        if (openedAt != null) {
+            long openedEpochSec = openedAt.getEpochSecond();
+            boolean found = false;
+            for (int i = 0; i < candles.size(); i++) {
+                UpbitCandle c = candles.get(i);
+                if (c.candle_date_time_utc != null) {
+                    try {
+                        long candleEpochSec = java.time.LocalDateTime.parse(c.candle_date_time_utc)
+                                .toEpochSecond(java.time.ZoneOffset.UTC);
+                        if (candleEpochSec >= openedEpochSec) {
+                            startIdx = i;
+                            found = true;
+                            break;
+                        }
+                    } catch (Exception e) { /* ignore */ }
+                }
+            }
+            // openedAt 이후 캔들이 없으면 마지막 캔들만 사용 (이전 고점 무시)
+            if (!found) {
+                startIdx = candles.size() - 1;
+            }
+        } else {
+            // fallback: avgPrice 근처 캔들 탐색
+            double threshold = avgPrice * 0.01;
+            for (int i = candles.size() - 1; i >= 0; i--) {
+                UpbitCandle c = candles.get(i);
+                if (c.low_price <= avgPrice + threshold && c.high_price >= avgPrice - threshold) {
+                    startIdx = i;
+                    break;
+                }
             }
         }
 
-        if (entryIdx < 0) {
-            // 못 찾으면 전체에서 최고 high (보수적)
-            entryIdx = Math.max(0, candles.size() - 50);
-        }
-
         double peak = avgPrice;
-        for (int i = entryIdx; i < candles.size(); i++) {
+        for (int i = startIdx; i < candles.size(); i++) {
             if (candles.get(i).high_price > peak) peak = candles.get(i).high_price;
         }
         return peak;

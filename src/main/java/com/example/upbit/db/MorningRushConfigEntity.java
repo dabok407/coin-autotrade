@@ -68,6 +68,14 @@ public class MorningRushConfigEntity {
     @Column(name = "min_price_krw", nullable = false)
     private int minPriceKrw = 20;
 
+    /** 캔들 중간 급등 감지 임계값 (%). 0이면 비활성화. */
+    @Column(name = "surge_threshold_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal surgeThresholdPct = BigDecimal.valueOf(3.0);
+
+    /** 급등 감지 윈도우 (초). 이 시간 내 surgeThresholdPct 이상 상승 시 진입. */
+    @Column(name = "surge_window_sec", nullable = false)
+    private int surgeWindowSec = 30;
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -121,7 +129,13 @@ public class MorningRushConfigEntity {
     public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }
 
     public int getMinPriceKrw() { return minPriceKrw; }
-    public void setMinPriceKrw(int v) { this.minPriceKrw = Math.max(0, v); }
+    public void setMinPriceKrw(int v) { this.minPriceKrw = v; }
+
+    public BigDecimal getSurgeThresholdPct() { return surgeThresholdPct; }
+    public void setSurgeThresholdPct(BigDecimal v) { this.surgeThresholdPct = v != null ? v : BigDecimal.valueOf(3.0); }
+
+    public int getSurgeWindowSec() { return surgeWindowSec; }
+    public void setSurgeWindowSec(int v) { this.surgeWindowSec = Math.max(5, Math.min(120, v)); }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public Set<String> getExcludeMarketsSet() {

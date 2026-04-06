@@ -24,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Locale;
 
 /**
  * 독립 오프닝 레인지 돌파 스캐너.
@@ -76,6 +77,9 @@ public class OpeningScannerService {
     private static final int MAX_DECISION_LOG = 200;
     private final Deque<ScannerDecision> decisionLog = new ArrayDeque<ScannerDecision>();
 
+    // Hourly trade throttle: 동일 마켓 1시간 내 최대 2회 매수
+    private final HourlyTradeThrottle hourlyThrottle = new HourlyTradeThrottle(2);
+
     /** Result holder for parallel candle fetching */
     private static class CandleFetchResult {
         final String market;
@@ -104,6 +108,12 @@ public class OpeningScannerService {
         }
     }
 
+    private final OpeningBreakoutDetector breakoutDetector;
+
+    // 레인지 고점 맵 (range 수집 후 저장, detector에 전달)
+    private final ConcurrentHashMap<String, Double> rangeHighCache = new ConcurrentHashMap<String, Double>();
+    private volatile boolean breakoutDetectorConnected = false;
+
     public OpeningScannerService(OpeningScannerConfigRepository configRepo,
                                   BotConfigRepository botConfigRepo,
                                   PositionRepository positionRepo,
@@ -112,7 +122,8 @@ public class OpeningScannerService {
                                   UpbitMarketCatalogService catalogService,
                                   LiveOrderService liveOrders,
                                   UpbitPrivateClient privateClient,
-                                  TransactionTemplate txTemplate) {
+                                  TransactionTemplate txTemplate,
+                                  OpeningBreakoutDetector breakoutDetector) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -122,6 +133,7 @@ public class OpeningScannerService {
         this.liveOrders = liveOrders;
         this.privateClient = privateClient;
         this.txTemplate = txTemplate;
+        this.breakoutDetector = breakoutDetector;
     }
 
     // ========== Decision Log ==========
@@ -164,6 +176,9 @@ public class OpeningScannerService {
             decisionLog.addFirst(d);
             while (decisionLog.size() > MAX_DECISION_LOG) decisionLog.removeLast();
         }
+        if ("SKIPPED".equals(result) || "BLOCKED".equals(result) || "ERROR".equals(result)) {
+            log.info("[OpeningScanner] {} {} {} {} | {}", market, action, result, reasonCode, reasonKo);
+        }
     }
 
     public List<Map<String, Object>> getRecentDecisions(int limit) {
@@ -193,6 +208,57 @@ public class OpeningScannerService {
             t.setDaemon(true);
             return t;
         });
+
+        // WebSocket 돌파 감지기 + 실시간 TP 트레일링 콜백 설정
+        breakoutDetector.setBreakoutPct(1.0);
+        breakoutDetector.setRequiredConfirm(3);
+        breakoutDetector.setTpActivatePct(2.3);     // +2.3% 도달 시 트레일링 활성화 (슬리피지 감안)
+        breakoutDetector.setTrailFromPeakPct(1.0);   // 피크에서 -1% 떨어지면 매도
+        breakoutDetector.setListener(new OpeningBreakoutDetector.BreakoutListener() {
+            @Override
+            public void onBreakoutConfirmed(String market, double price, double rangeHigh, double breakoutPctActual) {
+                log.info("[OpeningScanner] WS breakout detected: {} price={} rH={} bo=+{}%",
+                        market, price, rangeHigh, String.format(Locale.ROOT, "%.2f", breakoutPctActual));
+                addDecision(market, "BUY", "WS_BREAKOUT", "BREAKOUT_DETECTED",
+                        String.format(Locale.ROOT, "실시간 돌파 감지: price=%.2f rH=%.2f bo=+%.2f%%",
+                                price, rangeHigh, breakoutPctActual));
+                // 즉시 tick 실행하여 전략 평가
+                if (scheduler != null && !scheduler.isShutdown()) {
+                    scheduler.schedule(new Runnable() {
+                        @Override
+                        public void run() {
+                            tickWrapper();
+                        }
+                    }, 0, TimeUnit.MILLISECONDS);
+                }
+            }
+
+            @Override
+            public void onTpSlTriggered(String market, double price, String sellType, String reason) {
+                log.info("[OpeningScanner] realtime {} triggered: {} | {}", sellType, market, reason);
+                addDecision(market, "SELL", "REALTIME_TP", sellType, reason);
+                // scheduler에서 매도 실행 (DB 접근)
+                if (scheduler != null && !scheduler.isShutdown()) {
+                    final String fMarket = market;
+                    final double fPrice = price;
+                    final String fReason = reason;
+                    scheduler.schedule(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                PositionEntity pe = positionRepo.findById(fMarket).orElse(null);
+                                if (pe == null || pe.getQty() == null
+                                        || pe.getQty().compareTo(java.math.BigDecimal.ZERO) <= 0) return;
+                                executeSellForTp(pe, fPrice, fReason);
+                            } catch (Exception e) {
+                                log.error("[OpeningScanner] realtime TP sell failed for {}", fMarket, e);
+                            }
+                        }
+                    }, 0, TimeUnit.MILLISECONDS);
+                }
+            }
+        });
+
         scheduleTick();
         return true;
     }
@@ -204,6 +270,9 @@ public class OpeningScannerService {
         }
         log.info("[OpeningScanner] stopping...");
         statusText = "STOPPED";
+        breakoutDetector.disconnect();
+        breakoutDetector.reset();
+        breakoutDetectorConnected = false;
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
@@ -360,6 +429,44 @@ public class OpeningScannerService {
         lastScannedMarkets = topMarkets;
         scanCount = topMarkets.size();
 
+        // WebSocket 돌파 감지기: entry window 진입 시 한 번만 연결
+        int entryStart = cfg.getEntryStartHour() * 60 + cfg.getEntryStartMin();
+        int entryEnd = cfg.getEntryEndHour() * 60 + cfg.getEntryEndMin();
+        boolean inEntryWindow = nowMinOfDay >= entryStart && nowMinOfDay <= entryEnd;
+
+        if (inEntryWindow && !breakoutDetectorConnected && !topMarkets.isEmpty()) {
+            // rangeHigh 계산 (서비스 레벨에서 직접)
+            collectRangeHighForDetector(topMarkets, candleUnit, cfg);
+            if (!rangeHighCache.isEmpty()) {
+                breakoutDetector.setRangeHighMap(new HashMap<String, Double>(rangeHighCache));
+                breakoutDetector.connect(new ArrayList<String>(rangeHighCache.keySet()));
+                breakoutDetectorConnected = true;
+                log.info("[OpeningScanner] WebSocket breakout detector connected: {} markets", rangeHighCache.size());
+            }
+        }
+        // entry window 종료 후: 포지션 없으면 WebSocket 해제, 있으면 유지 (실시간 TP용)
+        if (nowMinOfDay > entryEnd && breakoutDetectorConnected && scannerPosCount == 0) {
+            breakoutDetector.disconnect();
+            breakoutDetectorConnected = false;
+            log.info("[OpeningScanner] WebSocket disconnected (no positions)");
+        }
+        // 포지션 있는데 WebSocket 해제된 경우 재연결 (세션 종료 전까지)
+        int sessionEndForWs = cfg.getSessionEndHour() * 60 + cfg.getSessionEndMin();
+        if (!breakoutDetectorConnected && scannerPosCount > 0 && nowMinOfDay < sessionEndForWs) {
+            List<String> posMarkets = new ArrayList<String>();
+            for (PositionEntity pe : allPositions) {
+                if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())
+                        && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                    posMarkets.add(pe.getMarket());
+                }
+            }
+            if (!posMarkets.isEmpty()) {
+                breakoutDetector.connect(posMarkets);
+                breakoutDetectorConnected = true;
+                log.info("[OpeningScanner] WebSocket reconnected for TP monitoring: {} markets", posMarkets.size());
+            }
+        }
+
         // BTC 방향 필터
         boolean btcAllowLong = true;
         if (cfg.isBtcFilterEnabled()) {
@@ -376,6 +483,17 @@ public class OpeningScannerService {
             if (!"SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())) continue;
             if (pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) continue;
             scannerPositions.add(pe);
+        }
+
+        // 기존 포지션을 detector TP 캐시에 등록 (재시작 후 복구)
+        if (!scannerPositions.isEmpty() && breakoutDetectorConnected) {
+            Map<String, Double> posMap = new LinkedHashMap<String, Double>();
+            for (PositionEntity pe : scannerPositions) {
+                if (pe.getAvgPrice() != null) {
+                    posMap.put(pe.getMarket(), pe.getAvgPrice().doubleValue());
+                }
+            }
+            breakoutDetector.updatePositionCache(posMap);
         }
 
         if (!scannerPositions.isEmpty()) {
@@ -591,11 +709,21 @@ public class OpeningScannerService {
                     orderKrw = BigDecimal.valueOf(remainingBudget2).setScale(0, RoundingMode.DOWN);
                 }
 
+                // Hourly throttle check
+                if (!hourlyThrottle.canBuy(bs.market)) {
+                    addDecision(bs.market, "BUY", "BLOCKED", "HOURLY_LIMIT",
+                            String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(bs.market) / 1000));
+                    continue;
+                }
+
                 try {
                     executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                    hourlyThrottle.recordBuy(bs.market);
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
+                    // 실시간 TP 트레일링 캐시에 등록
+                    breakoutDetector.addPosition(bs.market, bs.candle.trade_price);
                     addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
                 } catch (Exception e) {
                     log.error("[OpeningScanner] buy execution failed for {}", bs.market, e);
@@ -949,5 +1077,123 @@ public class OpeningScannerService {
             log.error("[OpeningScanner] BTC filter check failed", e);
             return true; // 에러 시 허용
         }
+    }
+
+    /**
+     * WebSocket 돌파 감지용 rangeHigh 수집.
+     * 각 코인의 08:00~08:59 캔들에서 최고가를 추출하여 rangeHighCache에 저장.
+     */
+    private void collectRangeHighForDetector(List<String> markets, int candleUnit,
+                                              OpeningScannerConfigEntity cfg) {
+        rangeHighCache.clear();
+        ZonedDateTime now = ZonedDateTime.now(KST);
+
+        for (String market : markets) {
+            try {
+                List<UpbitCandle> candles = candleService.getMinuteCandles(market, candleUnit, 80, null);
+                if (candles == null || candles.isEmpty()) continue;
+
+                // desc → asc
+                List<UpbitCandle> asc = new ArrayList<UpbitCandle>(candles);
+                Collections.reverse(asc);
+
+                double rangeHigh = Double.MIN_VALUE;
+                int rangeCount = 0;
+                for (UpbitCandle c : asc) {
+                    String utcStr = c.candle_date_time_utc;
+                    if (utcStr == null) continue;
+                    try {
+                        LocalDateTime utcLdt = LocalDateTime.parse(utcStr);
+                        ZonedDateTime kst = utcLdt.atZone(ZoneOffset.UTC).withZoneSameInstant(KST);
+                        if (kst.toLocalDate().equals(now.toLocalDate())
+                                && kst.getHour() >= cfg.getRangeStartHour()
+                                && kst.getHour() <= cfg.getRangeEndHour()) {
+                            if (kst.getHour() == cfg.getRangeEndHour() && kst.getMinute() > cfg.getRangeEndMin())
+                                continue;
+                            if (c.high_price > rangeHigh) rangeHigh = c.high_price;
+                            rangeCount++;
+                        }
+                    } catch (Exception e) { /* skip */ }
+                }
+
+                if (rangeCount >= 4 && rangeHigh > 0 && rangeHigh < Double.MAX_VALUE) {
+                    rangeHighCache.put(market, rangeHigh);
+                }
+            } catch (Exception e) {
+                log.debug("[OpeningScanner] rangeHigh fetch failed for {}: {}", market, e.getMessage());
+            }
+        }
+        log.info("[OpeningScanner] rangeHigh collected for {} markets (detector)", rangeHighCache.size());
+    }
+
+    /**
+     * 실시간 TP 트레일링 매도 실행.
+     * WebSocket 콜백에서 scheduler를 통해 호출됨.
+     */
+    private void executeSellForTp(PositionEntity pe, double price, String reason) {
+        String market = pe.getMarket();
+        double qty = pe.getQty().doubleValue();
+        double avgPrice = pe.getAvgPrice().doubleValue();
+
+        OpeningScannerConfigEntity cfg = configRepo.loadOrCreate();
+        boolean isPaper = "PAPER".equalsIgnoreCase(cfg.getMode());
+        double fillPrice;
+
+        if (isPaper) {
+            fillPrice = price * 0.999;
+        } else {
+            if (!liveOrders.isConfigured()) {
+                log.error("[OpeningScanner] realtime TP: API 키 미설정 market={}", market);
+                return;
+            }
+            try {
+                LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(market, qty);
+                if (!r.isFilled() && r.executedVolume <= 0) {
+                    log.warn("[OpeningScanner] realtime TP sell not filled: {}", market);
+                    return;
+                }
+                fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
+            } catch (Exception e) {
+                log.error("[OpeningScanner] realtime TP sell failed for {}", market, e);
+                return;
+            }
+        }
+
+        double pnlKrw = (fillPrice - avgPrice) * qty;
+        double fee = fillPrice * qty * 0.0005;
+        pnlKrw -= fee;
+        double roiPct = avgPrice > 0 ? ((fillPrice - avgPrice) / avgPrice) * 100.0 : 0;
+
+        final double fFillPrice = fillPrice;
+        final double fPnlKrw = pnlKrw;
+        final double fRoiPct = roiPct;
+        final String fReason = reason;
+        final String fMode = cfg.getMode();
+        final BigDecimal peAvgPrice = pe.getAvgPrice();
+
+        txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
+                TradeEntity tl = new TradeEntity();
+                tl.setTsEpochMs(System.currentTimeMillis());
+                tl.setMarket(market);
+                tl.setAction("SELL");
+                tl.setPrice(BigDecimal.valueOf(fFillPrice));
+                tl.setQty(BigDecimal.valueOf(qty));
+                tl.setPnlKrw(BigDecimal.valueOf(fPnlKrw));
+                tl.setRoiPercent(BigDecimal.valueOf(fRoiPct));
+                tl.setMode(fMode);
+                tl.setPatternType("SCALP_OPENING_BREAK");
+                tl.setPatternReason(fReason);
+                tl.setAvgBuyPrice(peAvgPrice);
+                tl.setNote("TP_TRAIL_REALTIME");
+                tl.setCandleUnitMin(5);
+                tradeLogRepo.save(tl);
+                positionRepo.deleteById(market);
+            }
+        });
+
+        log.info("[OpeningScanner] REALTIME TP {} price={} pnl={} roi={}% reason={}",
+                market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct), reason);
     }
 }

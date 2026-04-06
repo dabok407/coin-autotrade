@@ -2,6 +2,7 @@ package com.example.upbit.bot;
 
 import com.example.upbit.db.*;
 import com.example.upbit.market.CandleService;
+import com.example.upbit.market.SharedPriceService;
 import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.market.UpbitMarketCatalogService;
 import com.example.upbit.trade.LiveOrderService;
@@ -53,6 +54,7 @@ public class AllDayScannerServiceTest {
     @Mock private UpbitPrivateClient privateClient;
     @Mock private TransactionTemplate txTemplate;
     @Mock private com.example.upbit.market.TickerService tickerService;
+    @Mock private SharedPriceService sharedPriceService;
 
     private AllDayScannerService scanner;
 
@@ -61,7 +63,7 @@ public class AllDayScannerServiceTest {
         scanner = new AllDayScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService
+                tickerService, sharedPriceService
         );
         // Set running=true so tick() doesn't return early
         Field runningField = AllDayScannerService.class.getDeclaredField("running");

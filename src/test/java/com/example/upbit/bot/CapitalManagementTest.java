@@ -2,6 +2,7 @@ package com.example.upbit.bot;
 
 import com.example.upbit.db.*;
 import com.example.upbit.market.CandleService;
+import com.example.upbit.market.SharedPriceService;
 import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.market.UpbitMarketCatalogService;
 import com.example.upbit.trade.LiveOrderService;
@@ -56,7 +57,8 @@ public class CapitalManagementTest {
     public void setUp() throws Exception {
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
-                candleService, catalogService, liveOrders, privateClient, txTemplate
+                candleService, catalogService, liveOrders, privateClient, txTemplate,
+                new OpeningBreakoutDetector(mock(SharedPriceService.class))
         );
         // Set running=true so tick() doesn't return early
         java.lang.reflect.Field runningField = OpeningScannerService.class.getDeclaredField("running");
