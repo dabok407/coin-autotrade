@@ -30,15 +30,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 모닝 러쉬 스캐너 — 09:00 KST 갭업 스파이크를 잡는 단기 스캐너.
  *
  * 흐름:
- * 1. 08:50 ~ 09:00 — 전일 08:00-09:00 레인지(고가) 수집 (Ticker API)
+ * 1. 08:50 ~ 09:00 — Ticker API를 1초마다 폴링하며 현재가(trade_price)의 최대값을
+ *                    rangeHigh로 추적. (10분 prelude window)
  * 2. 09:00 ~ 09:05 — WebSocket 실시간 가격 피드로 갭업 확인
  *    - price > rangeHigh × (1 + gapThreshold%) 를 confirmCount 연속 통과 → BUY
+ *    - (또는 surge 윈도우 내 최저가 대비 surgeThreshold% 이상 상승)
  *    - 24시간 거래대금 > 기준 거래대금 × volumeMult
- * 3. 09:05 ~ 10:00 — WebSocket 실시간 TP/SL 모니터링
- * 4. 10:00 — 강제 청산
+ * 3. 09:05 ~ session_end — WebSocket 실시간 TP/SL 모니터링
+ * 4. session_end (DB 컬럼, V104 기준 11:30) — 강제 청산
  *
- * WebSocket: Upbit wss://api.upbit.com/websocket/v1 (ticker)
- * Fallback: WebSocket 5회 재연결 실패 시 REST Ticker API 폴링으로 전환
+ * 페이즈 타이밍은 V105부터 DB 컬럼화 (range/entry start/end 컬럼 참조).
+ * WebSocket: SharedPriceService 글로벌 리스너 (Upbit ticker)
+ * Fallback: SharedPriceService에 가격 데이터 없으면 Ticker REST 폴링
  */
 @Service
 public class MorningRushScannerService {
