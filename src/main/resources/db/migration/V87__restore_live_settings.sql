@@ -1,0 +1,41 @@
+-- ===========================================
+-- LIVE 설정 원복 (E2E 테스트 후)
+-- ===========================================
+
+-- 모닝러쉬: LIVE 모드, 정상 파라미터 (시간대는 코드에서 하드코딩)
+UPDATE morning_rush_config SET
+  mode = 'LIVE',
+  session_end_hour = 10, session_end_min = 0,
+  gap_threshold_pct = 2.0,
+  volume_mult = 5.0,
+  confirm_count = 3,
+  tp_pct = 2.3,
+  sl_pct = 3.0
+WHERE id = 1;
+
+-- 오프닝 스캐너: LIVE 모드, 정상 시간대
+UPDATE opening_scanner_config SET
+  mode = 'LIVE',
+  range_start_hour = 8, range_start_min = 0,
+  range_end_hour = 8, range_end_min = 59,
+  entry_start_hour = 9, entry_start_min = 0,
+  entry_end_hour = 10, entry_end_min = 30,
+  session_end_hour = 12, session_end_min = 0
+WHERE id = 1;
+
+-- 종일 스캐너: LIVE 모드, 정상 시간대, min_confidence 7.5
+UPDATE allday_scanner_config SET
+  mode = 'LIVE',
+  entry_start_hour = 10, entry_start_min = 30,
+  entry_end_hour = 22, entry_end_min = 0,
+  quick_tp_pct = 2.3,
+  min_confidence = 7.5
+WHERE id = 1;
+
+-- 봇 설정: 자본금 원복
+UPDATE bot_config SET
+  capital_krw = 600000
+WHERE id = 1;
+
+-- 테스트 PAPER 포지션 정리
+DELETE FROM position WHERE entry_strategy IN ('SCALP_OPENING_BREAK', 'HIGH_CONFIDENCE_BREAKOUT', 'MORNING_RUSH');

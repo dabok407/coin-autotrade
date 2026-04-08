@@ -160,7 +160,7 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
             double ema50prev = Indicators.ema(prevCandles, 50);
             if (ema50now > 0 && ema50prev > 0) {
                 double slopePct = (ema50now - ema50prev) / ema50prev * 100;
-                if (slopePct < -0.3) {
+                if (slopePct < -0.5) {
                     return Signal.none(String.format(Locale.ROOT, "DOWNTREND ema50slope=%.3f%%", slopePct));
                 }
             }
@@ -169,16 +169,17 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
         // ── 6-Factor Scoring (내부 max 9.5 → ×1.053 → 10.0 환산) ──
         double rawScore = 0.0;
 
-        // Factor 1 - Volume Surge (max 2.5, Hard Gate: <2x 차단)
+        // Factor 1 - Volume Surge (max 3.0, Hard Gate: <2x 차단)
         double curVol = last.candle_acc_trade_volume;
         double avgVol = Indicators.smaVolume(candles, VOLUME_AVG_PERIOD);
         double volRatio = avgVol > 0 ? curVol / avgVol : 0;
         if (volRatio < 2.0) return Signal.none(String.format(Locale.ROOT,
                 "VOL_GATE vol=%.1fx < 2.0x", volRatio));
         double f1 = 0;
-        if (volRatio >= 10.0) f1 = 2.5;
-        else if (volRatio >= 5.0) f1 = 1.2;
-        else if (volRatio >= 3.0) f1 = 0.5;
+        if (volRatio >= 10.0) f1 = 3.0;
+        else if (volRatio >= 7.0) f1 = 2.2;
+        else if (volRatio >= 5.0) f1 = 1.5;
+        else if (volRatio >= 3.0) f1 = 0.7;
         else f1 = 0.2; // 2.0~3.0x
         rawScore += f1;
 
@@ -207,11 +208,12 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
                 "DAY_GATE day=%+.1f%% <= 0%%", dailyChange));
         double f2 = 0;
         if (dailyChange >= 1.0 && dailyChange < 4.0) f2 = 1.5;
-        else if (dailyChange >= 4.0 && dailyChange < 7.0) f2 = 1.1;
+        else if (dailyChange >= 4.0 && dailyChange < 7.0) f2 = 1.2;
         else if (dailyChange >= 0.3 && dailyChange < 1.0) f2 = 1.0;
-        else if (dailyChange >= 7.0 && dailyChange < 10.0) f2 = 0.5;
+        else if (dailyChange >= 7.0 && dailyChange < 15.0) f2 = 0.8;
+        else if (dailyChange >= 15.0 && dailyChange < 30.0) f2 = 0.5;
         else if (dailyChange > 0 && dailyChange < 0.3) f2 = 0.3;
-        else if (dailyChange >= 10.0) f2 = 0.3;
+        else if (dailyChange >= 30.0) f2 = 0.2;
         rawScore += f2;
 
         // Factor 3 - RSI (max 1.0)
@@ -244,35 +246,45 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
         double f5 = 0;
         if (bodyRatio >= 0.70) f5 = 1.0;
         else if (bodyRatio >= 0.60) f5 = 0.7;
-        else if (bodyRatio >= 0.50) f5 = 0.3;
+        else if (bodyRatio >= 0.50) f5 = 0.4;
+        else if (bodyRatio >= 0.30) f5 = 0.2;
         rawScore += f5;
 
-        // Factor 6 - New High Breakout (max 2.0, Hard Gate: ≤0% 차단)
+        // Factor 6 - Breakout Strength (max 2.0, Hard Gate: bo≤0% 차단)
+        // bo%: 20봉 신고가 돌파율, candleSurge%: 이전봉 대비 상승률
+        // 둘 중 높은 값으로 평가 → 횡보 미세돌파 차단 + 급등 포착
         double recentHigh = Indicators.recentHigh(candles, 20);
         double breakoutPct = recentHigh > 0 ? (close - recentHigh) / recentHigh * 100 : 0;
         if (breakoutPct <= 0) return Signal.none(String.format(Locale.ROOT,
                 "BO_GATE bo=%.2f%% <= 0%%", breakoutPct));
+        double candleSurge = 0;
+        if (candles.size() >= 2) {
+            double prevClose = candles.get(candles.size() - 2).trade_price;
+            if (prevClose > 0) candleSurge = (close - prevClose) / prevClose * 100;
+        }
+        double effectiveBreakout = Math.max(breakoutPct, candleSurge);
         double f6 = 0;
-        if (breakoutPct >= 2.0) f6 = 2.0;
-        else if (breakoutPct >= 1.0) f6 = 1.2;
-        else if (breakoutPct >= 0.5) f6 = 0.5;
+        if (effectiveBreakout >= 3.3) f6 = 2.0;
+        else if (effectiveBreakout >= 2.0) f6 = 1.5;
+        else if (effectiveBreakout >= 1.0) f6 = 0.8;
+        else if (effectiveBreakout >= 0.5) f6 = 0.3;
         else f6 = 0.1; // 0~0.5%
         rawScore += f6;
 
-        // 10점 만점 환산 (rawMax 9.5 → 10.0)
-        double score = Math.min(10.0, rawScore * (10.0 / 9.5));
+        // 10점 만점 (rawMax = f1:3.0 + f2:1.5 + f3:1.0 + f4:1.5 + f5:1.0 + f6:2.0 = 10.0)
+        double score = Math.min(10.0, rawScore);
 
         if (score < minConfidence) return Signal.none(String.format(Locale.ROOT,
-                "LOW_SCORE %.1f<%.1f vol=%.1fx day=%+.1f%% rsi=%.0f ema21=%s bo=%.2f%% body=%.0f%%",
+                "LOW_SCORE %.1f<%.1f vol=%.1fx day=%+.1f%% rsi=%.0f ema21=%s bo=%.2f%% surge=%.2f%% body=%.0f%%",
                 score, minConfidence, volRatio, dailyChange, rsi,
                 (ema21Rising ? "UP" : "DN") + (priceAboveEma21 ? "+ABV" : ""),
-                breakoutPct, bodyRatio * 100));
+                breakoutPct, candleSurge, bodyRatio * 100));
 
         String reason = String.format(Locale.ROOT,
-                "HC_BREAK close=%.2f score=%.1f vol=%.1fx day=%+.1f%% rsi=%.0f ema21=%s bo=%.2f%% body=%.0f%%",
+                "HC_BREAK close=%.2f score=%.1f vol=%.1fx day=%+.1f%% rsi=%.0f ema21=%s bo=%.2f%% surge=%.2f%% body=%.0f%%",
                 close, score, volRatio, dailyChange, rsi,
                 (ema21Rising ? "UP" : "DN") + (priceAboveEma21 ? "+ABV" : ""),
-                breakoutPct, bodyRatio * 100);
+                breakoutPct, candleSurge, bodyRatio * 100);
         return Signal.of(SignalAction.BUY, type(), reason, score);
     }
 

@@ -77,8 +77,14 @@ public class OpeningScannerService {
     private static final int MAX_DECISION_LOG = 200;
     private final Deque<ScannerDecision> decisionLog = new ArrayDeque<ScannerDecision>();
 
-    // Hourly trade throttle: 동일 마켓 1시간 내 최대 2회 매수
-    private final HourlyTradeThrottle hourlyThrottle = new HourlyTradeThrottle(2);
+    // Hourly trade throttle: 3개 스캐너가 공유하는 단일 인스턴스
+    // (2026-04-08 KRW-TREE 사고: 분리된 throttle로 같은 코인 동시 매수 발생)
+    private final SharedTradeThrottle hourlyThrottle;
+
+    // 매도 후 재매수 쿨다운: 동일 마켓 매도 후 5분간 재매수 차단 (BERA 반복매매 방지)
+    // 5분봉 1주기 = 300초, 같은 캔들 데이터로 재진입 방지
+    private static final long SELL_COOLDOWN_MS = 300_000L;
+    private final ConcurrentHashMap<String, Long> sellCooldownMap = new ConcurrentHashMap<String, Long>();
 
     /** Result holder for parallel candle fetching */
     private static class CandleFetchResult {
@@ -114,6 +120,13 @@ public class OpeningScannerService {
     private final ConcurrentHashMap<String, Double> rangeHighCache = new ConcurrentHashMap<String, Double>();
     private volatile boolean breakoutDetectorConnected = false;
 
+    // 옵션 B: 1분봉 사전 캐시 (매분 0~5초에 갱신, WS 돌파 시 즉시 사용)
+    // 키: market, 값: 최근 60개 1분봉 (지표 계산용)
+    private final ConcurrentHashMap<String, List<UpbitCandle>> oneMinCandleCache = new ConcurrentHashMap<String, List<UpbitCandle>>();
+    private volatile long lastPrecacheEpochMs = 0;
+    // WS 돌파 처리 중복 방지 (중복 매수 방지)
+    private final Set<String> wsBreakoutProcessing = ConcurrentHashMap.newKeySet();
+
     public OpeningScannerService(OpeningScannerConfigRepository configRepo,
                                   BotConfigRepository botConfigRepo,
                                   PositionRepository positionRepo,
@@ -123,7 +136,8 @@ public class OpeningScannerService {
                                   LiveOrderService liveOrders,
                                   UpbitPrivateClient privateClient,
                                   TransactionTemplate txTemplate,
-                                  OpeningBreakoutDetector breakoutDetector) {
+                                  OpeningBreakoutDetector breakoutDetector,
+                                  SharedTradeThrottle hourlyThrottle) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -134,6 +148,7 @@ public class OpeningScannerService {
         this.privateClient = privateClient;
         this.txTemplate = txTemplate;
         this.breakoutDetector = breakoutDetector;
+        this.hourlyThrottle = hourlyThrottle;
     }
 
     // ========== Decision Log ==========
@@ -222,12 +237,20 @@ public class OpeningScannerService {
                 addDecision(market, "BUY", "WS_BREAKOUT", "BREAKOUT_DETECTED",
                         String.format(Locale.ROOT, "실시간 돌파 감지: price=%.2f rH=%.2f bo=+%.2f%%",
                                 price, rangeHigh, breakoutPctActual));
-                // 즉시 tick 실행하여 전략 평가
+                // 옵션 B: WS 돌파 감지 즉시 1분봉 캐시 기반 빠른 매수 시도
+                final String fMarket = market;
+                final double fPrice = price;
+                final double fRangeHigh = rangeHigh;
+                final double fBreakoutPctActual = breakoutPctActual;
                 if (scheduler != null && !scheduler.isShutdown()) {
                     scheduler.schedule(new Runnable() {
                         @Override
                         public void run() {
-                            tickWrapper();
+                            try {
+                                tryWsBreakoutBuy(fMarket, fPrice, fRangeHigh, fBreakoutPctActual);
+                            } catch (Exception e) {
+                                log.error("[OpeningScanner] WS breakout buy failed for {}", fMarket, e);
+                            }
                         }
                     }, 0, TimeUnit.MILLISECONDS);
                 }
@@ -260,6 +283,19 @@ public class OpeningScannerService {
         });
 
         scheduleTick();
+
+        // 옵션 B: 1분봉 사전 캐시 스케줄러 (10초 주기로 갱신)
+        scheduler.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    precacheOneMinCandles();
+                } catch (Exception e) {
+                    log.debug("[OpeningScanner] precache 1min candles failed: {}", e.getMessage());
+                }
+            }
+        }, 5, 10, TimeUnit.SECONDS);
+
         return true;
     }
 
@@ -337,14 +373,36 @@ public class OpeningScannerService {
             return;
         }
 
+        // SL 종합안 + TOP-N 차등 설정 캐시 갱신 (DB → BreakoutDetector)
+        breakoutDetector.updateSlConfig(
+                cfg.getGracePeriodSec(),
+                cfg.getWidePeriodMin(),
+                cfg.getWideSlTop10Pct().doubleValue(),
+                cfg.getWideSlTop20Pct().doubleValue(),
+                cfg.getWideSlTop50Pct().doubleValue(),
+                cfg.getWideSlOtherPct().doubleValue(),
+                cfg.getTightSlPct().doubleValue()
+        );
+
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
         int nowMinOfDay = nowKst.getHour() * 60 + nowKst.getMinute();
         int rangeStart = cfg.getRangeStartHour() * 60 + cfg.getRangeStartMin();
         int sessionEnd = cfg.getSessionEndHour() * 60 + cfg.getSessionEndMin();
 
-        // 활성 시간 밖이면 스킵 (레인지 시작 ~ 세션 종료 + 30분 여유)
-        if (nowMinOfDay < rangeStart || nowMinOfDay > sessionEnd + 30) {
+        // 활성 시간 밖이면 스킵
+        // sessionEnd < 12:00이면 오버나잇 세션 → 익일 새벽까지 보유 → 항상 active 유지
+        // 단 02:00~07:00은 IDLE (포지션 모니터링은 별도 WebSocket으로)
+        boolean isOvernight = sessionEnd < 12 * 60;
+        boolean inActiveHours;
+        if (isOvernight) {
+            // 오버나잇: rangeStart ~ 23:59 OR 00:00 ~ sessionEnd+30 OR 다음날 영역
+            // 02:00~07:00 IDLE 시간만 제외
+            inActiveHours = !(nowMinOfDay >= 2 * 60 && nowMinOfDay < 7 * 60);
+        } else {
+            inActiveHours = nowMinOfDay >= rangeStart && nowMinOfDay <= sessionEnd + 30;
+        }
+        if (!inActiveHours) {
             statusText = "IDLE (outside hours)";
             return;
         }
@@ -365,6 +423,7 @@ public class OpeningScannerService {
         }
 
         // 전략 인스턴스 생성 (파라미터 오버라이드)
+        // SL 종합안: tight = cfg.getSlPct() (V100=3.0%), wide = cfg.getWideSlOtherPct() (V103=6.0%)
         ScalpOpeningBreakStrategy strategy = new ScalpOpeningBreakStrategy()
                 .withTiming(cfg.getRangeStartHour(), cfg.getRangeStartMin(),
                         cfg.getRangeEndHour(), cfg.getRangeEndMin(),
@@ -374,6 +433,9 @@ public class OpeningScannerService {
                 .withRisk(cfg.getTpAtrMult().doubleValue(),
                         cfg.getSlPct().doubleValue(),
                         cfg.getTrailAtrMult().doubleValue())
+                .withSlAdvanced(cfg.getGracePeriodSec(),
+                        cfg.getWidePeriodMin(),
+                        cfg.getWideSlOtherPct().doubleValue())
                 .withFilters(cfg.getVolumeMult().doubleValue(),
                         cfg.getMinBodyRatio().doubleValue())
                 .withOpenFailedEnabled(cfg.isOpenFailedEnabled());
@@ -451,8 +513,11 @@ public class OpeningScannerService {
             log.info("[OpeningScanner] WebSocket disconnected (no positions)");
         }
         // 포지션 있는데 WebSocket 해제된 경우 재연결 (세션 종료 전까지)
+        // 오버나잇 세션이면 항상 재연결 (포지션이 있는 한)
         int sessionEndForWs = cfg.getSessionEndHour() * 60 + cfg.getSessionEndMin();
-        if (!breakoutDetectorConnected && scannerPosCount > 0 && nowMinOfDay < sessionEndForWs) {
+        boolean isOvernightWs = sessionEndForWs < 12 * 60;
+        boolean wsAllowed = isOvernightWs || nowMinOfDay < sessionEndForWs;
+        if (!breakoutDetectorConnected && scannerPosCount > 0 && wsAllowed) {
             List<String> posMarkets = new ArrayList<String>();
             for (PositionEntity pe : allPositions) {
                 if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())
@@ -488,12 +553,16 @@ public class OpeningScannerService {
         // 기존 포지션을 detector TP 캐시에 등록 (재시작 후 복구)
         if (!scannerPositions.isEmpty() && breakoutDetectorConnected) {
             Map<String, Double> posMap = new LinkedHashMap<String, Double>();
+            Map<String, Long> openedAtMap = new LinkedHashMap<String, Long>();
             for (PositionEntity pe : scannerPositions) {
                 if (pe.getAvgPrice() != null) {
                     posMap.put(pe.getMarket(), pe.getAvgPrice().doubleValue());
+                    if (pe.getOpenedAt() != null) {
+                        openedAtMap.put(pe.getMarket(), pe.getOpenedAt().toEpochMilli());
+                    }
                 }
             }
-            breakoutDetector.updatePositionCache(posMap);
+            breakoutDetector.updatePositionCache(posMap, openedAtMap);
         }
 
         if (!scannerPositions.isEmpty()) {
@@ -605,6 +674,14 @@ public class OpeningScannerService {
                     }
                 }
                 if (!alreadyHas) {
+                    // 매도 후 재매수 쿨다운 체크 (60초)
+                    Long lastSellTime = sellCooldownMap.get(market);
+                    if (lastSellTime != null && System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
+                        long remainSec = (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) / 1000;
+                        addDecision(market, "BUY", "BLOCKED", "SELL_COOLDOWN",
+                                String.format("매도 후 %d초 쿨다운 남음", remainSec));
+                        continue;
+                    }
                     entryCandidates.add(market);
                 }
             }
@@ -722,8 +799,10 @@ public class OpeningScannerService {
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
-                    // 실시간 TP 트레일링 캐시에 등록
-                    breakoutDetector.addPosition(bs.market, bs.candle.trade_price);
+                    // 실시간 TP/SL 종합안 캐시에 등록 (openedAt = 현재, volumeRank 포함)
+                    int volumeRank = breakoutDetector.getSharedPriceService() != null
+                            ? breakoutDetector.getSharedPriceService().getVolumeRank(bs.market) : 999;
+                    breakoutDetector.addPosition(bs.market, bs.candle.trade_price, System.currentTimeMillis(), volumeRank);
                     addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
                 } catch (Exception e) {
                     log.error("[OpeningScanner] buy execution failed for {}", bs.market, e);
@@ -751,6 +830,19 @@ public class OpeningScannerService {
             log.warn("[OpeningScanner] order too small: {} KRW for {}", orderKrw, market);
             addDecision(market, "BUY", "BLOCKED", "ORDER_TOO_SMALL",
                     String.format("주문 금액 %s원이 최소 5,000원 미만", orderKrw.toPlainString()));
+            return;
+        }
+
+        // 사전 중복 포지션 차단 (KRW-TREE orphan 사고 재발 방지)
+        // 다른 스캐너가 이미 매수한 코인인지 DB에서 한 번 더 확인
+        PositionEntity existing = positionRepo.findById(market).orElse(null);
+        if (existing != null && existing.getQty() != null
+                && existing.getQty().compareTo(BigDecimal.ZERO) > 0) {
+            log.warn("[OpeningScanner] DUPLICATE_POSITION blocked: {} already held by {} qty={}",
+                    market, existing.getEntryStrategy(), existing.getQty());
+            addDecision(market, "BUY", "BLOCKED", "DUPLICATE_POSITION",
+                    String.format("이미 보유 중 (전략=%s qty=%s) — 중복 매수 차단",
+                            existing.getEntryStrategy(), existing.getQty().toPlainString()));
             return;
         }
 
@@ -931,6 +1023,12 @@ public class OpeningScannerService {
                 positionRepo.deleteById(peMarket);
             }
         });
+
+        // 매도 후 재매수 쿨다운 기록 (BERA 반복매매 방지)
+        sellCooldownMap.put(pe.getMarket(), System.currentTimeMillis());
+
+        // BREAKOUT 재감지 허용 (DRIFT 사고 방지) — 즉시 재매수는 sellCooldownMap이 차단
+        breakoutDetector.releaseMarket(pe.getMarket());
 
         log.info("[OpeningScanner] SELL {} price={} pnl={} roi={}% reason={}",
                 pe.getMarket(), fillPrice, String.format("%.0f", pnlKrw),
@@ -1193,7 +1291,220 @@ public class OpeningScannerService {
             }
         });
 
+        // 매도 후 재매수 쿨다운 기록
+        sellCooldownMap.put(market, System.currentTimeMillis());
+
+        // BREAKOUT 재감지 허용 (DRIFT 사고 방지) — 즉시 재매수는 sellCooldownMap이 차단
+        breakoutDetector.releaseMarket(market);
+
         log.info("[OpeningScanner] REALTIME TP {} price={} pnl={} roi={}% reason={}",
                 market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct), reason);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  옵션 B: 1분봉 사전 캐시 + WS 즉시 진입
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * 매 10초마다 호출됨. 진입 윈도우(09:05~10:30) 동안만 동작.
+     * rangeHighCache의 모든 종목에 대해 1분봉 60개를 사전에 fetch해서 메모리 캐시.
+     * WS 돌파 감지 시 이 캐시를 즉시 사용하여 빠른 필터 검사.
+     */
+    private void precacheOneMinCandles() {
+        if (!running.get()) return;
+
+        OpeningScannerConfigEntity cfg;
+        try {
+            cfg = configRepo.findById(1).orElse(null);
+        } catch (Exception e) {
+            return;
+        }
+        if (cfg == null || !cfg.isEnabled()) return;
+
+        // 진입 윈도우 안에서만 캐시 갱신 (불필요한 API 호출 방지)
+        ZonedDateTime nowKst = ZonedDateTime.now(KST);
+        int nowMin = nowKst.getHour() * 60 + nowKst.getMinute();
+        int entryStart = cfg.getEntryStartHour() * 60 + cfg.getEntryStartMin();
+        int entryEnd = cfg.getEntryEndHour() * 60 + cfg.getEntryEndMin();
+        if (nowMin < entryStart || nowMin > entryEnd) return;
+
+        if (rangeHighCache.isEmpty()) return;
+
+        // 캐시 갱신 (병렬 fetch)
+        long startMs = System.currentTimeMillis();
+        List<String> markets = new ArrayList<String>(rangeHighCache.keySet());
+        int success = 0;
+        for (String market : markets) {
+            try {
+                List<UpbitCandle> candles = candleService.getMinuteCandlesPaged(market, 1, 60);
+                if (candles != null && !candles.isEmpty()) {
+                    oneMinCandleCache.put(market, candles);
+                    success++;
+                }
+            } catch (Exception e) {
+                // 개별 실패는 무시
+            }
+        }
+        lastPrecacheEpochMs = System.currentTimeMillis();
+        long elapsed = lastPrecacheEpochMs - startMs;
+        log.info("[OpeningScanner] 1min candle cache: {}/{} markets ({}ms)",
+                success, markets.size(), elapsed);
+    }
+
+    /**
+     * WS 돌파 감지 시 호출됨.
+     * 1분봉 캐시를 사용해 즉시 필터 검사 + 매수.
+     * 검사가 통과하면 ScalpOpeningBreakStrategy 호출 없이 즉시 매수.
+     */
+    private void tryWsBreakoutBuy(String market, double wsPrice, double rangeHigh, double breakoutPctActual) {
+        if (!running.get()) return;
+
+        // 중복 처리 방지 (같은 종목 동시 처리 차단)
+        if (!wsBreakoutProcessing.add(market)) {
+            log.debug("[OpeningScanner] {} WS buy already in progress", market);
+            return;
+        }
+
+        try {
+            OpeningScannerConfigEntity cfg = configRepo.findById(1).orElse(null);
+            if (cfg == null || !cfg.isEnabled()) return;
+
+            // 매도 쿨다운 체크
+            Long lastSell = sellCooldownMap.get(market);
+            if (lastSell != null && System.currentTimeMillis() - lastSell < SELL_COOLDOWN_MS) {
+                long remainSec = (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSell)) / 1000;
+                addDecision(market, "BUY", "BLOCKED", "SELL_COOLDOWN",
+                        "매도 후 " + remainSec + "초 쿨다운 남음 (WS)");
+                return;
+            }
+
+            // 시간당 throttle
+            if (!hourlyThrottle.canBuy(market)) {
+                long remainSec = hourlyThrottle.remainingWaitMs(market) / 1000;
+                addDecision(market, "BUY", "BLOCKED", "HOURLY_LIMIT",
+                        "1시간 내 최대 2회 매매 제한 (남은: " + remainSec + "초, WS)");
+                return;
+            }
+
+            // 활성 마켓 카운트 (이미 보유 중이면 스킵)
+            List<PositionEntity> allPos = positionRepo.findAll();
+            int rushPosCount = 0;
+            for (PositionEntity pe : allPos) {
+                if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())
+                        && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                    rushPosCount++;
+                }
+                if (market.equals(pe.getMarket()) && pe.getQty() != null
+                        && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                    log.debug("[OpeningScanner] {} already held, skip WS buy", market);
+                    return;
+                }
+            }
+            if (rushPosCount >= cfg.getMaxPositions()) {
+                addDecision(market, "BUY", "BLOCKED", "MAX_POSITIONS",
+                        "최대 포지션 수(" + cfg.getMaxPositions() + ") 도달 (WS)");
+                return;
+            }
+
+            // 1분봉 캐시 확인
+            List<UpbitCandle> candles = oneMinCandleCache.get(market);
+            if (candles == null || candles.size() < 25) {
+                // 캐시 없으면 즉시 fetch (rate limit 영향 최소)
+                try {
+                    candles = candleService.getMinuteCandlesPaged(market, 1, 60);
+                    if (candles != null && !candles.isEmpty()) {
+                        oneMinCandleCache.put(market, candles);
+                    }
+                } catch (Exception e) {
+                    log.warn("[OpeningScanner] WS buy: 1min candle fetch failed for {}: {}",
+                            market, e.getMessage());
+                    addDecision(market, "BUY", "ERROR", "CANDLE_FETCH_FAIL",
+                            "1분봉 fetch 실패: " + e.getMessage());
+                    return;
+                }
+            }
+            if (candles == null || candles.size() < 25) {
+                addDecision(market, "BUY", "BLOCKED", "INSUFFICIENT_CANDLES",
+                        "1분봉 부족: " + (candles == null ? 0 : candles.size()) + "/25");
+                return;
+            }
+
+            // 빠른 필터 검사 (1분봉 기반)
+            UpbitCandle last = candles.get(candles.size() - 1);
+
+            // 1. 양봉 (마지막 1분봉)
+            if (last.trade_price <= last.opening_price) {
+                addDecision(market, "BUY", "SKIPPED", "BEARISH_LAST_1MIN",
+                        "직전 1분봉 음봉");
+                return;
+            }
+
+            // 2. 거래량 (1분봉 평균 대비 1.5배 이상)
+            double avgVol = 0;
+            int volCount = Math.min(20, candles.size());
+            for (int i = candles.size() - volCount; i < candles.size(); i++) {
+                avgVol += candles.get(i).candle_acc_trade_volume;
+            }
+            avgVol /= volCount;
+            double curVol = last.candle_acc_trade_volume;
+            double volRatio = avgVol > 0 ? curVol / avgVol : 0;
+            if (volRatio < 1.5) {
+                addDecision(market, "BUY", "SKIPPED", "VOLUME_LOW",
+                        String.format("vol %.1fx < 1.5x (1min)", volRatio));
+                return;
+            }
+
+            // 3. RSI 과매수 차단 (RSI 83 이상 — ScalpOpeningBreakStrategy와 일치)
+            double rsi = Indicators.rsi(candles, 14);
+            if (rsi >= 83) {
+                addDecision(market, "BUY", "SKIPPED", "RSI_OVERBOUGHT",
+                        String.format("RSI %.0f >= 83 (1min)", rsi));
+                return;
+            }
+
+            // 4. EMA20 위 (최근 20개 1분봉 평균 대비 위)
+            double ema20 = Indicators.ema(candles, 20);
+            if (!Double.isNaN(ema20) && wsPrice < ema20) {
+                addDecision(market, "BUY", "SKIPPED", "BELOW_EMA20",
+                        String.format("price=%.2f < ema20=%.2f (1min)", wsPrice, ema20));
+                return;
+            }
+
+            // 5. 최소 돌파 강도 (이미 detector가 1.0% 이상 통과한 건이지만 재확인)
+            if (breakoutPctActual < 1.0) {
+                addDecision(market, "BUY", "SKIPPED", "BREAKOUT_WEAK",
+                        String.format("bo=%.2f%% < 1.0%%", breakoutPctActual));
+                return;
+            }
+
+            // 모든 필터 통과 → 즉시 매수
+            log.info("[OpeningScanner] WS_BREAKOUT BUY: {} price={} bo=+{}% vol={}x rsi={}",
+                    market, wsPrice,
+                    String.format(Locale.ROOT, "%.2f", breakoutPctActual),
+                    String.format(Locale.ROOT, "%.1f", volRatio),
+                    String.format(Locale.ROOT, "%.0f", rsi));
+
+            // executeBuy 재사용 위해 가짜 candle/signal 생성
+            UpbitCandle synth = new UpbitCandle();
+            synth.market = market;
+            synth.trade_price = wsPrice;
+            synth.opening_price = wsPrice * 0.999;
+            synth.high_price = wsPrice;
+            synth.low_price = wsPrice * 0.999;
+            synth.candle_acc_trade_volume = curVol;
+            synth.candle_date_time_utc = last.candle_date_time_utc;
+
+            String reason = String.format(Locale.ROOT,
+                    "WS_BREAK price=%.2f rH=%.2f bo=+%.2f%% vol=%.1fx rsi=%.0f (1min)",
+                    wsPrice, rangeHigh, breakoutPctActual, volRatio, rsi);
+            Signal sig = Signal.of(SignalAction.BUY, StrategyType.SCALP_OPENING_BREAK, reason, 9.0);
+
+            executeBuy(market, synth, sig, cfg);
+            hourlyThrottle.recordBuy(market);
+        } catch (Exception e) {
+            log.error("[OpeningScanner] tryWsBreakoutBuy error for {}", market, e);
+        } finally {
+            wsBreakoutProcessing.remove(market);
+        }
     }
 }

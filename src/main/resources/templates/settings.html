@@ -167,14 +167,14 @@
         </div>
 
         <!-- Row 3: Risk -->
-        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk (구버전)</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
-            <label>TP (ATR x) <span class="help-icon" data-tooltip="익절 목표 = ATR x 배수&#10;예: 1.2 = 현재 ATR의 1.2배 상승 시 익절" aria-label="TP help"></span></label>
+            <label>TP (ATR x) <span class="help-icon" data-tooltip="익절 목표 = ATR x 배수&#10;예: 1.2 = 현재 ATR의 1.2배 상승 시 익절&#10;5분봉 폴링용 (옵션 B에서는 미사용)" aria-label="TP help"></span></label>
             <input class="input" type="number" id="scTpAtr" value="1.2" step="0.1"/>
           </div>
           <div class="config-field">
-            <label>SL (%) <span class="help-icon" data-tooltip="손절 한도 (진입가 대비 하락 %)&#10;예: 10 = -10% 하락 시 손절" aria-label="SL help"></span></label>
+            <label>SL (%) <span class="help-icon" data-tooltip="손절 한도 (구버전, 폴링 로직용)&#10;옵션 B에서는 SL 종합안(아래)이 우선 사용됨" aria-label="SL help"></span></label>
             <input class="input" type="number" id="scSlPct" value="10" step="0.5"/>
           </div>
           <div class="config-field">
@@ -190,6 +190,44 @@
             <select class="select" id="scCandleUnit">
               <option value="1">1min</option><option value="3">3min</option><option value="5" selected>5min</option><option value="10">10min</option><option value="15">15min</option>
             </select>
+          </div>
+        </div>
+
+        <!-- SL 종합안 (옵션 B 실시간 진입용) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">SL 종합안 (옵션 B WebSocket 실시간)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
+          <div class="config-field">
+            <label>Grace Period (초) <span class="help-icon" data-tooltip="SL 종합안: 매수 직후 SL 무시 기간 (초)&#10;예: 60 = 매수 후 60초 동안 흔들기 보호&#10;TP/트레일링은 항상 작동&#10;권장: 60초" aria-label="Grace help"></span></label>
+            <input class="input" type="number" id="scGracePeriod" value="60" step="10" min="0" max="600"/>
+          </div>
+          <div class="config-field">
+            <label>Wide Period (분) <span class="help-icon" data-tooltip="SL 종합안: SL_WIDE 지속 시간 (분)&#10;예: 15 = 매수 후 15분까지 흔들기 보호 SL 적용&#10;그 이후 SL_TIGHT 적용&#10;권장: 15분" aria-label="Wide period help"></span></label>
+            <input class="input" type="number" id="scWidePeriod" value="15" step="1" min="1" max="120"/>
+          </div>
+          <div class="config-field">
+            <label>SL_TIGHT (%) <span class="help-icon" data-tooltip="SL 종합안: Wide Period 경과 후 적용되는 일반 손절 (%)&#10;모든 코인 동일 적용&#10;권장: 3.0%" aria-label="SL tight help"></span></label>
+            <input class="input" type="number" id="scTightSl" value="3.0" step="0.1"/>
+          </div>
+        </div>
+
+        <!-- TOP-N 차등 SL_WIDE (현재는 모두 동일값 6.0% 권장 — 90일 백테스트 결과 차등은 역효과) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">SL_WIDE (TOP-N 차등 가능, 권장 모두 동일값 6.0%)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>TOP 1~10 (%) <span class="help-icon" data-tooltip="대형 코인 (거래대금 1~10위)&#10;90일 백테스트 결과 차등은 역효과 검증됨&#10;90일 평균 깊이 -5.94% → 6.0% 적용&#10;권장: 6.0% (모두 동일)" aria-label="SL TOP10 help"></span></label>
+            <input class="input" type="number" id="scWideSlTop10" value="6.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>TOP 11~20 (%) <span class="help-icon" data-tooltip="중대형 (거래대금 11~20위)&#10;권장: 6.0%" aria-label="SL TOP20 help"></span></label>
+            <input class="input" type="number" id="scWideSlTop20" value="6.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>TOP 21~50 (%) <span class="help-icon" data-tooltip="중형 알트 (거래대금 21~50위)&#10;권장: 6.0%" aria-label="SL TOP50 help"></span></label>
+            <input class="input" type="number" id="scWideSlTop50" value="6.0" step="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>TOP 51~ (%) <span class="help-icon" data-tooltip="소형 코인 (거래대금 51위 이상)&#10;권장: 6.0%" aria-label="SL Other help"></span></label>
+            <input class="input" type="number" id="scWideSlOther" value="6.0" step="0.1"/>
           </div>
         </div>
 
@@ -442,20 +480,34 @@
           </div>
         </div>
 
-        <!-- Row 3: Risk -->
-        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk</div>
-        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+        <!-- Row 3: Risk (SL 종합안: 그레이스 + WIDE + TIGHT) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Risk (SL 종합안)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
           <div class="config-field">
-            <label>TP (%) <span class="help-icon" data-tooltip="익절 목표 수익률 (%)&#10;예: 2.0 = +2% 도달 시 익절" aria-label="TP help"></span></label>
+            <label>TP (%) <span class="help-icon" data-tooltip="익절 목표 수익률 (%)&#10;예: 2.0 = +2% 도달 시 즉시 익절&#10;단순 TP, 트레일링 없음" aria-label="TP help"></span></label>
             <input class="input" type="number" id="mrTpPct" value="2.0" step="0.1"/>
           </div>
           <div class="config-field">
-            <label>SL (%) <span class="help-icon" data-tooltip="손절 한도 (진입가 대비 하락 %)&#10;예: 3.0 = -3% 하락 시 손절" aria-label="SL help"></span></label>
+            <label>SL_TIGHT (%) <span class="help-icon" data-tooltip="SL 종합안: Wide Period 경과 후 적용되는 일반 손절 (%)&#10;예: 3.0 = -3% 하락 시 손절&#10;Wide Period 이전에는 SL_WIDE 사용" aria-label="SL tight help"></span></label>
             <input class="input" type="number" id="mrSlPct" value="3.0" step="0.1"/>
           </div>
           <div class="config-field">
             <label>Session End <span class="help-icon" data-tooltip="강제 청산 시각 (KST)&#10;보유 중인 모든 포지션을 이 시간에 청산합니다." aria-label="Session end help"></span></label>
             <input class="input" type="text" id="mrSessionEnd" value="10:00" placeholder="HH:MM"/>
+          </div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Grace Period (초) <span class="help-icon" data-tooltip="SL 종합안: 매수 직후 SL 무시 기간 (초)&#10;예: 60 = 매수 후 60초 동안 흔들기 보호 (TP는 항상 작동)&#10;권장: 60초" aria-label="Grace period help"></span></label>
+            <input class="input" type="number" id="mrGracePeriod" value="60" step="10" min="0" max="600"/>
+          </div>
+          <div class="config-field">
+            <label>Wide Period (분) <span class="help-icon" data-tooltip="SL 종합안: SL_WIDE 지속 시간 (분)&#10;예: 30 = 매수 후 30분까지 SL_WIDE 적용, 그 후 SL_TIGHT&#10;90일 백테스트 검증값: 30분 (최저가 도달 평균 14.7분, 반등 평균 37.8분)" aria-label="Wide period help"></span></label>
+            <input class="input" type="number" id="mrWidePeriod" value="30" step="1" min="1" max="60"/>
+          </div>
+          <div class="config-field">
+            <label>SL_WIDE (%) <span class="help-icon" data-tooltip="SL 종합안: 그레이스 후 ~ Wide Period 까지 적용되는 흔들기 보호 손절 (%)&#10;예: 6.0 = -6%&#10;90일 백테스트 평균 깊이 -5.94% → -6.0% 적용&#10;권장: 6.0%" aria-label="SL wide help"></span></label>
+            <input class="input" type="number" id="mrWideSlPct" value="6.0" step="0.1"/>
           </div>
         </div>
 

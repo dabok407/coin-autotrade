@@ -100,6 +100,15 @@ public class OpeningScannerApiController {
         if (body.containsKey("slPct")) cfg.setSlPct(toBD(body.get("slPct")));
         if (body.containsKey("trailAtrMult")) cfg.setTrailAtrMult(toBD(body.get("trailAtrMult")));
 
+        // SL 종합안 + TOP-N 차등
+        if (body.containsKey("gracePeriodSec")) cfg.setGracePeriodSec(toInt(body.get("gracePeriodSec"), 60));
+        if (body.containsKey("widePeriodMin")) cfg.setWidePeriodMin(toInt(body.get("widePeriodMin"), 15));
+        if (body.containsKey("wideSlTop10Pct")) cfg.setWideSlTop10Pct(toBD(body.get("wideSlTop10Pct")));
+        if (body.containsKey("wideSlTop20Pct")) cfg.setWideSlTop20Pct(toBD(body.get("wideSlTop20Pct")));
+        if (body.containsKey("wideSlTop50Pct")) cfg.setWideSlTop50Pct(toBD(body.get("wideSlTop50Pct")));
+        if (body.containsKey("wideSlOtherPct")) cfg.setWideSlOtherPct(toBD(body.get("wideSlOtherPct")));
+        if (body.containsKey("tightSlPct")) cfg.setTightSlPct(toBD(body.get("tightSlPct")));
+
         // 필터
         if (body.containsKey("btcFilterEnabled")) cfg.setBtcFilterEnabled(Boolean.TRUE.equals(body.get("btcFilterEnabled")));
         if (body.containsKey("btcEmaPeriod")) cfg.setBtcEmaPeriod(toInt(body.get("btcEmaPeriod"), 20));
@@ -240,6 +249,14 @@ public class OpeningScannerApiController {
         m.put("tpAtrMult", cfg.getTpAtrMult());
         m.put("slPct", cfg.getSlPct());
         m.put("trailAtrMult", cfg.getTrailAtrMult());
+        // SL 종합안 + TOP-N 차등
+        m.put("gracePeriodSec", cfg.getGracePeriodSec());
+        m.put("widePeriodMin", cfg.getWidePeriodMin());
+        m.put("wideSlTop10Pct", cfg.getWideSlTop10Pct());
+        m.put("wideSlTop20Pct", cfg.getWideSlTop20Pct());
+        m.put("wideSlTop50Pct", cfg.getWideSlTop50Pct());
+        m.put("wideSlOtherPct", cfg.getWideSlOtherPct());
+        m.put("tightSlPct", cfg.getTightSlPct());
         // 필터
         m.put("btcFilterEnabled", cfg.isBtcFilterEnabled());
         m.put("btcEmaPeriod", cfg.getBtcEmaPeriod());

@@ -868,6 +868,15 @@
       if (el('scTpAtr')) el('scTpAtr').value = cfg.tpAtrMult || 1.2;
       if (el('scSlPct')) el('scSlPct').value = cfg.slPct || 10;
       if (el('scTrailAtr')) el('scTrailAtr').value = cfg.trailAtrMult || 0.8;
+      // SL 종합안 (옵션 B)
+      if (el('scGracePeriod')) el('scGracePeriod').value = cfg.gracePeriodSec != null ? cfg.gracePeriodSec : 60;
+      if (el('scWidePeriod')) el('scWidePeriod').value = cfg.widePeriodMin != null ? cfg.widePeriodMin : 15;
+      if (el('scTightSl')) el('scTightSl').value = cfg.tightSlPct != null ? cfg.tightSlPct : 3.0;
+      // TOP-N 차등 SL_WIDE (권장 모두 동일 6.0)
+      if (el('scWideSlTop10')) el('scWideSlTop10').value = cfg.wideSlTop10Pct != null ? cfg.wideSlTop10Pct : 6.0;
+      if (el('scWideSlTop20')) el('scWideSlTop20').value = cfg.wideSlTop20Pct != null ? cfg.wideSlTop20Pct : 6.0;
+      if (el('scWideSlTop50')) el('scWideSlTop50').value = cfg.wideSlTop50Pct != null ? cfg.wideSlTop50Pct : 6.0;
+      if (el('scWideSlOther')) el('scWideSlOther').value = cfg.wideSlOtherPct != null ? cfg.wideSlOtherPct : 6.0;
       if (el('scCandleUnit')) el('scCandleUnit').value = String(cfg.candleUnitMin || 5);
       if (el('scTopN')) el('scTopN').value = cfg.topN || 15;
       if (el('scMaxPos')) el('scMaxPos').value = cfg.maxPositions || 3;
@@ -903,6 +912,15 @@
       tpAtrMult: parseFloat(el('scTpAtr') ? el('scTpAtr').value : '1.2') || 1.2,
       slPct: parseFloat(el('scSlPct') ? el('scSlPct').value : '10') || 10,
       trailAtrMult: parseFloat(el('scTrailAtr') ? el('scTrailAtr').value : '0.8') || 0.8,
+      // SL 종합안 (옵션 B)
+      gracePeriodSec: parseInt(el('scGracePeriod') ? el('scGracePeriod').value : '60') || 60,
+      widePeriodMin: parseInt(el('scWidePeriod') ? el('scWidePeriod').value : '15') || 15,
+      tightSlPct: parseFloat(el('scTightSl') ? el('scTightSl').value : '3.0') || 3.0,
+      // TOP-N 차등 SL_WIDE (모두 동일 6.0 권장)
+      wideSlTop10Pct: parseFloat(el('scWideSlTop10') ? el('scWideSlTop10').value : '6.0') || 6.0,
+      wideSlTop20Pct: parseFloat(el('scWideSlTop20') ? el('scWideSlTop20').value : '6.0') || 6.0,
+      wideSlTop50Pct: parseFloat(el('scWideSlTop50') ? el('scWideSlTop50').value : '6.0') || 6.0,
+      wideSlOtherPct: parseFloat(el('scWideSlOther') ? el('scWideSlOther').value : '6.0') || 6.0,
       candleUnitMin: parseInt(el('scCandleUnit') ? el('scCandleUnit').value : '5') || 5,
       topN: parseInt(el('scTopN') ? el('scTopN').value : '15') || 15,
       maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
@@ -1056,6 +1074,9 @@
       if (el('mrCheckInterval')) el('mrCheckInterval').value = cfg.checkIntervalSec || 5;
       if (el('mrTpPct')) el('mrTpPct').value = cfg.tpPct || 2.0;
       if (el('mrSlPct')) el('mrSlPct').value = cfg.slPct || 3.0;
+      if (el('mrGracePeriod')) el('mrGracePeriod').value = cfg.gracePeriodSec != null ? cfg.gracePeriodSec : 60;
+      if (el('mrWidePeriod')) el('mrWidePeriod').value = cfg.widePeriodMin != null ? cfg.widePeriodMin : 30;
+      if (el('mrWideSlPct')) el('mrWideSlPct').value = cfg.wideSlPct != null ? cfg.wideSlPct : 6.0;
       if (el('mrSessionEnd')) el('mrSessionEnd').value = fmtHHMM(cfg.sessionEndHour, cfg.sessionEndMin);
       if (el('mrTopN')) el('mrTopN').value = cfg.topN || 30;
       if (el('mrMaxPos')) el('mrMaxPos').value = cfg.maxPositions || 2;
@@ -1082,6 +1103,9 @@
       checkIntervalSec: parseInt(el('mrCheckInterval') ? el('mrCheckInterval').value : '5') || 5,
       tpPct: parseFloat(el('mrTpPct') ? el('mrTpPct').value : '2.0') || 2.0,
       slPct: parseFloat(el('mrSlPct') ? el('mrSlPct').value : '3.0') || 3.0,
+      gracePeriodSec: parseInt(el('mrGracePeriod') ? el('mrGracePeriod').value : '60') || 60,
+      widePeriodMin: parseInt(el('mrWidePeriod') ? el('mrWidePeriod').value : '30') || 30,
+      wideSlPct: parseFloat(el('mrWideSlPct') ? el('mrWideSlPct').value : '6.0') || 6.0,
       sessionEndHour: se[0], sessionEndMin: se[1],
       topN: parseInt(el('mrTopN') ? el('mrTopN').value : '30') || 30,
       maxPositions: parseInt(el('mrMaxPos') ? el('mrMaxPos').value : '2') || 2,

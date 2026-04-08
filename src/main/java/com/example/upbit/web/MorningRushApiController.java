@@ -78,13 +78,26 @@ public class MorningRushApiController {
         if (body.containsKey("confirmCount")) cfg.setConfirmCount(toInt(body.get("confirmCount"), 3));
         if (body.containsKey("checkIntervalSec")) cfg.setCheckIntervalSec(toInt(body.get("checkIntervalSec"), 5));
 
-        // TP/SL
+        // TP/SL (SL_TIGHT)
         if (body.containsKey("tpPct")) cfg.setTpPct(toBD(body.get("tpPct")));
         if (body.containsKey("slPct")) cfg.setSlPct(toBD(body.get("slPct")));
+
+        // SL 종합안: 그레이스, Wide period, Wide SL
+        if (body.containsKey("gracePeriodSec")) cfg.setGracePeriodSec(toInt(body.get("gracePeriodSec"), 60));
+        if (body.containsKey("widePeriodMin")) cfg.setWidePeriodMin(toInt(body.get("widePeriodMin"), 5));
+        if (body.containsKey("wideSlPct")) cfg.setWideSlPct(toBD(body.get("wideSlPct")));
 
         // Session timing
         if (body.containsKey("sessionEndHour")) cfg.setSessionEndHour(toInt(body.get("sessionEndHour"), 10));
         if (body.containsKey("sessionEndMin")) cfg.setSessionEndMin(toInt(body.get("sessionEndMin"), 0));
+
+        // V105: 페이즈 타이밍 (DB 설정값)
+        if (body.containsKey("rangeStartHour")) cfg.setRangeStartHour(toInt(body.get("rangeStartHour"), 8));
+        if (body.containsKey("rangeStartMin"))  cfg.setRangeStartMin(toInt(body.get("rangeStartMin"), 50));
+        if (body.containsKey("entryStartHour")) cfg.setEntryStartHour(toInt(body.get("entryStartHour"), 9));
+        if (body.containsKey("entryStartMin"))  cfg.setEntryStartMin(toInt(body.get("entryStartMin"), 0));
+        if (body.containsKey("entryEndHour"))   cfg.setEntryEndHour(toInt(body.get("entryEndHour"), 9));
+        if (body.containsKey("entryEndMin"))    cfg.setEntryEndMin(toInt(body.get("entryEndMin"), 5));
 
         // Filters
         if (body.containsKey("minTradeAmount")) cfg.setMinTradeAmount(toLong(body.get("minTradeAmount"), 1000000000L));
@@ -138,13 +151,26 @@ public class MorningRushApiController {
         m.put("confirmCount", cfg.getConfirmCount());
         m.put("checkIntervalSec", cfg.getCheckIntervalSec());
 
-        // TP/SL
+        // TP/SL (SL_TIGHT)
         m.put("tpPct", cfg.getTpPct());
         m.put("slPct", cfg.getSlPct());
+
+        // SL 종합안
+        m.put("gracePeriodSec", cfg.getGracePeriodSec());
+        m.put("widePeriodMin", cfg.getWidePeriodMin());
+        m.put("wideSlPct", cfg.getWideSlPct());
 
         // Session
         m.put("sessionEndHour", cfg.getSessionEndHour());
         m.put("sessionEndMin", cfg.getSessionEndMin());
+
+        // V105: 페이즈 타이밍
+        m.put("rangeStartHour", cfg.getRangeStartHour());
+        m.put("rangeStartMin", cfg.getRangeStartMin());
+        m.put("entryStartHour", cfg.getEntryStartHour());
+        m.put("entryStartMin", cfg.getEntryStartMin());
+        m.put("entryEndHour", cfg.getEntryEndHour());
+        m.put("entryEndMin", cfg.getEntryEndMin());
 
         // Filters
         m.put("minTradeAmount", cfg.getMinTradeAmount());

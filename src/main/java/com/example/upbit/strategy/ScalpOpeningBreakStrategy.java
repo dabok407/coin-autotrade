@@ -3,6 +3,7 @@ package com.example.upbit.strategy;
 import com.example.upbit.market.UpbitCandle;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -46,8 +47,14 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     // ===== 리스크 파라미터 =====
     private static final int ATR_PERIOD = 10;
     private double tpAtrMult = 1.5;     // v2: 1.2→1.5
-    private double slPct = 2.0;         // v2: 10%→2%
+    private double slPct = 2.0;         // v2: 10%→2% (= tight SL fallback)
     private double trailAtrMult = 0.7;  // v3: 0.6→0.7 (노이즈 내성 강화)
+
+    // ===== SL 종합안 (grace + wide + tight) =====
+    // 기본값은 비활성. withSlAdvanced()로 활성화 시 grace/wide 적용
+    private long slGracePeriodMs = 0L;
+    private long slWidePeriodMs = 0L;
+    private double slWidePct = 0.0;
 
     // ===== 진입 필터 (v2 합의: 완화 X, 강화) =====
     private static final int VOLUME_AVG_PERIOD = 20;
@@ -95,6 +102,19 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         this.tpAtrMult = tpAtrMult;
         this.slPct = slPct;
         this.trailAtrMult = trailAtrMult;
+        return this;
+    }
+
+    /**
+     * SL 종합안 (grace + wide + tight) 활성화.
+     * grace 동안: SL 미적용
+     * grace ~ widePeriod: SL_WIDE 적용
+     * widePeriod 이후: SL_TIGHT (= slPct, withRisk에서 설정)
+     */
+    public ScalpOpeningBreakStrategy withSlAdvanced(int gracePeriodSec, int widePeriodMin, double wideSlPct) {
+        this.slGracePeriodMs = gracePeriodSec * 1000L;
+        this.slWidePeriodMs = widePeriodMin * 60_000L;
+        this.slWidePct = wideSlPct;
         return this;
     }
 
@@ -253,11 +273,38 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
 
         ZonedDateTime lastKst = toKst(last.candle_date_time_utc);
 
-        // 1. Hard SL: -slPct% (v2: 기본 2%)
-        if (pnlPct <= -slPct) {
-            String reason = String.format(Locale.ROOT,
-                    "OPEN_HARD_SL avg=%.2f close=%.2f pnl=%.2f%% sl=%.1f%%", avgPrice, close, pnlPct, slPct);
-            return Signal.of(SignalAction.SELL, type(), reason);
+        // 1. SL 종합안 (활성화 시) — grace + wide + tight
+        if (slGracePeriodMs > 0 || slWidePeriodMs > 0) {
+            java.time.Instant openedAt = ctx.position != null ? ctx.position.getOpenedAt() : null;
+            long elapsedMs = openedAt != null
+                    ? (System.currentTimeMillis() - openedAt.toEpochMilli())
+                    : Long.MAX_VALUE;
+            if (elapsedMs < slGracePeriodMs) {
+                // grace — SL 무시
+            } else if (elapsedMs < slWidePeriodMs) {
+                // grace ~ wide_period: SL_WIDE
+                if (pnlPct <= -slWidePct) {
+                    String reason = String.format(Locale.ROOT,
+                            "OPEN_SL_WIDE avg=%.2f close=%.2f pnl=%.2f%% wide=%.1f%% elapsed=%ds",
+                            avgPrice, close, pnlPct, slWidePct, elapsedMs / 1000);
+                    return Signal.of(SignalAction.SELL, type(), reason);
+                }
+            } else {
+                // wide_period 이후: SL_TIGHT (= slPct)
+                if (pnlPct <= -slPct) {
+                    String reason = String.format(Locale.ROOT,
+                            "OPEN_SL_TIGHT avg=%.2f close=%.2f pnl=%.2f%% tight=%.1f%% elapsed=%ds",
+                            avgPrice, close, pnlPct, slPct, elapsedMs / 1000);
+                    return Signal.of(SignalAction.SELL, type(), reason);
+                }
+            }
+        } else {
+            // 기존 단순 hard SL (호환성 - withSlAdvanced 미설정 시)
+            if (pnlPct <= -slPct) {
+                String reason = String.format(Locale.ROOT,
+                        "OPEN_HARD_SL avg=%.2f close=%.2f pnl=%.2f%% sl=%.1f%%", avgPrice, close, pnlPct, slPct);
+                return Signal.of(SignalAction.SELL, type(), reason);
+            }
         }
 
         // 2. 범위 기반 SL — 2연속 확인 (v3: 노이즈 이탈 방지)
@@ -328,10 +375,31 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         }
 
         // 7. 시간 제한: sessionEnd KST 이후 강제 청산
+        // sessionEnd < 12:00이면 오버나잇 (매수 후 익일 새벽까지 보유)
+        // 예: sessionEnd 08:50 → 익일 08:50~10:00 사이에 청산
+        // 주의: 진입 시간(09:00~10:30)과 청산 시간(익일 08:50~10:00)이 시간상 겹침
+        //       → openedAt 기준 elapsed 시간 검증으로 당일 진입과 익일 청산 구분
         if (lastKst != null) {
             int kstMinOfDay = lastKst.getHour() * 60 + lastKst.getMinute();
             int endMin = sessionEndHour * 60 + sessionEndMin;
-            if (kstMinOfDay >= endMin) {
+            boolean isOvernight = endMin < 12 * 60;
+            boolean shouldExit = false;
+            if (isOvernight) {
+                // 오버나잇: 익일 새벽 endMin~10:00 사이 + 매수 후 5시간 이상 경과
+                // 5시간 경과 조건으로 당일 진입(09:30 등)과 익일 청산(09:30 다음날) 구분
+                if (kstMinOfDay >= endMin && kstMinOfDay < 10 * 60) {
+                    Instant openedAt = ctx.position != null ? ctx.position.getOpenedAt() : null;
+                    if (openedAt != null) {
+                        long elapsedMs = System.currentTimeMillis() - openedAt.toEpochMilli();
+                        long elapsedHours = elapsedMs / (60L * 60L * 1000L);
+                        shouldExit = elapsedHours >= 5; // 매수 후 5시간 이상이면 익일 청산 가능
+                    }
+                }
+            } else {
+                // 당일 세션: 그냥 endMin 이후 청산
+                shouldExit = kstMinOfDay >= endMin;
+            }
+            if (shouldExit) {
                 String reason = String.format(Locale.ROOT,
                         "OPEN_TIME_EXIT kst=%02d:%02d avg=%.2f pnl=%.2f%%",
                         lastKst.getHour(), lastKst.getMinute(), avgPrice, pnlPct);

@@ -45,10 +45,20 @@ public class OpeningBreakoutDetector {
     private volatile PriceUpdateListener priceListener;
 
     // 실시간 TP/SL 체크용 캐시 (OpeningScannerService에서 업데이트)
+    // 포맷: [avgPrice, openedAtEpochMs, volumeRank]
     private final ConcurrentHashMap<String, double[]> positionCache = new ConcurrentHashMap<String, double[]>();
     private volatile double cachedTpAtrMult = 1.5;
     private volatile double cachedSlPct = 2.8;
     private volatile double cachedTrailAtrMult = 0.7;
+
+    // SL 종합안 캐시 (DB 설정값, OpeningScannerService에서 갱신)
+    private volatile long cachedGracePeriodMs = 60_000L;        // grace_period_sec
+    private volatile long cachedWidePeriodMs = 15 * 60_000L;    // wide_period_min
+    private volatile double cachedWideSlTop10Pct = 6.2;
+    private volatile double cachedWideSlTop20Pct = 5.0;
+    private volatile double cachedWideSlTop50Pct = 3.5;
+    private volatile double cachedWideSlOtherPct = 3.0;
+    private volatile double cachedTightSlPct = 3.0;
 
     /** 돌파 확인 시 호출되는 콜백 인터페이스 */
     public interface BreakoutListener {
@@ -64,6 +74,11 @@ public class OpeningBreakoutDetector {
 
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
+    }
+
+    /** SharedPriceService 노출 (OpeningScannerService에서 volumeRank 조회용) */
+    public SharedPriceService getSharedPriceService() {
+        return sharedPriceService;
     }
 
     // ========== Configuration ==========
@@ -87,10 +102,57 @@ public class OpeningBreakoutDetector {
         return confirmedMarkets.contains(market);
     }
 
+    /**
+     * 매도 후 호출 — 동일 마켓의 BREAKOUT 재감지를 허용.
+     * confirmedMarkets와 confirmCounts 모두 초기화.
+     * 즉시 재매수는 OpeningScannerService.sellCooldownMap이 별도 차단.
+     *
+     * 운영 사고 (2026-04-08 KRW-DRIFT): SELL 후 confirmedMarkets 미해제로
+     * 같은 종목의 두 번째 BREAKOUT을 옵션 B(WS)가 영원히 무시 → 5분봉 폴링이 늦게 fallback.
+     */
+    public void releaseMarket(String market) {
+        if (market == null) return;
+        confirmedMarkets.remove(market);
+        confirmCounts.remove(market);
+    }
+
     public void addPosition(String market, double avgPrice) {
-        positionCache.put(market, new double[]{avgPrice});
+        addPosition(market, avgPrice, System.currentTimeMillis(), 999);
+    }
+
+    /** SL 종합안용 — openedAt 포함 (rank 없음) */
+    public void addPosition(String market, double avgPrice, long openedAtEpochMs) {
+        addPosition(market, avgPrice, openedAtEpochMs, 999);
+    }
+
+    /** SL 종합안 + TOP-N 차등용 — rank 포함 */
+    public void addPosition(String market, double avgPrice, long openedAtEpochMs, int volumeRank) {
+        positionCache.put(market, new double[]{avgPrice, openedAtEpochMs, volumeRank});
         peakPrices.put(market, avgPrice);
         tpActivated.put(market, false);
+    }
+
+    /**
+     * SL 종합안 설정 캐시 업데이트 (OpeningScannerService에서 호출).
+     */
+    public void updateSlConfig(int gracePeriodSec, int widePeriodMin,
+                                double wideSlTop10, double wideSlTop20,
+                                double wideSlTop50, double wideSlOther, double tightSl) {
+        this.cachedGracePeriodMs = gracePeriodSec * 1000L;
+        this.cachedWidePeriodMs = widePeriodMin * 60_000L;
+        this.cachedWideSlTop10Pct = wideSlTop10;
+        this.cachedWideSlTop20Pct = wideSlTop20;
+        this.cachedWideSlTop50Pct = wideSlTop50;
+        this.cachedWideSlOtherPct = wideSlOther;
+        this.cachedTightSlPct = tightSl;
+    }
+
+    /** TOP-N 차등 SL 값 계산 (rank 1-based) */
+    private double getWideSlForRank(int rank) {
+        if (rank <= 10) return cachedWideSlTop10Pct;
+        if (rank <= 20) return cachedWideSlTop20Pct;
+        if (rank <= 50) return cachedWideSlTop50Pct;
+        return cachedWideSlOtherPct;
     }
 
     public void removePosition(String market) {
@@ -100,9 +162,17 @@ public class OpeningBreakoutDetector {
     }
 
     public void updatePositionCache(Map<String, Double> positions) {
+        updatePositionCache(positions, null);
+    }
+
+    /** openedAt 맵 포함 — 복구 시 정확한 그레이스 적용 */
+    public void updatePositionCache(Map<String, Double> positions, Map<String, Long> openedAtMap) {
         for (Map.Entry<String, Double> e : positions.entrySet()) {
             if (!positionCache.containsKey(e.getKey())) {
-                positionCache.put(e.getKey(), new double[]{e.getValue()});
+                long openedAt = (openedAtMap != null && openedAtMap.get(e.getKey()) != null)
+                        ? openedAtMap.get(e.getKey())
+                        : System.currentTimeMillis();
+                positionCache.put(e.getKey(), new double[]{e.getValue(), openedAt});
                 peakPrices.put(e.getKey(), e.getValue());
                 tpActivated.put(e.getKey(), false);
             }
@@ -205,8 +275,19 @@ public class OpeningBreakoutDetector {
     }
 
     /**
-     * 실시간 TP 트레일링 체크 (DB 접근 없음).
-     * +2% 도달 → 트레일링 활성화 → 피크에서 -1% 떨어지면 매도 콜백.
+     * 실시간 TP/SL 종합안 체크 (DB 접근 없음).
+     *
+     * SL 종합안 (DB 설정 + TOP-N 차등):
+     *  - 0~grace_period:  그레이스 (SL 무시)
+     *  - grace~wide_period: SL_WIDE — 거래대금 순위별 차등
+     *      · TOP 1~10:   wide_sl_top10_pct
+     *      · TOP 11~20:  wide_sl_top20_pct
+     *      · TOP 21~50:  wide_sl_top50_pct
+     *      · TOP 51~:    wide_sl_other_pct
+     *  - wide_period 이후: SL_TIGHT — tight_sl_pct (단일)
+     *
+     * TP 트레일링:
+     *  - +tpActivatePct 도달 → 활성화 → peak에서 -trailFromPeakPct 떨어지면 매도
      */
     private void checkRealtimeTp(String market, double price) {
         double[] pos = positionCache.get(market);
@@ -214,8 +295,11 @@ public class OpeningBreakoutDetector {
 
         double avgPrice = pos[0];
         if (avgPrice <= 0) return;
+        long openedAtMs = pos.length >= 2 ? (long) pos[1] : System.currentTimeMillis();
+        int volumeRank = pos.length >= 3 ? (int) pos[2] : 999;
 
         double pnlPct = (price - avgPrice) / avgPrice * 100.0;
+        long elapsedMs = System.currentTimeMillis() - openedAtMs;
 
         // 피크 업데이트
         Double peak = peakPrices.get(market);
@@ -224,36 +308,65 @@ public class OpeningBreakoutDetector {
             peak = price;
         }
 
-        // TP 활성화 체크
-        Boolean activated = tpActivated.get(market);
-        if (activated == null) activated = false;
+        String sellType = null;
+        String reason = null;
 
-        if (!activated && pnlPct >= tpActivatePct) {
-            tpActivated.put(market, true);
-            activated = true;
-            log.info("[BreakoutDetector] TP activated: {} pnl=+{}% peak={} (realtime)",
-                    market, String.format(java.util.Locale.ROOT, "%.2f", pnlPct), price);
+        // 1. SL 종합안 체크 (DB 설정값 + TOP-N 차등)
+        if (elapsedMs < cachedGracePeriodMs) {
+            // 그레이스 — SL 무시
+        } else if (elapsedMs < cachedWidePeriodMs) {
+            // SL_WIDE — TOP-N 차등
+            double wideSlPct = getWideSlForRank(volumeRank);
+            if (pnlPct <= -wideSlPct) {
+                sellType = "SL_WIDE";
+                reason = String.format(java.util.Locale.ROOT,
+                        "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f rank=%d (realtime)",
+                        pnlPct, wideSlPct, price, avgPrice, volumeRank);
+            }
+        } else {
+            // SL_TIGHT — 단일
+            if (pnlPct <= -cachedTightSlPct) {
+                sellType = "SL_TIGHT";
+                reason = String.format(java.util.Locale.ROOT,
+                        "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
+                        pnlPct, cachedTightSlPct, price, avgPrice);
+            }
         }
 
-        // 트레일링 체크 (활성화 후)
-        if (activated && peak > avgPrice) {
-            double dropFromPeak = (peak - price) / peak * 100.0;
-            if (dropFromPeak >= trailFromPeakPct) {
-                double trailPnl = (price - avgPrice) / avgPrice * 100.0;
-                String reason = String.format(java.util.Locale.ROOT,
-                        "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=+%.2f%% (realtime)",
-                        avgPrice, peak, price, dropFromPeak, trailPnl);
-                log.info("[BreakoutDetector] TP TRAIL triggered: {} | {}", market, reason);
+        // 2. TP 트레일링 체크 (SL 미발동 시)
+        if (sellType == null) {
+            Boolean activated = tpActivated.get(market);
+            if (activated == null) activated = false;
 
-                removePosition(market);
+            if (!activated && pnlPct >= tpActivatePct) {
+                tpActivated.put(market, true);
+                activated = true;
+                log.info("[BreakoutDetector] TP activated: {} pnl=+{}% peak={} (realtime)",
+                        market, String.format(java.util.Locale.ROOT, "%.2f", pnlPct), price);
+            }
 
-                if (listener != null) {
-                    try {
-                        listener.onTpSlTriggered(market, price, "TP_TRAIL", reason);
-                    } catch (Exception e) {
-                        log.error("[BreakoutDetector] TP callback error for {}", market, e);
-                    }
+            if (activated && peak > avgPrice) {
+                double dropFromPeak = (peak - price) / peak * 100.0;
+                if (dropFromPeak >= trailFromPeakPct) {
+                    double trailPnl = (price - avgPrice) / avgPrice * 100.0;
+                    sellType = "TP_TRAIL";
+                    reason = String.format(java.util.Locale.ROOT,
+                            "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=+%.2f%% (realtime)",
+                            avgPrice, peak, price, dropFromPeak, trailPnl);
                 }
+            }
+        }
+
+        if (sellType == null) return;
+
+        log.info("[BreakoutDetector] {} triggered: {} | {}", sellType, market, reason);
+        removePosition(market);
+
+        if (listener != null) {
+            try {
+                listener.onTpSlTriggered(market, price, sellType, reason);
+            } catch (Exception e) {
+                log.error("[BreakoutDetector] TP/SL callback error for {}", market, e);
             }
         }
     }

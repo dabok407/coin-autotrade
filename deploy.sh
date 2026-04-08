@@ -8,7 +8,7 @@ set -e
 # 설정
 PEM_KEY="D:/aws/mk-key.pem"
 SSH_USER="ec2-user"
-SSH_HOST="3.39.211.240"
+SSH_HOST="13.124.248.221"
 REMOTE_DIR="/home/ec2-user/coin-autotrade"
 REMOTE_JAR="${REMOTE_DIR}/app.jar"
 REMOTE_SHUTDOWN="${REMOTE_DIR}/script/shutdown.sh"

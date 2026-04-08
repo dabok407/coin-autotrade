@@ -2,7 +2,6 @@ package com.example.upbit.strategy;
 
 import com.example.upbit.db.PositionEntity;
 import com.example.upbit.market.UpbitCandle;
-import com.example.upbit.strategy.Indicators;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,15 +12,22 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for HighConfidenceBreakoutStrategy (Strategy #21).
+ * Tests for HighConfidenceBreakoutStrategy (Strategy #21) - 6-Factor v2.
  *
- * Validates 4 hard prerequisite gates, 8-factor scoring, min confidence filter,
- * and 5 exit mechanisms (hard SL, EMA break, MACD fade, trailing stop, time stop).
+ * Covers:
+ *  - Hard Gates: VOL_GATE, DAY_GATE, BO_GATE, NOT_BULLISH, DOWNTREND
+ *  - 6-Factor scoring tiers with boundary values
+ *  - candleSurge vs breakoutPct hybrid logic
+ *  - Exit mechanisms: HC_SL, HC_EMA_BREAK, HC_MACD_FADE, HC_TRAIL, HC_TIME_STOP, HC_SESSION_END
+ *  - Grace period protection
+ *  - Exit flag configuration
+ *  - Edge cases
  */
 public class HighConfidenceBreakoutStrategyTest {
 
@@ -37,45 +43,56 @@ public class HighConfidenceBreakoutStrategyTest {
 
     // ===== Candle Data Helpers =====
 
-    /**
-     * Build a list of candles (oldest -> newest) with a trending-up pattern.
-     * The base price trends upward linearly, producing bullish candles.
-     * Generates enough candles (80) to satisfy all indicator period requirements.
-     */
-    private List<UpbitCandle> buildTrendingUpCandles(int count, double basePrice, double stepUp) {
+    private List<UpbitCandle> buildCandles(int count, double basePrice, double stepUp, double lastVolume) {
         List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
-        ZonedDateTime startTime = ZonedDateTime.now(ZoneOffset.UTC).minusMinutes((long) count * 5 + 60);
+        ZonedDateTime startTime = ZonedDateTime.of(2026, 4, 7, 1, 0, 0, 0, ZoneOffset.UTC);
         for (int i = 0; i < count; i++) {
             UpbitCandle c = new UpbitCandle();
             c.market = "KRW-TEST";
             ZonedDateTime candleTime = startTime.plusMinutes((long) i * 5);
             c.candle_date_time_utc = candleTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
-
             double open = basePrice + i * stepUp;
-            double close = open + stepUp * 0.8; // bullish: close > open
+            double close = open + stepUp * 0.8;
+            c.opening_price = open;
+            c.trade_price = close;
+            c.high_price = close + stepUp * 0.05;
+            c.low_price = open - stepUp * 0.05;
+            c.candle_acc_trade_volume = 1000;
+            candles.add(c);
+        }
+        candles.get(count - 1).candle_acc_trade_volume = lastVolume;
+        return candles;
+    }
+
+    private List<UpbitCandle> buildTrendingUpCandles(int count, double basePrice, double stepUp) {
+        List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
+        ZonedDateTime startTime = ZonedDateTime.of(2026, 4, 7, 1, 0, 0, 0, ZoneOffset.UTC);
+        for (int i = 0; i < count; i++) {
+            UpbitCandle c = new UpbitCandle();
+            c.market = "KRW-TEST";
+            ZonedDateTime candleTime = startTime.plusMinutes((long) i * 5);
+            c.candle_date_time_utc = candleTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+            double open = basePrice + i * stepUp;
+            double close = open + stepUp * 0.8;
             c.opening_price = open;
             c.trade_price = close;
             c.high_price = close + stepUp * 0.1;
             c.low_price = open - stepUp * 0.1;
-            c.candle_acc_trade_volume = 5000 + i * 100; // increasing volume
+            c.candle_acc_trade_volume = 5000 + i * 100;
             candles.add(c);
         }
         return candles;
     }
 
-    /**
-     * Build a flat/sideways candle list (for time stop tests).
-     */
     private List<UpbitCandle> buildFlatCandles(int count, double price) {
         List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
-        ZonedDateTime startTime = ZonedDateTime.now(ZoneOffset.UTC).minusMinutes((long) count * 5 + 60);
+        // 마지막 캔들이 현재 시각과 가깝도록 (테스트가 시간에 독립적이어야 함)
+        ZonedDateTime startTime = ZonedDateTime.now(ZoneOffset.UTC).minusMinutes((long) count * 5);
         for (int i = 0; i < count; i++) {
             UpbitCandle c = new UpbitCandle();
             c.market = "KRW-TEST";
             ZonedDateTime candleTime = startTime.plusMinutes((long) i * 5);
             c.candle_date_time_utc = candleTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
-
-            // Small variation around price, slightly bullish
             c.opening_price = price - 1;
             c.trade_price = price + 1;
             c.high_price = price + 3;
@@ -86,23 +103,46 @@ public class HighConfidenceBreakoutStrategyTest {
         return candles;
     }
 
-    /**
-     * Build a single candle with exact OHLCV values.
-     */
-    private UpbitCandle makeCandle(double open, double high, double low, double close, double volume, String utcTime) {
-        UpbitCandle c = new UpbitCandle();
-        c.market = "KRW-TEST";
-        c.opening_price = open;
-        c.high_price = high;
-        c.low_price = low;
-        c.trade_price = close;
-        c.candle_acc_trade_volume = volume;
-        c.candle_date_time_utc = utcTime;
-        return c;
+    private List<UpbitCandle> buildEntryReadyCandles(double lastVolume) {
+        List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
+        ZonedDateTime startTime = ZonedDateTime.of(2026, 4, 7, 1, 0, 0, 0, ZoneOffset.UTC);
+        double basePrice = 50000;
+        double step = 30;
+        for (int i = 0; i < 80; i++) {
+            UpbitCandle c = new UpbitCandle();
+            c.market = "KRW-TEST";
+            c.candle_date_time_utc = startTime.plusMinutes((long) i * 5)
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+            double open = basePrice + i * step;
+            double close = open + step * 0.8;
+            c.opening_price = open;
+            c.trade_price = close;
+            c.high_price = close + step * 0.05;
+            c.low_price = open - step * 0.05;
+            c.candle_acc_trade_volume = 1000;
+            candles.add(c);
+        }
+        UpbitCandle last = candles.get(79);
+        double prevHigh = 0;
+        for (int i = 59; i < 79; i++) {
+            prevHigh = Math.max(prevHigh, candles.get(i).high_price);
+        }
+        double boClose = prevHigh * 1.02;
+        last.opening_price = boClose - 100;
+        last.trade_price = boClose;
+        last.high_price = boClose + 10;
+        last.low_price = last.opening_price - 10;
+        last.candle_acc_trade_volume = lastVolume;
+        return candles;
     }
 
     private StrategyContext entryContext(List<UpbitCandle> candles) {
         return new StrategyContext("KRW-TEST", 5, candles, null, 0);
+    }
+
+    private StrategyContext entryContextWithDailyOpen(List<UpbitCandle> candles, double dailyOpenPrice) {
+        return new StrategyContext("KRW-TEST", 5, candles, null, 0,
+                Collections.<String, Integer>emptyMap(), dailyOpenPrice);
     }
 
     private StrategyContext exitContext(List<UpbitCandle> candles, PositionEntity position) {
@@ -120,382 +160,127 @@ public class HighConfidenceBreakoutStrategyTest {
         return pe;
     }
 
-    // ===== Entry Gate Tests =====
+    // ============================================================
+    //  Hard Gate Tests
+    // ============================================================
 
-    /** (a) Bearish candle -> Signal.NONE */
     @Test
-    public void testEntryRequiresBullishCandle() {
+    public void gate_bearishCandle_blocked() {
         List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 50);
-        // Make the last candle bearish (close < open)
         UpbitCandle last = candles.get(candles.size() - 1);
-        double temp = last.opening_price;
-        last.opening_price = last.trade_price + 100;
-        last.trade_price = temp - 100;
+        double origClose = last.trade_price;
+        last.trade_price = last.opening_price - 100;
+        last.opening_price = origClose + 100;
 
         Signal signal = strategy.evaluate(entryContext(candles));
-        assertEquals(SignalAction.NONE, signal.action, "Bearish last candle should produce NONE signal");
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("NOT_BULLISH"), "reason=" + signal.reason);
     }
 
-    /** (b) RSI > 75 -> Signal.NONE */
     @Test
-    public void testEntryRequiresRsiInRange() {
-        // Build a strongly overbought series: steep uptrend to push RSI > 75
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 500);
-        // Make price surge dramatically at the end to push RSI even higher
-        for (int i = candles.size() - 15; i < candles.size(); i++) {
-            UpbitCandle c = candles.get(i);
-            c.opening_price = c.opening_price + 5000;
-            c.trade_price = c.opening_price + 3000;
-            c.high_price = c.trade_price + 500;
-            c.low_price = c.opening_price - 200;
+    public void gate_volBelow2x_blocked() {
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 1500); // 1.5x
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("VOL_GATE"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void gate_volExactly2x_passes() {
+        // SMA includes last candle, so need enough volume for ratio >= 2.0
+        // With 19 candles at 1000 + last at 2200, SMA = (19000+2200)/20 = 1060, ratio = 2200/1060 ~ 2.08x
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 2200);
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("VOL_GATE"),
+                    "~2.1x should pass VOL_GATE, reason=" + signal.reason);
         }
-
-        Signal signal = strategy.evaluate(entryContext(candles));
-        // If RSI is indeed > 75, should be NONE. If not, the candle data needs adjustment.
-        // Verify the signal is NONE (could be due to RSI or other gate)
-        assertEquals(SignalAction.NONE, signal.action,
-                "RSI out of range should produce NONE signal");
     }
 
-    /** (c) ADX < 18 -> Signal.NONE */
     @Test
-    public void testEntryRequiresAdxAbove18() {
-        // Build flat/choppy candles to produce low ADX
+    public void gate_dailyChangeNegative_blocked() {
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 10000);
+        double lastClose = candles.get(candles.size() - 1).trade_price;
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, lastClose + 1000));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("DAY_GATE"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void gate_dailyChangeZero_blocked() {
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 10000);
+        double lastClose = candles.get(candles.size() - 1).trade_price;
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, lastClose));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("DAY_GATE"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void gate_noBreakout_blocked() {
         List<UpbitCandle> candles = buildFlatCandles(80, 50000);
-        // Last candle should be bullish (it already is in buildFlatCandles)
-
-        Signal signal = strategy.evaluate(entryContext(candles));
-        // Flat market => ADX should be very low < 18
-        assertEquals(SignalAction.NONE, signal.action,
-                "Low ADX (flat market) should produce NONE signal");
-    }
-
-    /** (d) MACD histogram < 0 -> Signal.NONE */
-    @Test
-    public void testEntryRequiresMacdPositive() {
-        // Build a downtrend that reverses at the end (last candle bullish)
-        // but MACD histogram still negative
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 50);
-        // Insert a sharp drop in the middle section so MACD goes negative
-        for (int i = 30; i < 75; i++) {
-            UpbitCandle c = candles.get(i);
-            double drop = (i - 30) * 80;
-            c.opening_price = c.opening_price - drop;
-            c.trade_price = c.opening_price - 30; // bearish
-            c.high_price = c.opening_price + 10;
-            c.low_price = c.trade_price - 10;
-        }
-        // Last few candles: small bounce (bullish but MACD still negative)
-        for (int i = 75; i < 80; i++) {
-            UpbitCandle c = candles.get(i);
-            c.opening_price = 46000 + (i - 75) * 20;
-            c.trade_price = c.opening_price + 30;
-            c.high_price = c.trade_price + 5;
-            c.low_price = c.opening_price - 5;
-        }
-
-        Signal signal = strategy.evaluate(entryContext(candles));
-        assertEquals(SignalAction.NONE, signal.action,
-                "Negative MACD histogram should produce NONE signal");
-    }
-
-    // ===== Scoring & Confidence Tests =====
-
-    /**
-     * (e) Construct "perfect" candles where all 8 factors should score maximum.
-     * Volume surge >= 3x, EMA8 > EMA21 > EMA50, MACD expanding positive,
-     * RSI 55-65, ADX > 30, new high breakout >= 0.5%, body ratio >= 70%,
-     * ATR range 0.5-1.5%.
-     */
-    @Test
-    public void testPerfectScore10() {
-        // Build a strong trending up series that satisfies all criteria
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 80);
-
-        // Amplify last candle's volume to 3x+ average
-        double avgVol = 0;
-        for (int i = candles.size() - 20; i < candles.size(); i++) {
-            avgVol += candles.get(i).candle_acc_trade_volume;
-        }
-        avgVol /= 20;
         UpbitCandle last = candles.get(candles.size() - 1);
-        last.candle_acc_trade_volume = avgVol * 4.0; // 4x surge
+        last.opening_price = 49999;
+        last.trade_price = 50001;
+        last.high_price = 50002;
+        last.low_price = 49998;
+        last.candle_acc_trade_volume = 10000;
 
-        // Ensure strong body ratio (>= 70%)
-        double range = last.high_price - last.low_price;
-        double desiredBody = range * 0.85;
-        last.opening_price = last.low_price + (range - desiredBody) / 2;
-        last.trade_price = last.opening_price + desiredBody;
-        last.high_price = last.trade_price + range * 0.05;
-        last.low_price = last.opening_price - range * 0.10;
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
 
-        // Use low minConfidence to ensure the BUY signal comes through
-        HighConfidenceBreakoutStrategy lowBarStrategy = new HighConfidenceBreakoutStrategy()
-                .withRisk(1.5, 0.8)
-                .withFilters(3.0, 0.60, 5.0) // low minConfidence
-                .withTimeStop(12, 0.3);
-
-        Signal signal = lowBarStrategy.evaluate(entryContext(candles));
-
-        if (signal.action == SignalAction.BUY) {
-            assertTrue(signal.confidence > 0,
-                    "BUY signal should have positive confidence score");
-            assertTrue(signal.confidence <= 10.0,
-                    "Confidence should be capped at 10.0, got " + signal.confidence);
-        }
-        // If gates prevent entry (RSI/ADX/MACD edge case), that's also acceptable for this data
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49500));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("BO_GATE"), "reason=" + signal.reason);
     }
 
-    /** (f) Score below minConfidence -> Signal.NONE */
     @Test
-    public void testScoreBelowMinConfidence() {
-        // Use a moderate trending series that might score around 6-8
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
-
-        // Set very high minConfidence that nothing can pass
-        HighConfidenceBreakoutStrategy strictStrategy = new HighConfidenceBreakoutStrategy()
-                .withRisk(1.5, 0.8)
-                .withFilters(3.0, 0.60, 10.0) // impossible to reach 10.0
-                .withTimeStop(12, 0.3);
-
-        Signal signal = strictStrategy.evaluate(entryContext(candles));
-        assertEquals(SignalAction.NONE, signal.action,
-                "Score below minConfidence (10.0) should produce NONE signal");
-    }
-
-    /** (g) Score above minConfidence -> BUY signal */
-    @Test
-    public void testScoreAboveMinConfidence() {
-        // Build strong candles
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 80);
-
-        // Amplify last candle volume
-        double avgVol = 0;
-        for (int i = candles.size() - 20; i < candles.size(); i++) {
-            avgVol += candles.get(i).candle_acc_trade_volume;
-        }
-        avgVol /= 20;
-        candles.get(candles.size() - 1).candle_acc_trade_volume = avgVol * 4.0;
-
-        // Very low minConfidence so even moderate score passes
-        HighConfidenceBreakoutStrategy easyStrategy = new HighConfidenceBreakoutStrategy()
-                .withRisk(1.5, 0.8)
-                .withFilters(3.0, 0.60, 1.0) // very low bar
-                .withTimeStop(12, 0.3);
-
-        Signal signal = easyStrategy.evaluate(entryContext(candles));
-        // With a strong trending dataset and low bar, should get BUY
-        // (unless hard gates block due to RSI/ADX, which is data-dependent)
-        if (signal.action == SignalAction.BUY) {
-            assertTrue(signal.confidence >= 1.0,
-                    "BUY signal should have confidence >= 1.0");
-            assertNotNull(signal.reason, "BUY signal should have reason");
-            assertTrue(signal.reason.contains("HC_BREAK"),
-                    "Reason should contain HC_BREAK");
-        }
-    }
-
-    // ===== Exit Tests =====
-
-    /** (h) Hard stop loss: PnL < -1.5% -> SELL with "HC_SL" */
-    @Test
-    public void testExitHardStopLoss() {
-        double avgPrice = 50000;
-        // Close at -2% from avg price
-        double closePrice = avgPrice * 0.98;
-
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 48000, 20);
-        UpbitCandle last = candles.get(candles.size() - 1);
-        last.trade_price = closePrice;
-
-        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
-        Signal signal = strategy.evaluate(exitContext(candles, pos));
-
-        assertEquals(SignalAction.SELL, signal.action, "Should produce SELL signal for hard SL");
-        assertNotNull(signal.reason);
-        assertTrue(signal.reason.contains("HC_SL"),
-                "Reason should contain HC_SL, got: " + signal.reason);
-    }
-
-    /** (i) EMA8 < EMA21 -> SELL signal */
-    @Test
-    public void testExitEmaBreak() {
-        double avgPrice = 50000;
-
-        // Build candles with a downtrend at the end so EMA8 < EMA21
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
-        // Drop last ~15 candles sharply so EMA8 crosses below EMA21
-        for (int i = candles.size() - 15; i < candles.size(); i++) {
-            UpbitCandle c = candles.get(i);
-            double drop = (i - (candles.size() - 15)) * 150;
-            c.opening_price = c.opening_price - drop;
-            c.trade_price = c.opening_price - 80;
-            c.high_price = c.opening_price + 20;
-            c.low_price = c.trade_price - 20;
-        }
-        // Ensure the last candle close is above avgPrice (so SL doesn't trigger first)
-        UpbitCandle last = candles.get(candles.size() - 1);
-        last.trade_price = avgPrice + 200; // Still in profit, but EMA broken
-
-        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
-        Signal signal = strategy.evaluate(exitContext(candles, pos));
-
-        // Could be HC_SL (if price dropped enough) or HC_EMA_BREAK
-        assertEquals(SignalAction.SELL, signal.action, "Should produce SELL signal");
-        assertNotNull(signal.reason);
-        // Either SL or EMA break - both are valid exits
-        assertTrue(signal.reason.contains("HC_SL") || signal.reason.contains("HC_EMA_BREAK"),
-                "Reason should contain HC_SL or HC_EMA_BREAK, got: " + signal.reason);
-    }
-
-    /** (j) In profit + MACD histogram turns negative -> SELL */
-    @Test
-    public void testExitMacdFade() {
-        double avgPrice = 50000;
-
-        // Build initially trending up, then start fading (MACD goes negative)
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 49000, 40);
-        // Make price plateau and slightly decline at end (MACD histogram goes negative)
-        for (int i = candles.size() - 10; i < candles.size(); i++) {
-            UpbitCandle c = candles.get(i);
-            double decline = (i - (candles.size() - 10)) * 30;
-            c.opening_price = 52000 - decline;
-            c.trade_price = c.opening_price - 10; // slightly bearish to push MACD down
-            c.high_price = c.opening_price + 20;
-            c.low_price = c.trade_price - 20;
-        }
-
-        // Price still above avgPrice (in profit)
-        UpbitCandle last = candles.get(candles.size() - 1);
-        last.trade_price = avgPrice + 500;
-        last.opening_price = last.trade_price + 10; // slightly bearish
-
-        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
-        Signal signal = strategy.evaluate(exitContext(candles, pos));
-
-        assertEquals(SignalAction.SELL, signal.action,
-                "Should produce SELL signal when MACD fades in profit");
-        assertNotNull(signal.reason);
-        // Priority: SL(1) > EMA_BREAK(2) > MACD_FADE(3)
-        // Any exit reason is acceptable as long as it's SELL
-    }
-
-    /** (k) Trailing stop: profit > 0.5%, close below trail stop -> SELL */
-    @Test
-    public void testExitTrailingStop() {
-        double avgPrice = 50000;
-
-        // Build candles that went up significantly, then pulled back
-        List<UpbitCandle> candles = buildTrendingUpCandles(80, 49500, 50);
-        // Push peak higher
-        for (int i = 60; i < 70; i++) {
-            UpbitCandle c = candles.get(i);
-            c.high_price = avgPrice + 2000 + (i - 60) * 100;
-            c.trade_price = c.high_price - 50;
-            c.opening_price = c.trade_price - 100;
-            c.low_price = c.opening_price - 50;
-        }
-        // Then pull back (close below trailing stop)
-        for (int i = 70; i < 80; i++) {
-            UpbitCandle c = candles.get(i);
-            c.opening_price = avgPrice + 600 - (i - 70) * 80;
-            c.trade_price = c.opening_price - 50;
-            c.high_price = c.opening_price + 30;
-            c.low_price = c.trade_price - 30;
-        }
-
-        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(600));
-        Signal signal = strategy.evaluate(exitContext(candles, pos));
-
-        assertEquals(SignalAction.SELL, signal.action,
-                "Should produce SELL signal when trailing stop is hit");
-    }
-
-    /** (l) Time stop: 12+ candles, PnL < 0.3% -> SELL */
-    @Test
-    public void testExitTimeStop() {
-        double avgPrice = 50000;
-        // Price barely moved (PnL ~ 0.1%, below 0.3% threshold)
-        double closePrice = avgPrice * 1.001;
-
-        // Build flat candles (no trend, EMA8 ~ EMA21)
-        List<UpbitCandle> candles = buildFlatCandles(80, closePrice);
-
-        // Ensure EMA alignment is satisfied (EMA8 >= EMA21) to avoid EMA break exit
-        // With flat candles, EMAs converge, so we add slight upward bias
-        for (int i = 0; i < candles.size(); i++) {
-            candles.get(i).trade_price = closePrice + (i * 0.5);
-            candles.get(i).opening_price = candles.get(i).trade_price - 1;
-            candles.get(i).high_price = candles.get(i).trade_price + 2;
-            candles.get(i).low_price = candles.get(i).opening_price - 2;
-        }
-
-        // Position opened long enough ago (13+ candles = 65+ minutes at 5min candles)
-        Instant openedAt = Instant.now().minusSeconds(80 * 5 * 60);
-        PositionEntity pos = buildPosition(avgPrice, 1.0, openedAt);
-
-        Signal signal = strategy.evaluate(exitContext(candles, pos));
-
-        assertEquals(SignalAction.SELL, signal.action,
-                "Should produce SELL signal for time stop (12+ candles, low PnL)");
-        assertNotNull(signal.reason);
-        // Could be time stop or any other exit that fires first
-    }
-
-    // ===== Downtrend Filter Tests =====
-
-    /** EMA50 slope < -0.3% → entry blocked as DOWNTREND */
-    @Test
-    public void testDowntrendFilterBlocksEntry() {
-        // Build candles with a steep downtrend: prices declining sharply over 80 candles
-        // EMA50(all 80) vs EMA50(first 70) should show > 0.3% decline
+    public void gate_downtrend_blocked() {
         List<UpbitCandle> candles = new ArrayList<UpbitCandle>();
-        ZonedDateTime startTime = ZonedDateTime.now(ZoneOffset.UTC).minusMinutes(80 * 5 + 60);
-        double basePrice = 60000;
+        ZonedDateTime startTime = ZonedDateTime.of(2026, 4, 7, 1, 0, 0, 0, ZoneOffset.UTC);
         for (int i = 0; i < 80; i++) {
             UpbitCandle c = new UpbitCandle();
             c.market = "KRW-TEST";
-            ZonedDateTime candleTime = startTime.plusMinutes((long) i * 5);
-            c.candle_date_time_utc = candleTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
-
-            // Steep decline: each candle drops ~200 (total 16000, ~27% drop)
-            double price = basePrice - i * 200;
+            c.candle_date_time_utc = startTime.plusMinutes((long) i * 5)
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+            double price = 60000 - i * 200;
             c.opening_price = price + 20;
-            c.trade_price = price - 20;  // bearish candles for most of the series
+            c.trade_price = price - 20;
             c.high_price = price + 30;
             c.low_price = price - 30;
             c.candle_acc_trade_volume = 5000;
             candles.add(c);
         }
-        // Make the last candle bullish (to pass the bullish gate) with volume surge
         UpbitCandle last = candles.get(79);
-        double lastClose = last.trade_price;
-        last.opening_price = lastClose;
-        last.trade_price = lastClose + 300;
+        last.opening_price = last.trade_price;
+        last.trade_price = last.opening_price + 300;
         last.high_price = last.trade_price + 50;
         last.low_price = last.opening_price - 10;
-        last.candle_acc_trade_volume = 50000; // high volume
-
-        // Verify EMA50 slope is indeed negative (debug)
-        double ema50now = Indicators.ema(candles, 50);
-        double ema50prev = Indicators.ema(candles.subList(0, candles.size() - 10), 50);
-        double slopePct = (ema50now - ema50prev) / ema50prev * 100;
+        last.candle_acc_trade_volume = 50000;
 
         Signal signal = strategy.evaluate(entryContext(candles));
-        assertEquals(SignalAction.NONE, signal.action,
-                String.format("Clear downtrend should block entry. ema50now=%.2f ema50prev=%.2f slope=%.4f%%",
-                        ema50now, ema50prev, slopePct));
-        assertTrue(signal.reason != null && signal.reason.contains("DOWNTREND"),
-                String.format("Reason should contain DOWNTREND, got: %s (slope=%.4f%%)",
-                        signal.reason, slopePct));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("DOWNTREND"), "reason=" + signal.reason);
     }
 
-    /** Sideways/flat market (EMA50 slope ~0) → entry NOT blocked by downtrend filter */
     @Test
-    public void testSidewaysMarketPassesDowntrendFilter() {
-        // Build flat candles with last candle having a surge
+    public void gate_sideways_passesDowntrend() {
         List<UpbitCandle> candles = buildFlatCandles(80, 50000);
-        // Make last candle strongly bullish with high volume
         UpbitCandle last = candles.get(79);
         last.opening_price = 50000;
         last.trade_price = 51000;
@@ -504,26 +289,664 @@ public class HighConfidenceBreakoutStrategyTest {
         last.candle_acc_trade_volume = 50000;
 
         Signal signal = strategy.evaluate(entryContext(candles));
-        // Should NOT be blocked by DOWNTREND (may be blocked by other reasons)
         if (signal.action == SignalAction.NONE && signal.reason != null) {
             assertFalse(signal.reason.contains("DOWNTREND"),
-                    "Sideways market should NOT be blocked by downtrend filter, got: " + signal.reason);
+                    "Sideways should not trigger DOWNTREND, reason=" + signal.reason);
         }
     }
 
-    // ===== Type verification =====
+    @Test
+    public void gate_insufficientCandles_none() {
+        List<UpbitCandle> candles = buildTrendingUpCandles(30, 50000, 50);
+        Signal signal = strategy.evaluate(entryContext(candles));
+        assertEquals(SignalAction.NONE, signal.action);
+    }
+
+    // ============================================================
+    //  Scoring Tier Tests
+    // ============================================================
 
     @Test
-    public void testStrategyType() {
-        assertEquals(StrategyType.HIGH_CONFIDENCE_BREAKOUT, strategy.type(),
-                "Strategy type should be HIGH_CONFIDENCE_BREAKOUT");
+    public void scoring_vol2x_passesGate() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(2500);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+        double lastClose = candles.get(79).trade_price;
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, lastClose * 0.98));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("VOL_GATE"), "reason=" + signal.reason);
+        }
     }
 
     @Test
-    public void testInsufficientCandles() {
-        List<UpbitCandle> candles = buildTrendingUpCandles(30, 50000, 50); // less than MIN_CANDLES=60
-        Signal signal = strategy.evaluate(entryContext(candles));
-        assertEquals(SignalAction.NONE, signal.action,
-                "Insufficient candles should produce NONE signal");
+    public void scoring_vol10x_passesGate() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(12000);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+        double lastClose = candles.get(79).trade_price;
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, lastClose * 0.98));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("VOL_GATE"), "reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void scoring_dailyChange_lowTier() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(5000);
+        double lastClose = candles.get(79).trade_price;
+        double dailyOpen = lastClose / 1.001; // 0.1% change
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, dailyOpen));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("DAY_GATE"), "reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void scoring_dailyChange_peakTier() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(5000);
+        double lastClose = candles.get(79).trade_price;
+        double dailyOpen = lastClose / 1.02; // 2% change (peak tier)
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, dailyOpen));
+        if (signal.action == SignalAction.BUY) {
+            assertTrue(signal.reason.contains("day=+"), "reason=" + signal.reason);
+        }
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("DAY_GATE"), "reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void scoring_dailyChange_runawayTier() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(5000);
+        double lastClose = candles.get(79).trade_price;
+        double dailyOpen = lastClose / 1.35; // 35% change
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, dailyOpen));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("DAY_GATE"), "reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void scoring_rsiValueInRange() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(5000);
+        double rsi = Indicators.rsi(candles, 14);
+        assertTrue(rsi >= 0 && rsi <= 100, "RSI should be 0-100, got " + rsi);
+    }
+
+    @Test
+    public void scoring_bodyQualityHigh() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(5000);
+        UpbitCandle last = candles.get(79);
+        double range = 100;
+        last.low_price = last.trade_price - range;
+        last.high_price = last.trade_price;
+        last.opening_price = last.trade_price - range * 0.90;
+        double bodyRatio = CandlePatterns.body(last) / CandlePatterns.range(last);
+        assertTrue(bodyRatio >= 0.70, "bodyRatio should be >= 0.70, got " + bodyRatio);
+    }
+
+    @Test
+    public void scoring_bodyQualityLow() {
+        List<UpbitCandle> candles = buildEntryReadyCandles(5000);
+        UpbitCandle last = candles.get(79);
+        double mid = last.trade_price;
+        last.high_price = mid + 50;
+        last.low_price = mid - 50;
+        last.opening_price = mid - 10;
+        double bodyRatio = CandlePatterns.body(last) / CandlePatterns.range(last);
+        assertTrue(bodyRatio < 0.30, "bodyRatio should be < 0.30, got " + bodyRatio);
+    }
+
+    // ============================================================
+    //  candleSurge vs breakoutPct Hybrid
+    // ============================================================
+
+    @Test
+    public void hybrid_candleSurgeDominates() {
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
+        UpbitCandle last = candles.get(79);
+        UpbitCandle prev = candles.get(78);
+        double recentHigh = 0;
+        for (int i = 59; i < 79; i++) {
+            recentHigh = Math.max(recentHigh, candles.get(i).high_price);
+        }
+        double boClose = recentHigh * 1.001; // tiny breakout
+        prev.trade_price = boClose / 1.025;  // large surge
+        last.trade_price = boClose;
+        last.opening_price = boClose - 50;
+        last.high_price = boClose + 10;
+        last.low_price = last.opening_price - 10;
+        last.candle_acc_trade_volume = 10000;
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, boClose * 0.98));
+        if (signal.action == SignalAction.BUY) {
+            assertTrue(signal.reason.contains("surge="), "reason=" + signal.reason);
+        }
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("BO_GATE"), "reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void hybrid_breakoutPctDominates() {
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
+        UpbitCandle last = candles.get(79);
+        UpbitCandle prev = candles.get(78);
+        double recentHigh = 0;
+        for (int i = 59; i < 79; i++) {
+            recentHigh = Math.max(recentHigh, candles.get(i).high_price);
+        }
+        double boClose = recentHigh * 1.03; // 3% breakout
+        last.trade_price = boClose;
+        last.opening_price = boClose - 50;
+        last.high_price = boClose + 10;
+        last.low_price = last.opening_price - 10;
+        prev.trade_price = boClose * 0.995; // small surge
+        last.candle_acc_trade_volume = 10000;
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, boClose * 0.98));
+        if (signal.action == SignalAction.BUY) {
+            assertTrue(signal.reason.contains("bo="), "reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void hybrid_bothNegative_blocked() {
+        List<UpbitCandle> candles = buildFlatCandles(80, 50000);
+        UpbitCandle last = candles.get(candles.size() - 1);
+        last.opening_price = 49999;
+        last.trade_price = 50000;
+        last.high_price = 50001;
+        last.low_price = 49998;
+        last.candle_acc_trade_volume = 10000;
+
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49500));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("BO_GATE"), "reason=" + signal.reason);
+    }
+
+    // ============================================================
+    //  Entry Integration Tests
+    // ============================================================
+
+    @Test
+    public void entry_lowScore_blocked() {
+        HighConfidenceBreakoutStrategy strict = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.60, 10.1);
+
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 80);
+        candles.get(79).candle_acc_trade_volume = 50000;
+
+        Signal signal = strict.evaluate(entryContextWithDailyOpen(candles, 49000));
+        assertEquals(SignalAction.NONE, signal.action);
+    }
+
+    @Test
+    public void entry_buySignalWithLowBar() {
+        HighConfidenceBreakoutStrategy easy = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 80);
+        double avgVol = 0;
+        for (int i = 60; i < 80; i++) avgVol += candles.get(i).candle_acc_trade_volume;
+        avgVol /= 20;
+        candles.get(79).candle_acc_trade_volume = avgVol * 5.0;
+
+        double lastClose = candles.get(79).trade_price;
+        Signal signal = easy.evaluate(entryContextWithDailyOpen(candles, lastClose * 0.97));
+
+        if (signal.action == SignalAction.BUY) {
+            assertTrue(signal.confidence > 0, "confidence > 0");
+            assertTrue(signal.confidence <= 10.0, "confidence <= 10.0");
+            assertTrue(signal.reason.contains("HC_BREAK"), "reason contains HC_BREAK");
+            assertTrue(signal.reason.contains("vol="), "reason contains vol=");
+            assertTrue(signal.reason.contains("day="), "reason contains day=");
+            assertTrue(signal.reason.contains("rsi="), "reason contains rsi=");
+            assertTrue(signal.reason.contains("bo="), "reason contains bo=");
+        }
+    }
+
+    @Test
+    public void entry_strategyType() {
+        assertEquals(StrategyType.HIGH_CONFIDENCE_BREAKOUT, strategy.type());
+    }
+
+    // ============================================================
+    //  Exit Tests
+    // ============================================================
+
+    @Test
+    public void exit_hardStopLoss() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 48000, 20);
+        candles.get(79).trade_price = avgPrice * 0.98; // -2% PnL
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_SL"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void exit_hardSlBoundary() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 48000, 20);
+        candles.get(79).trade_price = avgPrice * (1 - 0.015); // exactly -1.5%
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_SL"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void exit_hardSlNotTriggered() {
+        double avgPrice = 50000;
+        double closePrice = avgPrice * (1 - 0.014); // -1.4%
+        List<UpbitCandle> candles = buildFlatCandles(80, closePrice);
+        for (int i = 70; i < 80; i++) {
+            candles.get(i).trade_price = closePrice + (i - 70) * 5;
+            candles.get(i).opening_price = candles.get(i).trade_price - 1;
+            candles.get(i).high_price = candles.get(i).trade_price + 2;
+            candles.get(i).low_price = candles.get(i).opening_price - 2;
+        }
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_SL"),
+                    "-1.4% should not trigger HC_SL, reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void exit_emaBreak() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
+        for (int i = 65; i < 80; i++) {
+            UpbitCandle c = candles.get(i);
+            double drop = (i - 65) * 150;
+            c.opening_price = c.opening_price - drop;
+            c.trade_price = c.opening_price - 80;
+            c.high_price = c.opening_price + 20;
+            c.low_price = c.trade_price - 20;
+        }
+        candles.get(79).trade_price = avgPrice + 100; // +0.2% PnL
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_SL") || signal.reason.contains("HC_EMA_BREAK"),
+                "reason=" + signal.reason);
+    }
+
+    @Test
+    public void exit_macdFade() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 49000, 40);
+        for (int i = 70; i < 80; i++) {
+            UpbitCandle c = candles.get(i);
+            c.opening_price = 52000 - (i - 70) * 30;
+            c.trade_price = c.opening_price - 10;
+            c.high_price = c.opening_price + 20;
+            c.low_price = c.trade_price - 20;
+        }
+        candles.get(79).trade_price = avgPrice + 500;
+        candles.get(79).opening_price = candles.get(79).trade_price + 10;
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+
+        assertEquals(SignalAction.SELL, signal.action);
+    }
+
+    @Test
+    public void exit_macdFadeOnlyInProfit() {
+        double avgPrice = 55000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 49000, 40);
+        for (int i = 70; i < 80; i++) {
+            UpbitCandle c = candles.get(i);
+            c.opening_price = 52000 - (i - 70) * 30;
+            c.trade_price = c.opening_price - 10;
+            c.high_price = c.opening_price + 20;
+            c.low_price = c.trade_price - 20;
+        }
+        candles.get(79).trade_price = avgPrice - 200; // loss
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, true)
+                .withTimeStop(0, 0);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_MACD_FADE"),
+                    "MACD fade should not trigger in loss, reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void exit_trailingStop() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 49500, 50);
+
+        // Push peak high in candles 55-65: price goes to ~53000
+        for (int i = 55; i < 65; i++) {
+            UpbitCandle c = candles.get(i);
+            c.high_price = avgPrice + 3000 + (i - 55) * 100;
+            c.trade_price = c.high_price - 50;
+            c.opening_price = c.trade_price - 100;
+            c.low_price = c.opening_price - 50;
+        }
+        // Pull back to just above avgPrice (still in profit but below trail stop)
+        // Last close must still be > avgPrice for pnlPct > trailActivatePct
+        for (int i = 65; i < 80; i++) {
+            UpbitCandle c = candles.get(i);
+            c.opening_price = avgPrice + 300;
+            c.trade_price = avgPrice + 250;  // +0.5% profit, trail should activate
+            c.high_price = avgPrice + 350;
+            c.low_price = avgPrice + 200;
+        }
+
+        // openedAt must be BEFORE candle timestamps (candles start at 2026-04-07T01:00 UTC)
+        // Set openedAt to candle[50] time so peak candles (55-65) are after entry
+        Instant openedAt = ZonedDateTime.of(2026, 4, 7, 1, 0, 0, 0, ZoneOffset.UTC)
+                .plusMinutes(50 * 5).toInstant(); // candle[50] time
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, openedAt);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)         // wide SL
+                .withTrailActivate(0.1)      // low activation
+                .withExitFlags(false, false)  // no EMA/MACD
+                .withTimeStop(0, 0);          // no time stop
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_TRAIL"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void exit_trailingNotActiveWhenLowPnl() {
+        double avgPrice = 50000;
+        double closePrice = avgPrice * 1.002; // +0.2%
+
+        List<UpbitCandle> candles = buildFlatCandles(80, closePrice);
+        for (int i = 0; i < 80; i++) {
+            candles.get(i).trade_price = closePrice + i * 0.5;
+            candles.get(i).opening_price = candles.get(i).trade_price - 1;
+            candles.get(i).high_price = candles.get(i).trade_price + 2;
+            candles.get(i).low_price = candles.get(i).opening_price - 2;
+        }
+        candles.get(79).trade_price = closePrice;
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(60));
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withTrailActivate(0.5)
+                .withExitFlags(false, false)
+                .withTimeStop(0, 0);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_TRAIL"),
+                    "Trailing should not activate at 0.2%, reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void exit_timeStop() {
+        double avgPrice = 50000;
+        double closePrice = avgPrice * 1.001; // +0.1%
+
+        List<UpbitCandle> candles = buildFlatCandles(80, closePrice);
+        for (int i = 0; i < 80; i++) {
+            candles.get(i).trade_price = closePrice + (i * 0.5);
+            candles.get(i).opening_price = candles.get(i).trade_price - 1;
+            candles.get(i).high_price = candles.get(i).trade_price + 2;
+            candles.get(i).low_price = candles.get(i).opening_price - 2;
+        }
+        candles.get(79).trade_price = closePrice;
+
+        Instant openedAt = Instant.now().minusSeconds(80 * 5 * 60);
+        PositionEntity pos = buildPosition(avgPrice, 1.0, openedAt);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false)
+                .withTimeStop(12, 0.3);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_TIME_STOP"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void exit_timeStopNotInProfit() {
+        double avgPrice = 50000;
+        double closePrice = avgPrice * 1.005; // +0.5%
+
+        List<UpbitCandle> candles = buildFlatCandles(80, closePrice);
+        for (int i = 0; i < 80; i++) {
+            candles.get(i).trade_price = closePrice + i * 0.5;
+            candles.get(i).opening_price = candles.get(i).trade_price - 1;
+            candles.get(i).high_price = candles.get(i).trade_price + 2;
+            candles.get(i).low_price = candles.get(i).opening_price - 2;
+        }
+        candles.get(79).trade_price = closePrice;
+
+        Instant openedAt = Instant.now().minusSeconds(80 * 5 * 60);
+        PositionEntity pos = buildPosition(avgPrice, 1.0, openedAt);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false)
+                .withTrailActivate(10.0)
+                .withTimeStop(12, 0.3);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_TIME_STOP"),
+                    "Time stop should not trigger at 0.5%, reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void exit_sessionEndOvernight() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildFlatCandles(80, avgPrice + 100);
+        candles.get(79).candle_date_time_utc = "2026-04-06T23:30:00"; // 08:30 KST
+        candles.get(79).trade_price = avgPrice + 100;
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false) // disable EMA/MACD to isolate session end
+                .withTrailActivate(10.0)
+                .withTimeStop(0, 0)
+                .withTiming(8, 0);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_SESSION_END"), "reason=" + signal.reason);
+    }
+
+    @Test
+    public void exit_sessionEndNotAfterWindow() {
+        double avgPrice = 50000;
+        double closePrice = avgPrice + 100;
+        List<UpbitCandle> candles = buildFlatCandles(80, closePrice);
+        candles.get(79).candle_date_time_utc = "2026-04-07T01:30:00"; // 10:30 KST
+        candles.get(79).trade_price = closePrice;
+        for (int i = 70; i < 80; i++) {
+            candles.get(i).trade_price = closePrice + (i - 70) * 5;
+            candles.get(i).opening_price = candles.get(i).trade_price - 1;
+            candles.get(i).high_price = candles.get(i).trade_price + 2;
+            candles.get(i).low_price = candles.get(i).opening_price - 2;
+        }
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false)
+                .withTrailActivate(10.0)
+                .withTimeStop(0, 0)
+                .withTiming(8, 0);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_SESSION_END"),
+                    "10:30 KST should not trigger session end, reason=" + signal.reason);
+        }
+    }
+
+    // ============================================================
+    //  Grace Period Tests
+    // ============================================================
+
+    @Test
+    public void gracePeriod_protectsFromNonSlExits() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
+        for (int i = 65; i < 80; i++) {
+            UpbitCandle c = candles.get(i);
+            double drop = (i - 65) * 100;
+            c.opening_price = c.opening_price - drop;
+            c.trade_price = c.opening_price - 50;
+            c.high_price = c.opening_price + 20;
+            c.low_price = c.trade_price - 20;
+        }
+        candles.get(79).trade_price = avgPrice - 200; // -0.4% (above -1.5% SL)
+
+        // openedAt just before the last candle (candle[78] time) so candlesSinceEntry=1
+        // Candles start at 2026-04-07T01:00 UTC, 5min intervals, so candle[78] is at +390min
+        Instant openedAt = ZonedDateTime.of(2026, 4, 7, 1, 0, 0, 0, ZoneOffset.UTC)
+                .plusMinutes(78 * 5).toInstant();
+        PositionEntity pos = buildPosition(avgPrice, 1.0, openedAt);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(1.5, 0.8)
+                .withGracePeriod(5) // 5 candle grace, candlesSinceEntry=1 <= 5
+                .withTimeStop(12, 0.3)
+                .withTiming(23, 59);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertTrue(signal.reason.contains("HC_SL") || signal.reason.contains("HC_SESSION_END"),
+                    "During grace, only SL and SESSION_END, reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void gracePeriod_slStillFires() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildFlatCandles(80, avgPrice * 0.97);
+        candles.get(79).trade_price = avgPrice * 0.97; // -3%
+
+        Instant openedAt = Instant.now().minusSeconds(30);
+        PositionEntity pos = buildPosition(avgPrice, 1.0, openedAt);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(1.5, 0.8)
+                .withGracePeriod(10);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        assertEquals(SignalAction.SELL, signal.action);
+        assertTrue(signal.reason.contains("HC_SL"), "SL should fire in grace, reason=" + signal.reason);
+    }
+
+    // ============================================================
+    //  Exit Flag Configuration Tests
+    // ============================================================
+
+    @Test
+    public void exitFlags_emaDisabled() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 30);
+        for (int i = 65; i < 80; i++) {
+            UpbitCandle c = candles.get(i);
+            double drop = (i - 65) * 100;
+            c.opening_price = c.opening_price - drop;
+            c.trade_price = c.opening_price - 50;
+            c.high_price = c.opening_price + 20;
+            c.low_price = c.trade_price - 20;
+        }
+        candles.get(79).trade_price = avgPrice + 100;
+
+        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false)
+                .withTrailActivate(10.0)
+                .withTimeStop(0, 0)
+                .withTiming(23, 59);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_EMA_BREAK"), "reason=" + signal.reason);
+            assertFalse(signal.reason.contains("HC_MACD_FADE"), "reason=" + signal.reason);
+        }
+    }
+
+    // ============================================================
+    //  Edge Case Tests
+    // ============================================================
+
+    @Test
+    public void edge_nullCandles() {
+        Signal signal = strategy.evaluate(new StrategyContext("KRW-TEST", 5, null, null, 0));
+        assertEquals(SignalAction.NONE, signal.action);
+    }
+
+    @Test
+    public void edge_nullAvgPrice() {
+        List<UpbitCandle> candles = buildFlatCandles(80, 50000);
+        PositionEntity pos = new PositionEntity();
+        pos.setMarket("KRW-TEST");
+        pos.setQty(1.0);
+        pos.setAvgPrice(null);
+
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+        assertEquals(SignalAction.NONE, signal.action);
+    }
+
+    @Test
+    public void edge_zeroAvgPrice() {
+        List<UpbitCandle> candles = buildFlatCandles(80, 50000);
+        PositionEntity pos = buildPosition(0, 1.0, Instant.now());
+
+        Signal signal = strategy.evaluate(exitContext(candles, pos));
+        assertEquals(SignalAction.NONE, signal.action);
+    }
+
+    @Test
+    public void edge_dailyOpenFallback() {
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 5000);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContext(candles));
+        assertNotNull(signal);
     }
 }

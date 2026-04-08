@@ -103,8 +103,9 @@ public class AllDayScannerService {
     private static final int MAX_DECISION_LOG = 200;
     private final Deque<ScannerDecision> decisionLog = new ArrayDeque<ScannerDecision>();
 
-    // Hourly trade throttle: 동일 마켓 1시간 내 최대 2회 매수
-    private final HourlyTradeThrottle hourlyThrottle = new HourlyTradeThrottle(2);
+    // Hourly trade throttle: 3개 스캐너가 공유하는 단일 인스턴스
+    // (2026-04-08 KRW-TREE 사고: 분리된 throttle로 같은 코인 동시 매수 발생)
+    private final SharedTradeThrottle hourlyThrottle;
 
     /** Result holder for parallel candle fetching */
     private static class CandleFetchResult {
@@ -144,7 +145,8 @@ public class AllDayScannerService {
                                 UpbitPrivateClient privateClient,
                                 TransactionTemplate txTemplate,
                                 TickerService tickerService,
-                                SharedPriceService sharedPriceService) {
+                                SharedPriceService sharedPriceService,
+                                SharedTradeThrottle hourlyThrottle) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -156,6 +158,7 @@ public class AllDayScannerService {
         this.txTemplate = txTemplate;
         this.tickerService = tickerService;
         this.sharedPriceService = sharedPriceService;
+        this.hourlyThrottle = hourlyThrottle;
     }
 
     // ========== Decision Log ==========
@@ -693,11 +696,17 @@ public class AllDayScannerService {
                                 double recentHighM2 = Indicators.recentHigh(candles, 20);
                                 double boM2 = recentHighM2 > 0 ? (lastCandle.trade_price - recentHighM2) / recentHighM2 * 100 : 0;
 
-                                if (volRatioM2 >= 10.0 && bodyRatioM2 >= 0.60 && boM2 >= 0.3) {
+                                // M2 day% 필터: 당일 2.8% 이상 상승한 코인만 진입
+                                double dayPctM2 = 0;
+                                Double dopM2 = dailyOpenPriceCache.get(market);
+                                if (dopM2 != null && dopM2 > 0) {
+                                    dayPctM2 = (lastCandle.trade_price - dopM2) / dopM2 * 100;
+                                }
+                                if (volRatioM2 >= 10.0 && bodyRatioM2 >= 0.60 && boM2 >= 0.3 && dayPctM2 >= 2.8) {
                                     surgeEntry = true;
                                     String surgeReason = String.format(Locale.ROOT,
-                                            "[M2_SURGE] close=%.2f vol=%.1fx body=%.0f%% bo=%.2f%%",
-                                            lastCandle.trade_price, volRatioM2, bodyRatioM2 * 100, boM2);
+                                            "[M2_SURGE] close=%.2f vol=%.1fx body=%.0f%% bo=%.2f%% day=%+.1f%%",
+                                            lastCandle.trade_price, volRatioM2, bodyRatioM2 * 100, boM2, dayPctM2);
                                     log.info("[AllDayScanner] Mode2 surge detected: {} | {}", market, surgeReason);
                                     Signal surgeSignal = Signal.of(SignalAction.BUY,
                                             StrategyType.HIGH_CONFIDENCE_BREAKOUT, surgeReason, 10.0);
@@ -807,6 +816,19 @@ public class AllDayScannerService {
             log.warn("[AllDayScanner] order too small: {} KRW for {}", orderKrw, market);
             addDecision(market, "BUY", "BLOCKED", "ORDER_TOO_SMALL",
                     String.format("주문 금액 %s원이 최소 5,000원 미만", orderKrw.toPlainString()));
+            return;
+        }
+
+        // 사전 중복 포지션 차단 (KRW-TREE orphan 사고 재발 방지)
+        // 다른 스캐너가 이미 매수한 코인인지 DB에서 한 번 더 확인
+        PositionEntity existing = positionRepo.findById(market).orElse(null);
+        if (existing != null && existing.getQty() != null
+                && existing.getQty().compareTo(BigDecimal.ZERO) > 0) {
+            log.warn("[AllDayScanner] DUPLICATE_POSITION blocked: {} already held by {} qty={}",
+                    market, existing.getEntryStrategy(), existing.getQty());
+            addDecision(market, "BUY", "BLOCKED", "DUPLICATE_POSITION",
+                    String.format("이미 보유 중 (전략=%s qty=%s) — 중복 매수 차단",
+                            existing.getEntryStrategy(), existing.getQty().toPlainString()));
             return;
         }
 

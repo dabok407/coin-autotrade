@@ -62,7 +62,7 @@ public class AllDayWsTpTest {
         scanner = new AllDayScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService, sharedPriceService
+                tickerService, sharedPriceService, new SharedTradeThrottle()
         );
         setField("running", new AtomicBoolean(true));
 

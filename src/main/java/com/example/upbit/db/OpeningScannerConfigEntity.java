@@ -56,13 +56,13 @@ public class OpeningScannerConfigEntity {
     private int entryStartHour = 9;
 
     @Column(name = "entry_start_min", nullable = false)
-    private int entryStartMin = 0;  // V51: 09:05 → 09:00
+    private int entryStartMin = 5;  // V105: 모닝러쉬(09:00~09:05) 직후 시작
 
     @Column(name = "entry_end_hour", nullable = false)
     private int entryEndHour = 10;
 
     @Column(name = "entry_end_min", nullable = false)
-    private int entryEndMin = 25;  // V49: 10:30 → 10:25
+    private int entryEndMin = 29;  // V105: 올데이(10:30~) 직전까지
 
     @Column(name = "session_end_hour", nullable = false)
     private int sessionEndHour = 12;
@@ -101,6 +101,35 @@ public class OpeningScannerConfigEntity {
 
     @Column(name = "min_price_krw", nullable = false)
     private int minPriceKrw = 20;
+
+    // ── SL 종합안 + TOP-N 차등 ──
+    /** SL 종합안: 매수 후 그레이스 기간 (초). 이 기간 동안 SL 무시. */
+    @Column(name = "grace_period_sec", nullable = false)
+    private int gracePeriodSec = 60;
+
+    /** SL 종합안: SL_WIDE 지속 시간 (분). 그레이스 후 ~ wide_period_min 까지 SL_WIDE 적용. */
+    @Column(name = "wide_period_min", nullable = false)
+    private int widePeriodMin = 15;
+
+    /** TOP-N 차등 SL_WIDE: 거래대금 1~10위 (대형). 기본 5.0 (단일값 통일) */
+    @Column(name = "wide_sl_top10_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal wideSlTop10Pct = BigDecimal.valueOf(6.0);
+
+    /** TOP-N 차등 SL_WIDE: 거래대금 11~20위. 기본 5.0 */
+    @Column(name = "wide_sl_top20_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal wideSlTop20Pct = BigDecimal.valueOf(6.0);
+
+    /** TOP-N 차등 SL_WIDE: 거래대금 21~50위. 기본 5.0 */
+    @Column(name = "wide_sl_top50_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal wideSlTop50Pct = BigDecimal.valueOf(6.0);
+
+    /** TOP-N 차등 SL_WIDE: 거래대금 51위 이상 (소형). 기본 5.0 */
+    @Column(name = "wide_sl_other_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal wideSlOtherPct = BigDecimal.valueOf(6.0);
+
+    /** SL 종합안: SL_TIGHT 값 (15분 이후, 모든 코인 동일) */
+    @Column(name = "tight_sl_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal tightSlPct = BigDecimal.valueOf(3.0);
 
     // ========== Getters & Setters ==========
 
@@ -193,6 +222,39 @@ public class OpeningScannerConfigEntity {
 
     public String getExcludeMarkets() { return excludeMarkets != null ? excludeMarkets : ""; }
     public void setExcludeMarkets(String v) { this.excludeMarkets = v != null ? v.trim() : ""; }
+
+    // ── SL 종합안 + TOP-N 차등 ──
+    public int getGracePeriodSec() { return gracePeriodSec; }
+    public void setGracePeriodSec(int v) { this.gracePeriodSec = Math.max(0, Math.min(600, v)); }
+
+    public int getWidePeriodMin() { return widePeriodMin; }
+    public void setWidePeriodMin(int v) { this.widePeriodMin = Math.max(1, Math.min(120, v)); }
+
+    public BigDecimal getWideSlTop10Pct() { return wideSlTop10Pct; }
+    public void setWideSlTop10Pct(BigDecimal v) { this.wideSlTop10Pct = v != null ? v : BigDecimal.valueOf(6.0); }
+
+    public BigDecimal getWideSlTop20Pct() { return wideSlTop20Pct; }
+    public void setWideSlTop20Pct(BigDecimal v) { this.wideSlTop20Pct = v != null ? v : BigDecimal.valueOf(6.0); }
+
+    public BigDecimal getWideSlTop50Pct() { return wideSlTop50Pct; }
+    public void setWideSlTop50Pct(BigDecimal v) { this.wideSlTop50Pct = v != null ? v : BigDecimal.valueOf(6.0); }
+
+    public BigDecimal getWideSlOtherPct() { return wideSlOtherPct; }
+    public void setWideSlOtherPct(BigDecimal v) { this.wideSlOtherPct = v != null ? v : BigDecimal.valueOf(6.0); }
+
+    public BigDecimal getTightSlPct() { return tightSlPct; }
+    public void setTightSlPct(BigDecimal v) { this.tightSlPct = v != null ? v : BigDecimal.valueOf(3.0); }
+
+    /**
+     * 거래대금 순위에 따라 SL_WIDE 값 반환.
+     * @param rank 1-based 순위 (1=1위)
+     */
+    public BigDecimal getWideSlForRank(int rank) {
+        if (rank <= 10) return wideSlTop10Pct;
+        if (rank <= 20) return wideSlTop20Pct;
+        if (rank <= 50) return wideSlTop50Pct;
+        return wideSlOtherPct;
+    }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public java.util.Set<String> getExcludeMarketsSet() {

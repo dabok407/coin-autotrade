@@ -15,28 +15,24 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
- * MorningRush TP/SL 실시간 체크 검증.
- * - entryPhaseComplete=false → checkRealtimeTpSl 스킵
- * - entryPhaseComplete=true → checkRealtimeTpSl 동작
- * - TP 도달 시 매도 스케줄
- * - SL 도달 시 매도 스케줄
+ * MorningRush SL 종합안 (1분 그레이스 + 5분 타이트닝 + 트레일링) 검증.
+ *
+ * positionCache 포맷: [avgPrice, qty, openedAtEpochMs, peakPrice, entryVolume]
+ *
+ * 동작 시나리오:
+ *  - 0~60초:  1분 그레이스 — SL 무시 (TP만 작동)
+ *  - 60s~5분: SL 5% (WIDE_SL_PCT)
+ *  - 5분 이후: SL 3% (cachedSlPct) + 트레일링 스탑 (peak -1.5%)
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -60,102 +56,143 @@ public class MorningRushTpSlTest {
         scanner = new MorningRushScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 liveOrders, privateClient, txTemplate, catalogService, tickerService,
-                sharedPriceService
+                sharedPriceService, new SharedTradeThrottle()
         );
-        // Set running=true
         setField("running", new AtomicBoolean(true));
     }
 
-    // ===== Test: entryPhaseComplete=false여도 TP/SL 즉시 동작 =====
+    /** position cache 등록 헬퍼 (SL 종합안 5필드 포맷). */
+    private void putPosition(String market, double avgPrice, long openedAtMs) throws Exception {
+        getPositionCache().put(market, new double[]{avgPrice, 1000.0, openedAtMs, avgPrice, 0});
+    }
+
+    // ===== Test 1: TP 도달 → 즉시 매도 (그레이스 무관) =====
     @Test
-    public void testTpWorksEvenDuringEntryPhase() throws Exception {
-        setField("entryPhaseComplete", false);
-
-        // 포지션 캐시에 매수 포지션 등록
-        ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 1000.0});
-
-        // cachedTpPct=2.0, cachedSlPct=3.0
+    public void testTpFiresEvenInGracePeriod() throws Exception {
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
 
-        // TP 조건 (pnl=+5%) → entryPhaseComplete=false여도 즉시 매도
+        // 매수 직후 (0초 경과)
+        putPosition("KRW-TEST", 100.0, System.currentTimeMillis());
+
+        // pnl=+5% → TP 즉시 발동 (그레이스 무관)
         invokeCheckRealtimeTpSl("KRW-TEST", 105.0);
 
-        // 포지션이 캐시에서 제거되어야 함 (매도 트리거)
-        assertFalse(cache.containsKey("KRW-TEST"),
-                "Entry Phase여도 포지션 있으면 TP/SL 즉시 체크해야 함");
+        assertFalse(getPositionCache().containsKey("KRW-TEST"),
+                "TP 도달 시 그레이스 기간에도 즉시 매도해야 함");
     }
 
-    // ===== Test: entryPhaseComplete=true + TP 도달 → 매도 트리거 =====
+    // ===== Test 2: 1분 그레이스 — SL 무시 =====
     @Test
-    public void testTpTriggeredWhenEntryPhaseComplete() throws Exception {
-        setField("entryPhaseComplete", true);
-
-        ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 1000.0});
-
+    public void testGracePeriodIgnoresSL() throws Exception {
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
 
-        // TP 조건: +3% >= 2.0% TP → 매도 트리거
-        invokeCheckRealtimeTpSl("KRW-TEST", 103.0);
+        // 매수 직후 30초 경과 (그레이스 60초 이내)
+        long openedAt = System.currentTimeMillis() - 30_000L;
+        putPosition("KRW-TEST", 100.0, openedAt);
 
-        // 포지션이 캐시에서 제거되어야 함 (매도 스케줄됨)
-        assertFalse(cache.containsKey("KRW-TEST"),
-                "TP 도달 시 포지션 캐시에서 제거되어야 함");
+        // pnl=-10% (5% SL 훨씬 초과) → 그레이스로 무시
+        invokeCheckRealtimeTpSl("KRW-TEST", 90.0);
+
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "1분 그레이스 동안 SL 무시되어야 함");
     }
 
-    // ===== Test: entryPhaseComplete=true + SL 도달 → 매도 트리거 =====
+    // ===== Test 3: 60s~5분 구간 — SL 5% (WIDE_SL_PCT) =====
     @Test
-    public void testSlTriggeredWhenEntryPhaseComplete() throws Exception {
-        setField("entryPhaseComplete", true);
-
-        ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 1000.0});
-
+    public void testWideSlAt2MinElapsed() throws Exception {
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
 
-        // SL 조건: -4% <= -3.0% SL → 매도 트리거
+        // 매수 후 2분 경과 (60s~5분 구간)
+        long openedAt = System.currentTimeMillis() - 120_000L;
+        putPosition("KRW-TEST", 100.0, openedAt);
+
+        // pnl=-4% (5% SL 미달) → 유지
         invokeCheckRealtimeTpSl("KRW-TEST", 96.0);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "60s~5분 구간에서 -4%는 SL 5% 미달이라 유지되어야 함");
 
-        assertFalse(cache.containsKey("KRW-TEST"),
-                "SL 도달 시 포지션 캐시에서 제거되어야 함");
+        // pnl=-6% (5% SL 초과) → 매도
+        invokeCheckRealtimeTpSl("KRW-TEST", 94.0);
+        assertFalse(getPositionCache().containsKey("KRW-TEST"),
+                "60s~5분 구간에서 -6%는 SL 5% 초과라 매도되어야 함");
     }
 
-    // ===== Test: TP/SL 미도달 → 포지션 유지 =====
+    // ===== Test 4: 5분 이후 — SL 3% 타이트닝 =====
+    @Test
+    public void testTightSlAfter5Min() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedSlPct", 3.0);
+
+        // 매수 후 6분 경과 (5분 이후 구간)
+        long openedAt = System.currentTimeMillis() - 360_000L;
+        putPosition("KRW-TEST", 100.0, openedAt);
+
+        // pnl=-2% (3% SL 미달) → 유지
+        invokeCheckRealtimeTpSl("KRW-TEST", 98.0);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "5분 이후 -2%는 SL 3% 미달이라 유지되어야 함");
+
+        // pnl=-4% (3% SL 초과) → 매도
+        invokeCheckRealtimeTpSl("KRW-TEST", 96.0);
+        assertFalse(getPositionCache().containsKey("KRW-TEST"),
+                "5분 이후 -4%는 SL 3% 초과라 매도되어야 함");
+    }
+
+    // ===== Test 5: 5분 이후에도 단순 TP 매도 (트레일링 없음) =====
+    @Test
+    public void testSimpleTpAfter5Min() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedSlPct", 3.0);
+
+        // 매수 후 6분 경과
+        long openedAt = System.currentTimeMillis() - 360_000L;
+        putPosition("KRW-TEST", 100.0, openedAt);
+
+        // 가격 상승 (+1%) → TP 2.0% 미달, 트레일링 없음 → 유지
+        invokeCheckRealtimeTpSl("KRW-TEST", 101.0);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "+1%는 TP(2.0%) 미달, 5분 이후에도 트레일링 없으므로 유지");
+
+        // 가격 하락 (-1%) → 트레일링 없음, SL 3% 미달 → 유지
+        invokeCheckRealtimeTpSl("KRW-TEST", 99.0);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "-1%는 SL 3% 미달, 트레일링 없으므로 유지");
+
+        // 가격 상승 (+2.5%) → TP 발동
+        invokeCheckRealtimeTpSl("KRW-TEST", 102.5);
+        assertFalse(getPositionCache().containsKey("KRW-TEST"),
+                "+2.5%는 TP 도달 → 즉시 매도");
+    }
+
+    // ===== Test 6: TP/SL 미도달 → 포지션 유지 =====
     @Test
     public void testNoActionWhenWithinRange() throws Exception {
-        setField("entryPhaseComplete", true);
-
-        ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 1000.0});
-
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
 
-        // pnl=+1.0% → TP(2.0%) 미도달, SL(-3.0%) 미도달
+        // 매수 후 2분 경과 (그레이스 끝, 5분 전)
+        long openedAt = System.currentTimeMillis() - 120_000L;
+        putPosition("KRW-TEST", 100.0, openedAt);
+
+        // pnl=+1.0% → TP(2.0%) 미달, SL(5%) 미달
         invokeCheckRealtimeTpSl("KRW-TEST", 101.0);
 
-        assertTrue(cache.containsKey("KRW-TEST"),
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
                 "TP/SL 미도달 시 포지션 유지되어야 함");
     }
 
-    // ===== Test: 포지션 없는 마켓 → 무시 =====
+    // ===== Test 7: 포지션 없는 마켓 → 무시 =====
     @Test
     public void testIgnoresUnknownMarket() throws Exception {
-        setField("entryPhaseComplete", true);
-
-        ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        // KRW-TEST 없음
-
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
 
-        // 아무 에러 없이 스킵
+        // 캐시 비어있음
         invokeCheckRealtimeTpSl("KRW-UNKNOWN", 105.0);
-        // 아무 일도 안 일어남 - 에러 없으면 성공
+        // 에러 없으면 성공
     }
 
     // ===== Helpers =====

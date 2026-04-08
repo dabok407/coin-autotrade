@@ -59,6 +59,25 @@ public class MorningRushConfigEntity {
     @Column(name = "session_end_min", nullable = false)
     private int sessionEndMin = 0;
 
+    // ── 페이즈 타이밍 (V105: 하드코딩 → DB 관리) ──
+    /** 레인지 수집 시작 시각 (KST). 기본 08:50 */
+    @Column(name = "range_start_hour", nullable = false)
+    private int rangeStartHour = 8;
+    @Column(name = "range_start_min", nullable = false)
+    private int rangeStartMin = 50;
+
+    /** 진입 시작 시각 (KST). 기본 09:00 */
+    @Column(name = "entry_start_hour", nullable = false)
+    private int entryStartHour = 9;
+    @Column(name = "entry_start_min", nullable = false)
+    private int entryStartMin = 0;
+
+    /** 진입 종료 시각 (KST, exclusive). 기본 09:05 */
+    @Column(name = "entry_end_hour", nullable = false)
+    private int entryEndHour = 9;
+    @Column(name = "entry_end_min", nullable = false)
+    private int entryEndMin = 5;
+
     @Column(name = "min_trade_amount", nullable = false)
     private long minTradeAmount = 1000000000L;
 
@@ -75,6 +94,18 @@ public class MorningRushConfigEntity {
     /** 급등 감지 윈도우 (초). 이 시간 내 surgeThresholdPct 이상 상승 시 진입. */
     @Column(name = "surge_window_sec", nullable = false)
     private int surgeWindowSec = 30;
+
+    /** SL 종합안: 매수 후 그레이스 기간 (초). 이 기간 동안 SL 무시. */
+    @Column(name = "grace_period_sec", nullable = false)
+    private int gracePeriodSec = 60;
+
+    /** SL 종합안: SL_WIDE 지속 시간 (분). 90일 백테스트 검증값 30분. */
+    @Column(name = "wide_period_min", nullable = false)
+    private int widePeriodMin = 30;
+
+    /** SL 종합안: 흔들기 보호용 SL 값 (%). 90일 백테스트 평균 깊이 -5.94% → -6.0% 적용. */
+    @Column(name = "wide_sl_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal wideSlPct = BigDecimal.valueOf(6.0);
 
     // ========== Getters & Setters ==========
 
@@ -122,6 +153,21 @@ public class MorningRushConfigEntity {
     public int getSessionEndMin() { return sessionEndMin; }
     public void setSessionEndMin(int v) { this.sessionEndMin = v; }
 
+    public int getRangeStartHour() { return rangeStartHour; }
+    public void setRangeStartHour(int v) { this.rangeStartHour = Math.max(0, Math.min(23, v)); }
+    public int getRangeStartMin() { return rangeStartMin; }
+    public void setRangeStartMin(int v) { this.rangeStartMin = Math.max(0, Math.min(59, v)); }
+
+    public int getEntryStartHour() { return entryStartHour; }
+    public void setEntryStartHour(int v) { this.entryStartHour = Math.max(0, Math.min(23, v)); }
+    public int getEntryStartMin() { return entryStartMin; }
+    public void setEntryStartMin(int v) { this.entryStartMin = Math.max(0, Math.min(59, v)); }
+
+    public int getEntryEndHour() { return entryEndHour; }
+    public void setEntryEndHour(int v) { this.entryEndHour = Math.max(0, Math.min(23, v)); }
+    public int getEntryEndMin() { return entryEndMin; }
+    public void setEntryEndMin(int v) { this.entryEndMin = Math.max(0, Math.min(59, v)); }
+
     public long getMinTradeAmount() { return minTradeAmount; }
     public void setMinTradeAmount(long v) { this.minTradeAmount = Math.max(0, v); }
 
@@ -136,6 +182,15 @@ public class MorningRushConfigEntity {
 
     public int getSurgeWindowSec() { return surgeWindowSec; }
     public void setSurgeWindowSec(int v) { this.surgeWindowSec = Math.max(5, Math.min(120, v)); }
+
+    public int getGracePeriodSec() { return gracePeriodSec; }
+    public void setGracePeriodSec(int v) { this.gracePeriodSec = Math.max(0, Math.min(600, v)); }
+
+    public int getWidePeriodMin() { return widePeriodMin; }
+    public void setWidePeriodMin(int v) { this.widePeriodMin = Math.max(1, Math.min(60, v)); }
+
+    public BigDecimal getWideSlPct() { return wideSlPct; }
+    public void setWideSlPct(BigDecimal v) { this.wideSlPct = v != null ? v : BigDecimal.valueOf(6.0); }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public Set<String> getExcludeMarketsSet() {

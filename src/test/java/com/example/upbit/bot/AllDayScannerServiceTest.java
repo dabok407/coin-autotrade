@@ -63,7 +63,7 @@ public class AllDayScannerServiceTest {
         scanner = new AllDayScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService, sharedPriceService
+                tickerService, sharedPriceService, new SharedTradeThrottle()
         );
         // Set running=true so tick() doesn't return early
         Field runningField = AllDayScannerService.class.getDeclaredField("running");

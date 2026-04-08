@@ -72,3 +72,22 @@ src/main/resources/application-prod.yml
 src/main/resources/application-dev.yml
 src/main/resources/application-local.yml
 *.env
+
+# ===== Local analysis & simulation scripts (work artifacts) =====
+analysis/
+analysis_*.py
+analysis_*.js
+analyze_*.py
+allday_sim.py
+deep_analysis*.py
+dual_mode_sim.py
+mode2_analysis.py
+opening_scanner_simulation.py
+opening_sim.py
+test_analyze_day.js
+test_morningrush_debug.js
+vol_compare_sim.py
+vol_threshold_sim.py
+ws_opening_sim*.py
+data/analyze_*.py
+data/opening_scanner_simulate.py

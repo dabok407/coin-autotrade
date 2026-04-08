@@ -41,7 +41,7 @@ public class AllDayScannerConfigEntity {
     private int entryStartHour = 10;
 
     @Column(name = "entry_start_min", nullable = false)
-    private int entryStartMin = 35;
+    private int entryStartMin = 30;  // V105: 오프닝(~10:29) 직후 시작
 
     @Column(name = "entry_end_hour", nullable = false)
     private int entryEndHour = 22;
