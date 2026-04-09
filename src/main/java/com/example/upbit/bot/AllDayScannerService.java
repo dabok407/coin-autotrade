@@ -107,6 +107,11 @@ public class AllDayScannerService {
     // (2026-04-08 KRW-TREE 사고: 분리된 throttle로 같은 코인 동시 매수 발생)
     private final SharedTradeThrottle hourlyThrottle;
 
+    // 진행 중인 매수/매도 마켓 (race condition 차단용 in-flight set)
+    // (2026-04-09 KRW-CBK 사고: thread race fix 일관 적용)
+    private final java.util.Set<String> buyingMarkets = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> sellingMarkets = ConcurrentHashMap.newKeySet();
+
     /** Result holder for parallel candle fetching */
     private static class CandleFetchResult {
         final String market;
@@ -774,8 +779,8 @@ public class AllDayScannerService {
                     orderKrw = BigDecimal.valueOf(remainingBudget2).setScale(0, RoundingMode.DOWN);
                 }
 
-                // Hourly throttle check
-                if (!hourlyThrottle.canBuy(bs.market)) {
+                // ★ atomic throttle claim (race fix)
+                if (!hourlyThrottle.tryClaim(bs.market)) {
                     addDecision(bs.market, "BUY", "BLOCKED", "HOURLY_LIMIT",
                             String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(bs.market) / 1000));
                     continue;
@@ -783,7 +788,6 @@ public class AllDayScannerService {
 
                 try {
                     executeBuy(bs.market, bs.candle, bs.signal, cfg);
-                    hourlyThrottle.recordBuy(bs.market);
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
@@ -791,6 +795,8 @@ public class AllDayScannerService {
                     tpPositionCache.put(bs.market, new double[]{bs.candle.trade_price});
                     addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
                 } catch (Exception e) {
+                    // 매수 실패 → throttle 권한 반환
+                    hourlyThrottle.releaseClaim(bs.market);
                     log.error("[AllDayScanner] buy execution failed for {}", bs.market, e);
                     addDecision(bs.market, "BUY", "ERROR", "EXECUTION_FAIL",
                             "매수 실행 오류: " + e.getMessage());
@@ -810,6 +816,20 @@ public class AllDayScannerService {
 
     private void executeBuy(String market, UpbitCandle candle, Signal signal,
                              AllDayScannerConfigEntity cfg) {
+        // ★ race 방어: in-flight 매수 차단
+        if (!buyingMarkets.add(market)) {
+            log.info("[AllDayScanner] BUY in progress, skip duplicate: {}", market);
+            return;
+        }
+        try {
+            executeBuyInner(market, candle, signal, cfg);
+        } finally {
+            buyingMarkets.remove(market);
+        }
+    }
+
+    private void executeBuyInner(String market, UpbitCandle candle, Signal signal,
+                                  AllDayScannerConfigEntity cfg) {
         double price = candle.trade_price;
         BigDecimal orderKrw = calcOrderSize(cfg);
         if (orderKrw.compareTo(BigDecimal.valueOf(5000)) < 0) {
@@ -933,6 +953,20 @@ public class AllDayScannerService {
 
     private void executeSell(PositionEntity pe, UpbitCandle candle, Signal signal,
                               AllDayScannerConfigEntity cfg) {
+        // ★ race 방어: in-flight 매도 차단
+        if (!sellingMarkets.add(pe.getMarket())) {
+            log.debug("[AllDayScanner] SELL in progress, skip duplicate: {}", pe.getMarket());
+            return;
+        }
+        try {
+            executeSellInner(pe, candle, signal, cfg);
+        } finally {
+            sellingMarkets.remove(pe.getMarket());
+        }
+    }
+
+    private void executeSellInner(PositionEntity pe, UpbitCandle candle, Signal signal,
+                                   AllDayScannerConfigEntity cfg) {
         double price = candle.trade_price;
         boolean isPaper = "PAPER".equalsIgnoreCase(cfg.getMode());
         double fillPrice;
@@ -1234,6 +1268,19 @@ public class AllDayScannerService {
      * WebSocket TP 매도 실행 (scheduler 스레드에서 호출, DB 접근 안전).
      */
     private void executeSellForWsTp(String market, double wsPrice, double pnlPct) {
+        // ★ race 방어: in-flight 매도 차단 (WS TP path와 mainLoop monitorPositions 동시 매도 가능)
+        if (!sellingMarkets.add(market)) {
+            log.debug("[AllDayScanner] WS_TP SELL in progress, skip duplicate: {}", market);
+            return;
+        }
+        try {
+            executeSellForWsTpInner(market, wsPrice, pnlPct);
+        } finally {
+            sellingMarkets.remove(market);
+        }
+    }
+
+    private void executeSellForWsTpInner(String market, double wsPrice, double pnlPct) {
         PositionEntity pe = positionRepo.findById(market).orElse(null);
         if (pe == null || pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("[AllDayScanner] WS_TP: position not found for {} (already sold?)", market);

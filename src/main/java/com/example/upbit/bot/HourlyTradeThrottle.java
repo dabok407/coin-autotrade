@@ -68,6 +68,18 @@ public class HourlyTradeThrottle {
     }
 
     /**
+     * 가장 최근 매수 기록 1건 제거 (매수 실패 시 권한 반환용).
+     * SharedTradeThrottle.releaseClaim() 에서 호출.
+     */
+    public void removeLastBuy(String market) {
+        Deque<Long> history = tradeHistory.get(market);
+        if (history == null) return;
+        synchronized (history) {
+            if (!history.isEmpty()) history.pollLast();
+        }
+    }
+
+    /**
      * 남은 대기 시간 (ms). 0이면 즉시 매수 가능.
      * 두 제한 중 더 긴 시간 반환.
      */

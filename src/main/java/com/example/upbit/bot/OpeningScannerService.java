@@ -81,6 +81,11 @@ public class OpeningScannerService {
     // (2026-04-08 KRW-TREE 사고: 분리된 throttle로 같은 코인 동시 매수 발생)
     private final SharedTradeThrottle hourlyThrottle;
 
+    // 진행 중인 매수/매도 마켓 (race condition 차단용 in-flight set)
+    // (2026-04-09 KRW-CBK 사고: 모닝러쉬에서 발생한 thread race가 오프닝에서도 가능)
+    private final java.util.Set<String> buyingMarkets = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> sellingMarkets = ConcurrentHashMap.newKeySet();
+
     // 매도 후 재매수 쿨다운: 동일 마켓 매도 후 5분간 재매수 차단 (BERA 반복매매 방지)
     // 5분봉 1주기 = 300초, 같은 캔들 데이터로 재진입 방지
     private static final long SELL_COOLDOWN_MS = 300_000L;
@@ -786,8 +791,8 @@ public class OpeningScannerService {
                     orderKrw = BigDecimal.valueOf(remainingBudget2).setScale(0, RoundingMode.DOWN);
                 }
 
-                // Hourly throttle check
-                if (!hourlyThrottle.canBuy(bs.market)) {
+                // ★ atomic throttle claim (race fix)
+                if (!hourlyThrottle.tryClaim(bs.market)) {
                     addDecision(bs.market, "BUY", "BLOCKED", "HOURLY_LIMIT",
                             String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(bs.market) / 1000));
                     continue;
@@ -795,7 +800,6 @@ public class OpeningScannerService {
 
                 try {
                     executeBuy(bs.market, bs.candle, bs.signal, cfg);
-                    hourlyThrottle.recordBuy(bs.market);
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
@@ -805,6 +809,8 @@ public class OpeningScannerService {
                     breakoutDetector.addPosition(bs.market, bs.candle.trade_price, System.currentTimeMillis(), volumeRank);
                     addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
                 } catch (Exception e) {
+                    // 실패 시 throttle 권한 반환
+                    hourlyThrottle.releaseClaim(bs.market);
                     log.error("[OpeningScanner] buy execution failed for {}", bs.market, e);
                     addDecision(bs.market, "BUY", "ERROR", "EXECUTION_FAIL",
                             "매수 실행 오류: " + e.getMessage());
@@ -824,6 +830,20 @@ public class OpeningScannerService {
 
     private void executeBuy(String market, UpbitCandle candle, Signal signal,
                              OpeningScannerConfigEntity cfg) {
+        // ★ race 방어: in-flight 매수 차단 (KRW-CBK 사고 패턴 재발 방지)
+        if (!buyingMarkets.add(market)) {
+            log.info("[OpeningScanner] BUY in progress, skip duplicate: {}", market);
+            return;
+        }
+        try {
+            executeBuyInner(market, candle, signal, cfg);
+        } finally {
+            buyingMarkets.remove(market);
+        }
+    }
+
+    private void executeBuyInner(String market, UpbitCandle candle, Signal signal,
+                                  OpeningScannerConfigEntity cfg) {
         double price = candle.trade_price;
         BigDecimal orderKrw = calcOrderSize(cfg);
         if (orderKrw.compareTo(BigDecimal.valueOf(5000)) < 0) {
@@ -950,6 +970,20 @@ public class OpeningScannerService {
 
     private void executeSell(PositionEntity pe, UpbitCandle candle, Signal signal,
                               OpeningScannerConfigEntity cfg) {
+        // ★ race 방어: 동시 매도 차단 (KRW-CBK 패턴)
+        if (!sellingMarkets.add(pe.getMarket())) {
+            log.debug("[OpeningScanner] SELL in progress, skip duplicate: {}", pe.getMarket());
+            return;
+        }
+        try {
+            executeSellInner(pe, candle, signal, cfg);
+        } finally {
+            sellingMarkets.remove(pe.getMarket());
+        }
+    }
+
+    private void executeSellInner(PositionEntity pe, UpbitCandle candle, Signal signal,
+                                   OpeningScannerConfigEntity cfg) {
         double price = candle.trade_price;
         boolean isPaper = "PAPER".equalsIgnoreCase(cfg.getMode());
         double fillPrice;
@@ -1229,6 +1263,19 @@ public class OpeningScannerService {
      * WebSocket 콜백에서 scheduler를 통해 호출됨.
      */
     private void executeSellForTp(PositionEntity pe, double price, String reason) {
+        // ★ race 방어: 동시 매도 차단
+        if (!sellingMarkets.add(pe.getMarket())) {
+            log.debug("[OpeningScanner] TP SELL in progress, skip duplicate: {}", pe.getMarket());
+            return;
+        }
+        try {
+            executeSellForTpInner(pe, price, reason);
+        } finally {
+            sellingMarkets.remove(pe.getMarket());
+        }
+    }
+
+    private void executeSellForTpInner(PositionEntity pe, double price, String reason) {
         String market = pe.getMarket();
         double qty = pe.getQty().doubleValue();
         double avgPrice = pe.getAvgPrice().doubleValue();
@@ -1378,13 +1425,7 @@ public class OpeningScannerService {
                 return;
             }
 
-            // 시간당 throttle
-            if (!hourlyThrottle.canBuy(market)) {
-                long remainSec = hourlyThrottle.remainingWaitMs(market) / 1000;
-                addDecision(market, "BUY", "BLOCKED", "HOURLY_LIMIT",
-                        "1시간 내 최대 2회 매매 제한 (남은: " + remainSec + "초, WS)");
-                return;
-            }
+            boolean throttleClaimed = false;
 
             // 활성 마켓 카운트 (이미 보유 중이면 스킵)
             List<PositionEntity> allPos = positionRepo.findAll();
@@ -1477,6 +1518,16 @@ public class OpeningScannerService {
                 return;
             }
 
+            // ★ atomic throttle claim — 모든 필터 통과 후, executeBuy 직전 (race fix)
+            // 위치를 여기로 둔 이유: 위쪽 차단 분기들이 throttle을 잘못 기록하는 것 방지
+            if (!hourlyThrottle.tryClaim(market)) {
+                long remainSec = hourlyThrottle.remainingWaitMs(market) / 1000;
+                addDecision(market, "BUY", "BLOCKED", "HOURLY_LIMIT",
+                        "1시간 내 최대 2회 매매 제한 (남은: " + remainSec + "초, WS)");
+                return;
+            }
+            throttleClaimed = true;
+
             // 모든 필터 통과 → 즉시 매수
             log.info("[OpeningScanner] WS_BREAKOUT BUY: {} price={} bo=+{}% vol={}x rsi={}",
                     market, wsPrice,
@@ -1499,8 +1550,16 @@ public class OpeningScannerService {
                     wsPrice, rangeHigh, breakoutPctActual, volRatio, rsi);
             Signal sig = Signal.of(SignalAction.BUY, StrategyType.SCALP_OPENING_BREAK, reason, 9.0);
 
-            executeBuy(market, synth, sig, cfg);
-            hourlyThrottle.recordBuy(market);
+            try {
+                executeBuy(market, synth, sig, cfg);
+            } catch (Exception e) {
+                // 매수 실패 → throttle 권한 반환
+                if (throttleClaimed) {
+                    hourlyThrottle.releaseClaim(market);
+                    throttleClaimed = false;
+                }
+                throw e;
+            }
         } catch (Exception e) {
             log.error("[OpeningScanner] tryWsBreakoutBuy error for {}", market, e);
         } finally {

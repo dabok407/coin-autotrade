@@ -122,6 +122,12 @@ public class MorningRushScannerService {
     // (2026-04-08 KRW-TREE 사고: 분리된 throttle로 같은 코인 동시 매수 발생)
     private final SharedTradeThrottle hourlyThrottle;
 
+    // 진행 중인 매수/매도 마켓 (race condition 차단용 in-flight set)
+    // (2026-04-09 KRW-CBK 사고: 같은 스캐너의 두 thread morning-rush-0/1 동시 매수)
+    // ConcurrentHashMap.newKeySet() = lock-free atomic add (CAS 기반)
+    private final java.util.Set<String> buyingMarkets = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> sellingMarkets = ConcurrentHashMap.newKeySet();
+
     // Session phase tracking
     private volatile boolean rangeCollected = false;
     private volatile boolean entryPhaseComplete = false;
@@ -352,6 +358,13 @@ public class MorningRushScannerService {
             scheduler.schedule(new Runnable() {
                 @Override
                 public void run() {
+                    // ★ 1차 race 방어: in-flight 매수 차단 (lock-free atomic add)
+                    // 2026-04-09 KRW-CBK 사고 재발 방지 — 두 thread morning-rush-0/1 동시 매수
+                    if (!buyingMarkets.add(fCode)) {
+                        log.info("[MorningRush] BUY in progress, skip duplicate task: {}", fCode);
+                        return;
+                    }
+                    boolean throttleClaimed = false;
                     try {
                         MorningRushConfigEntity cfg = configRepo.loadOrCreate();
                         if (!cfg.isEnabled()) return;
@@ -380,17 +393,26 @@ public class MorningRushScannerService {
                         }
 
                         BigDecimal orderKrw = calcOrderSize(cfg);
-                        // Hourly throttle check
-                        if (!hourlyThrottle.canBuy(fCode)) {
+                        // ★ 2차 race 방어: tryClaim atomic (canBuy + recordBuy를 synchronized로 한 번에)
+                        if (!hourlyThrottle.tryClaim(fCode)) {
                             addDecision(fCode, "BUY", "BLOCKED", "HOURLY_LIMIT",
                                     String.format("1시간 내 최대 2회 매매 제한 (남은 대기: %ds)", hourlyThrottle.remainingWaitMs(fCode) / 1000));
                             return;
                         }
-                        executeBuy(fCode, fPrice, reason, cfg, orderKrw, isLive);
-                        hourlyThrottle.recordBuy(fCode);
-                        addDecision(fCode, "BUY", "EXECUTED", reason);
+                        throttleClaimed = true;
+                        try {
+                            executeBuy(fCode, fPrice, reason, cfg, orderKrw, isLive);
+                            addDecision(fCode, "BUY", "EXECUTED", reason);
+                        } catch (Exception e) {
+                            // 매수 실패 → throttle 권한 반환 (다음 시도 가능하도록)
+                            hourlyThrottle.releaseClaim(fCode);
+                            throttleClaimed = false;
+                            throw e;
+                        }
                     } catch (Exception e) {
                         log.error("[MorningRush] realtime buy failed for {}", fCode, e);
+                    } finally {
+                        buyingMarkets.remove(fCode);
                     }
                 }
             }, 0, TimeUnit.MILLISECONDS);
@@ -456,6 +478,16 @@ public class MorningRushScannerService {
 
         if (sellType == null) return;
 
+        // ★ 1차 race 방어: in-flight 매도 차단 (lock-free atomic add)
+        // 2026-04-09 KRW-CBK 사고 — mainLoop SL 체크와 WS realtime SL 체크 두 path 동시 매도
+        if (!sellingMarkets.add(market)) {
+            log.debug("[MorningRush] SELL in progress, skip duplicate trigger: {}", market);
+            return;
+        }
+
+        // 캐시에서 제거 (중복 매도 방지)
+        positionCache.remove(market);
+
         final String fSellType = sellType;
         final String fReason = reason;
         log.info("[MorningRush] realtime {} detected | {} | {}", fSellType, market, fReason);
@@ -477,12 +509,11 @@ public class MorningRushScannerService {
                     executeSell(fresh, fPrice, freshPnl, fReason, fSellType, cfg);
                 } catch (Exception e) {
                     log.error("[MorningRush] realtime sell failed for {}", fMarket, e);
+                } finally {
+                    sellingMarkets.remove(fMarket);
                 }
             }
         });
-
-        // 캐시에서 제거 (중복 매도 방지)
-        positionCache.remove(market);
     }
 
     /**
@@ -1030,17 +1061,29 @@ public class MorningRushScannerService {
 
             if (sellReason == null) continue;
 
+            // ★ race 방어: WS realtime checkRealtimeTpSl과 mainLoop monitorPositions 둘 다 매도 시도 가능
+            // 같은 sellingMarkets Set으로 in-flight 차단 (KRW-CBK 09:30 이중 매도 사고 재발 방지)
+            if (!sellingMarkets.add(pe.getMarket())) {
+                log.debug("[MorningRush] mainLoop SELL skip, already in progress: {}", pe.getMarket());
+                continue;
+            }
+
             log.info("[MorningRush] {} triggered | {} | {}", sellType, pe.getMarket(), sellReason);
 
-            // Re-check position (race condition protection)
-            PositionEntity fresh = positionRepo.findById(pe.getMarket()).orElse(null);
-            if (fresh == null || fresh.getQty() == null || fresh.getQty().compareTo(BigDecimal.ZERO) <= 0) continue;
+            // 캐시에서 제거 (다음 WS tick의 중복 매도 방지)
+            positionCache.remove(pe.getMarket());
 
             try {
+                // Re-check position (race condition protection)
+                PositionEntity fresh = positionRepo.findById(pe.getMarket()).orElse(null);
+                if (fresh == null || fresh.getQty() == null || fresh.getQty().compareTo(BigDecimal.ZERO) <= 0) continue;
+
                 executeSell(fresh, currentPrice, pnlPct, sellReason, sellType, cfg);
             } catch (Exception e) {
                 log.error("[MorningRush] sell failed for {}", pe.getMarket(), e);
                 addDecision(pe.getMarket(), "SELL", "ERROR", "매도 실행 오류: " + e.getMessage());
+            } finally {
+                sellingMarkets.remove(pe.getMarket());
             }
         }
     }
@@ -1084,11 +1127,20 @@ public class MorningRushScannerService {
 
             log.info("[MorningRush] SESSION_END | {} | {}", pe.getMarket(), reason);
 
+            // ★ race 방어
+            if (!sellingMarkets.add(pe.getMarket())) {
+                log.debug("[MorningRush] forceExit skip, already in progress: {}", pe.getMarket());
+                continue;
+            }
+            positionCache.remove(pe.getMarket());
+
             try {
                 executeSell(pe, currentPrice, pnlPct, reason, "SESSION_END", cfg);
             } catch (Exception e) {
                 log.error("[MorningRush] session-end sell failed for {}", pe.getMarket(), e);
                 addDecision(pe.getMarket(), "SELL", "ERROR", "세션종료 매도 오류: " + e.getMessage());
+            } finally {
+                sellingMarkets.remove(pe.getMarket());
             }
         }
 
