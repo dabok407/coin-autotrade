@@ -40,6 +40,14 @@ public class OpeningBreakoutDetector {
     private volatile double breakoutPct = 1.0;
     private volatile int requiredConfirm = 3;
 
+    // Entry window 체크 (2026-04-09 추가)
+    // 09:00~09:05 사이에 listener가 미리 등록되어 가격 update를 받지만,
+    // entry window(예: 09:05~10:30) 안에서만 confirm 카운트를 누적하도록 제한.
+    // 그렇지 않으면 09:00 +1% 돌파 후 09:04 +0.5% 떨어진 가격이 09:05:00 시점에
+    // 옵션 B 매수로 이어져 stale 매수 위험.
+    private volatile int entryStartMinOfDay = -1;  // -1 = 비활성 (모든 시각 허용)
+    private volatile int entryEndMinOfDay = -1;
+
     // Callback
     private volatile BreakoutListener listener;
     private volatile PriceUpdateListener priceListener;
@@ -88,6 +96,16 @@ public class OpeningBreakoutDetector {
     public void setListener(BreakoutListener listener) { this.listener = listener; }
     public void setTpActivatePct(double pct) { this.tpActivatePct = pct; }
     public void setTrailFromPeakPct(double pct) { this.trailFromPeakPct = pct; }
+
+    /**
+     * Entry window 시각 설정 (KST 기준 분 단위, hour*60+min).
+     * checkBreakout()이 이 시각 안에서만 confirm 카운트를 누적한다.
+     * -1로 설정하면 시각 제한 비활성 (모든 시각 허용).
+     */
+    public void setEntryWindow(int startMinOfDay, int endMinOfDay) {
+        this.entryStartMinOfDay = startMinOfDay;
+        this.entryEndMinOfDay = endMinOfDay;
+    }
 
     public void setRangeHighMap(Map<String, Double> map) {
         rangeHighMap.clear();
@@ -237,6 +255,18 @@ public class OpeningBreakoutDetector {
 
     private void checkBreakout(String market, double price) {
         if (confirmedMarkets.contains(market)) return;
+
+        // ★ Entry window 체크 (2026-04-09 추가)
+        // listener가 entry window 전에 미리 등록되어 있어도, 윈도우 안에서만 confirm 누적.
+        // 윈도우 밖에서는 가격 update를 받기만 하고 confirm 카운트 안 함.
+        if (entryStartMinOfDay >= 0 && entryEndMinOfDay >= 0) {
+            java.time.ZonedDateTime nowKst = java.time.ZonedDateTime.now(
+                    java.time.ZoneId.of("Asia/Seoul"));
+            int nowMin = nowKst.getHour() * 60 + nowKst.getMinute();
+            if (nowMin < entryStartMinOfDay || nowMin > entryEndMinOfDay) {
+                return;  // entry window 밖, confirm 누적 안 함
+            }
+        }
 
         Double rangeHigh = rangeHighMap.get(market);
         if (rangeHigh == null || rangeHigh <= 0) return;

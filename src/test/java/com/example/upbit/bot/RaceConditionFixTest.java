@@ -208,63 +208,66 @@ public class RaceConditionFixTest {
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  시나리오 5: 매도 race (mainLoop SL + WS realtime SL 두 path 동시)
-    //  → sellingMarkets Set이 한 path만 통과시켜야 함
+    //  시나리오 5: 매도 race — mainLoop SL이 in-flight인 동안 WS realtime SL 시도
+    //  → 두 번째 thread는 sellingMarkets.add() false 반환받아 차단
+    //
+    //  CyclicBarrier로 thread 동기화 보장 (full suite에서도 안정적)
     // ═══════════════════════════════════════════════════════════
     @Test
-    @DisplayName("시나리오 5: 매도 race (mainLoop + WS) 동시 → 1개만 매도")
+    @DisplayName("시나리오 5: 매도 race (mainLoop in-flight + WS 동시 시도) → 1개만 매도")
     public void scenario5_sellRaceMainLoopVsWs() throws Exception {
         Set<String> sellingMarkets = ConcurrentHashMap.newKeySet();
         String market = "KRW-CBK";
 
-        CountDownLatch startGate = new CountDownLatch(1);
-        CountDownLatch doneGate = new CountDownLatch(2);
+        java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(2);
+        CountDownLatch firstAdded = new CountDownLatch(1);
+        CountDownLatch wsTried = new CountDownLatch(1);
         AtomicInteger sellsExecuted = new AtomicInteger(0);
+        AtomicInteger wsBlocked = new AtomicInteger(0);
 
-        // mainLoop monitorPositions thread
+        // mainLoop SL thread: add 후 wsTried 신호 받을 때까지 sellingMarkets에 머물러 있음
         Thread mainLoopThread = new Thread(() -> {
             try {
-                startGate.await();
+                barrier.await();  // 두 thread 동시 출발
                 if (!sellingMarkets.add(market)) return;
                 try {
                     sellsExecuted.incrementAndGet();
-                    Thread.sleep(50);  // Upbit sell API simulation
+                    firstAdded.countDown();
+                    wsTried.await(2, TimeUnit.SECONDS);  // ws가 시도할 때까지 머무름
                 } finally {
                     sellingMarkets.remove(market);
                 }
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
                 Thread.currentThread().interrupt();
-            } finally {
-                doneGate.countDown();
             }
         }, "mainLoop-SL");
 
-        // WS realtime SL listener thread
+        // WS thread: mainLoop이 add 한 후에 시도 → 차단되어야 함
         Thread wsThread = new Thread(() -> {
             try {
-                startGate.await();
-                if (!sellingMarkets.add(market)) return;
-                try {
+                barrier.await();
+                firstAdded.await(2, TimeUnit.SECONDS);  // mainLoop이 먼저 add 후
+                if (!sellingMarkets.add(market)) {
+                    wsBlocked.incrementAndGet();  // ★ 차단 확인
+                } else {
                     sellsExecuted.incrementAndGet();
-                    Thread.sleep(50);
-                } finally {
                     sellingMarkets.remove(market);
                 }
-            } catch (InterruptedException e) {
+                wsTried.countDown();  // mainLoop에게 release 허용
+            } catch (Exception e) {
                 Thread.currentThread().interrupt();
-            } finally {
-                doneGate.countDown();
             }
         }, "ws-realtime-SL");
 
         mainLoopThread.start();
         wsThread.start();
-        startGate.countDown();
-
-        assertTrue(doneGate.await(5, TimeUnit.SECONDS));
+        mainLoopThread.join(5000);
+        wsThread.join(5000);
 
         assertEquals(1, sellsExecuted.get(),
-                "매도 race fix 실패: 두 path 중 1개만 매도해야 함, 실제: " + sellsExecuted.get());
+                "매도 1번만 실행되어야 함: " + sellsExecuted.get());
+        assertEquals(1, wsBlocked.get(),
+                "WS thread는 sellingMarkets에 의해 차단되어야 함: " + wsBlocked.get());
     }
 
     // ═══════════════════════════════════════════════════════════

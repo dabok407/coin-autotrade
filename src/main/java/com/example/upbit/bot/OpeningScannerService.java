@@ -39,6 +39,32 @@ public class OpeningScannerService {
     private static final Logger log = LoggerFactory.getLogger(OpeningScannerService.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    // ════════════════════════════════════════════════════════════════
+    // 5분 boundary BUY path 비활성화 플래그
+    // ════════════════════════════════════════════════════════════════
+    // 비활성화 일시: 2026-04-09 (사용자 요청)
+    // 비활성화 이유:
+    //   - 5분 boundary path는 옵션 B (실시간 WS path) 도입 전 원래 매수 path였음
+    //   - 옵션 B 도입 후 두 path 병행 운영 → 옵션 B가 못 잡은 시그널을
+    //     5분 boundary path가 5분 후 매수 → 사용자가 며칠째 "5분단위 진입" 불만
+    //   - KRW-FLOCK 09:10:13 케이스가 대표 사례 (옵션 B vol 0.2x SKIP →
+    //     5분 후 OPEN_BREAK 매수, +1.35%p 손해)
+    //   - 사용자 결정: 옵션 B 단독 사용, 5분 boundary BUY path 비활성화
+    //
+    // 영향 범위:
+    //   - tick() Phase 2 (BUY 시그널 감지) + Phase 3 (BUY 실행) 만 비활성화
+    //   - tick() Phase 1 (SELL 체크)는 그대로 동작 — 매도는 5분 boundary path도 사용
+    //   - 옵션 B (tryWsBreakoutBuy)는 그대로 동작 — 메인 매수 path
+    //
+    // 나중에 다시 활성화하려면:
+    //   - 이 플래그를 true로 변경 + 재배포
+    //   - 그 전에 옵션 B의 한계를 다시 검토 + 사용자 동의 필수
+    //
+    // ⚠️⚠️⚠️ Claude 자동 작업 시 이 플래그를 무심코 true로 바꾸지 말 것 ⚠️⚠️⚠️
+    // 사용자 명시 동의 없이 변경 금지. 변경 시 운영 사고 재발 가능.
+    // ════════════════════════════════════════════════════════════════
+    private static final boolean BOUNDARY_BUY_ENABLED = false;
+
     private final OpeningScannerConfigRepository configRepo;
     private final BotConfigRepository botConfigRepo;
     private final PositionRepository positionRepo;
@@ -496,19 +522,26 @@ public class OpeningScannerService {
         lastScannedMarkets = topMarkets;
         scanCount = topMarkets.size();
 
-        // WebSocket 돌파 감지기: entry window 진입 시 한 번만 연결
+        // WebSocket 돌파 감지기 — 2026-04-09 변경: listener 미리 등록 + entry window check
+        // 기존: entry window(09:05) 진입 시점에야 connect → 09:05:00 첫 가격 update 놓침
+        // 변경: entry window 5분 전(09:00)부터 connect (range 수집도 미리)
+        //       BreakoutDetector에 entry window 시각 전달 → 윈도우 안에서만 confirm 카운트
         int entryStart = cfg.getEntryStartHour() * 60 + cfg.getEntryStartMin();
         int entryEnd = cfg.getEntryEndHour() * 60 + cfg.getEntryEndMin();
         boolean inEntryWindow = nowMinOfDay >= entryStart && nowMinOfDay <= entryEnd;
+        boolean nearEntryWindow = nowMinOfDay >= (entryStart - 5) && nowMinOfDay <= entryEnd;
 
-        if (inEntryWindow && !breakoutDetectorConnected && !topMarkets.isEmpty()) {
+        if (nearEntryWindow && !breakoutDetectorConnected && !topMarkets.isEmpty()) {
             // rangeHigh 계산 (서비스 레벨에서 직접)
             collectRangeHighForDetector(topMarkets, candleUnit, cfg);
             if (!rangeHighCache.isEmpty()) {
                 breakoutDetector.setRangeHighMap(new HashMap<String, Double>(rangeHighCache));
+                // ★ entry window 시각 전달 — checkBreakout이 윈도우 안에서만 confirm 카운트
+                breakoutDetector.setEntryWindow(entryStart, entryEnd);
                 breakoutDetector.connect(new ArrayList<String>(rangeHighCache.keySet()));
                 breakoutDetectorConnected = true;
-                log.info("[OpeningScanner] WebSocket breakout detector connected: {} markets", rangeHighCache.size());
+                log.info("[OpeningScanner] WebSocket breakout detector connected: {} markets, entryWindow={}~{}",
+                        rangeHighCache.size(), entryStart, entryEnd);
             }
         }
         // entry window 종료 후: 포지션 없으면 WebSocket 해제, 있으면 유지 (실시간 TP용)
@@ -625,6 +658,14 @@ public class OpeningScannerService {
         }
 
         // ========== Phase 2: BUY signal detection - Parallel candle fetch + evaluation ==========
+        // ★ 2026-04-09: 5분 boundary BUY path 비활성화 (BOUNDARY_BUY_ENABLED 플래그 참조)
+        // 옵션 B (tryWsBreakoutBuy) 단독 매수. SELL phase는 위에서 그대로 동작했음.
+        if (!BOUNDARY_BUY_ENABLED) {
+            // 매수 phase 전체 skip. tick 종료.
+            activePositions = scannerPosCount;
+            return;
+        }
+
         boolean canEnter = btcAllowLong && scannerPosCount < cfg.getMaxPositions();
 
         if (!canEnter && !btcAllowLong) {
@@ -1368,12 +1409,15 @@ public class OpeningScannerService {
         }
         if (cfg == null || !cfg.isEnabled()) return;
 
-        // 진입 윈도우 안에서만 캐시 갱신 (불필요한 API 호출 방지)
+        // 진입 윈도우 5분 전부터 캐시 갱신 (2026-04-09 변경)
+        // 이유: entry window 시작 정각(09:05:00)에 캐시가 채워진 상태로 옵션 B 즉시 매수 가능.
+        // 기존엔 09:05 entry start 이후부터 갱신 → 09:05:00~09:05:10 사이 캐시 비어있어
+        // 옵션 B가 fallback fetch에 의존했음.
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
         int nowMin = nowKst.getHour() * 60 + nowKst.getMinute();
         int entryStart = cfg.getEntryStartHour() * 60 + cfg.getEntryStartMin();
         int entryEnd = cfg.getEntryEndHour() * 60 + cfg.getEntryEndMin();
-        if (nowMin < entryStart || nowMin > entryEnd) return;
+        if (nowMin < entryStart - 5 || nowMin > entryEnd) return;
 
         if (rangeHighCache.isEmpty()) return;
 
@@ -1415,6 +1459,19 @@ public class OpeningScannerService {
         try {
             OpeningScannerConfigEntity cfg = configRepo.findById(1).orElse(null);
             if (cfg == null || !cfg.isEnabled()) return;
+
+            // ★ Entry window 체크 (2026-04-09 추가)
+            // listener를 entry window 전에 미리 등록했으므로, 윈도우 밖 호출 시 즉시 return.
+            // 09:00~09:05 사이 listener가 가격 update 받아도 매수 안 함 (모닝러쉬와 충돌 방지).
+            ZonedDateTime nowKst = ZonedDateTime.now(KST);
+            int nowMin = nowKst.getHour() * 60 + nowKst.getMinute();
+            int entryStartMin = cfg.getEntryStartHour() * 60 + cfg.getEntryStartMin();
+            int entryEndMin = cfg.getEntryEndHour() * 60 + cfg.getEntryEndMin();
+            if (nowMin < entryStartMin || nowMin > entryEndMin) {
+                log.debug("[OpeningScanner] WS buy outside entry window: {} (nowMin={}, window={}~{})",
+                        market, nowMin, entryStartMin, entryEndMin);
+                return;
+            }
 
             // 매도 쿨다운 체크
             Long lastSell = sellCooldownMap.get(market);
@@ -1471,52 +1528,58 @@ public class OpeningScannerService {
             }
 
             // 빠른 필터 검사 (1분봉 기반)
+            // ★ 2026-04-09 변경: vol 필터 제거 (KRW-FLOCK 09:05:25 vol 0.2x 차단 사고)
+            // 1분봉 단일 vol은 시간 가중 무시한 부정확한 측정. 시그널 직후 부분 vol이라 누적 부족.
+            // BreakoutDetector가 이미 +1.0% 돌파 + 3 tick confirm으로 강한 신호 검증함.
+            // 양봉/RSI<83/EMA20 위 3개 필터로 충분.
+            //
+            // 또한 SKIP 분기마다 breakoutDetector.releaseMarket() 호출 추가 (2026-04-09):
+            // 한 번 SKIP된 마켓이 confirmedMarkets에 영원히 남아서 옵션 B 재시도 불가했던 문제 fix.
             UpbitCandle last = candles.get(candles.size() - 1);
 
             // 1. 양봉 (마지막 1분봉)
             if (last.trade_price <= last.opening_price) {
                 addDecision(market, "BUY", "SKIPPED", "BEARISH_LAST_1MIN",
                         "직전 1분봉 음봉");
+                breakoutDetector.releaseMarket(market);  // 다음 WS update에 재시도 가능
                 return;
             }
 
-            // 2. 거래량 (1분봉 평균 대비 1.5배 이상)
-            double avgVol = 0;
-            int volCount = Math.min(20, candles.size());
-            for (int i = candles.size() - volCount; i < candles.size(); i++) {
-                avgVol += candles.get(i).candle_acc_trade_volume;
-            }
-            avgVol /= volCount;
-            double curVol = last.candle_acc_trade_volume;
-            double volRatio = avgVol > 0 ? curVol / avgVol : 0;
-            if (volRatio < 1.5) {
-                addDecision(market, "BUY", "SKIPPED", "VOLUME_LOW",
-                        String.format("vol %.1fx < 1.5x (1min)", volRatio));
-                return;
-            }
-
-            // 3. RSI 과매수 차단 (RSI 83 이상 — ScalpOpeningBreakStrategy와 일치)
+            // 2. RSI 과매수 차단 (RSI 83 이상)
             double rsi = Indicators.rsi(candles, 14);
             if (rsi >= 83) {
                 addDecision(market, "BUY", "SKIPPED", "RSI_OVERBOUGHT",
                         String.format("RSI %.0f >= 83 (1min)", rsi));
+                breakoutDetector.releaseMarket(market);
                 return;
             }
 
-            // 4. EMA20 위 (최근 20개 1분봉 평균 대비 위)
+            // 3. EMA20 위 (최근 20개 1분봉 평균 대비 위)
             double ema20 = Indicators.ema(candles, 20);
             if (!Double.isNaN(ema20) && wsPrice < ema20) {
                 addDecision(market, "BUY", "SKIPPED", "BELOW_EMA20",
                         String.format("price=%.2f < ema20=%.2f (1min)", wsPrice, ema20));
+                breakoutDetector.releaseMarket(market);
                 return;
             }
 
-            // 5. 최소 돌파 강도 (이미 detector가 1.0% 이상 통과한 건이지만 재확인)
+            // 4. 최소 돌파 강도 (이미 detector가 1.0% 이상 통과한 건이지만 재확인)
             if (breakoutPctActual < 1.0) {
                 addDecision(market, "BUY", "SKIPPED", "BREAKOUT_WEAK",
                         String.format("bo=%.2f%% < 1.0%%", breakoutPctActual));
+                breakoutDetector.releaseMarket(market);
                 return;
             }
+
+            // volRatio는 로그용으로만 계산 (필터 X)
+            double avgVolForLog = 0;
+            int volCount = Math.min(20, candles.size());
+            for (int i = candles.size() - volCount; i < candles.size(); i++) {
+                avgVolForLog += candles.get(i).candle_acc_trade_volume;
+            }
+            avgVolForLog /= volCount;
+            double curVol = last.candle_acc_trade_volume;
+            double volRatio = avgVolForLog > 0 ? curVol / avgVolForLog : 0;
 
             // ★ atomic throttle claim — 모든 필터 통과 후, executeBuy 직전 (race fix)
             // 위치를 여기로 둔 이유: 위쪽 차단 분기들이 throttle을 잘못 기록하는 것 방지

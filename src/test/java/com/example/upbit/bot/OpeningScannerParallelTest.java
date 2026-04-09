@@ -254,7 +254,12 @@ public class OpeningScannerParallelTest {
      * (c) Verify Phase 3 executes highest confidence signals first.
      * We verify the sorting infrastructure works by checking candle fetches complete
      * and the tick runs without error.
+     *
+     * 2026-04-09 @Disabled: BOUNDARY_BUY_ENABLED = false 로 인해 tick() Phase 2/3 (BUY) 비활성화됨.
+     * 이 테스트는 boundary BUY path를 가정하므로 더 이상 의미 없음.
+     * BOUNDARY_BUY_ENABLED 다시 활성화 시 이 @Disabled 제거 필요.
      */
+    @org.junit.jupiter.api.Disabled("BOUNDARY_BUY_ENABLED=false 로 boundary BUY path 비활성화됨 (2026-04-09)")
     @Test
     public void testBuySignalsSortedByConfidence() throws Exception {
         setupTxTemplate();
