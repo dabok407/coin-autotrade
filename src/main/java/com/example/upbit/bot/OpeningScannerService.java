@@ -2,6 +2,8 @@ package com.example.upbit.bot;
 
 import com.example.upbit.db.*;
 import com.example.upbit.market.CandleService;
+import com.example.upbit.market.NewMarketListener;
+import com.example.upbit.market.SharedPriceService;
 import com.example.upbit.market.UpbitCandle;
 import com.example.upbit.market.UpbitMarketCatalogService;
 import com.example.upbit.strategy.*;
@@ -146,6 +148,8 @@ public class OpeningScannerService {
     }
 
     private final OpeningBreakoutDetector breakoutDetector;
+    private final SharedPriceService sharedPriceService;
+    private volatile NewMarketListener newMarketListener;
 
     // 레인지 고점 맵 (range 수집 후 저장, detector에 전달)
     private final ConcurrentHashMap<String, Double> rangeHighCache = new ConcurrentHashMap<String, Double>();
@@ -168,7 +172,8 @@ public class OpeningScannerService {
                                   UpbitPrivateClient privateClient,
                                   TransactionTemplate txTemplate,
                                   OpeningBreakoutDetector breakoutDetector,
-                                  SharedTradeThrottle hourlyThrottle) {
+                                  SharedTradeThrottle hourlyThrottle,
+                                  SharedPriceService sharedPriceService) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -180,6 +185,7 @@ public class OpeningScannerService {
         this.txTemplate = txTemplate;
         this.breakoutDetector = breakoutDetector;
         this.hourlyThrottle = hourlyThrottle;
+        this.sharedPriceService = sharedPriceService;
     }
 
     // ========== Decision Log ==========
@@ -258,8 +264,13 @@ public class OpeningScannerService {
         // WebSocket 돌파 감지기 + 실시간 TP 트레일링 콜백 설정
         breakoutDetector.setBreakoutPct(1.0);
         breakoutDetector.setRequiredConfirm(3);
-        breakoutDetector.setTpActivatePct(2.3);     // +2.3% 도달 시 트레일링 활성화 (슬리피지 감안)
-        breakoutDetector.setTrailFromPeakPct(1.0);   // 피크에서 -1% 떨어지면 매도
+        // TP_TRAIL 설정 (2026-04-10 백테스트 최적화: A9→A1)
+        // 변경 전: activate=2.3%, trail=1.0% → 총PnL +144% (12위)
+        // 변경 후: activate=1.5%, trail=0.5% → 총PnL +190% (1위, 14일 109건 시뮬레이션)
+        // 이유: activate 2.3%가 너무 높아 24건 SL → 1.5%로 낮추면 15건으로 감소
+        //       trail 0.5%로 peak 근처 매도 → 오프닝 돌파의 짧은 peak 패턴에 적합
+        breakoutDetector.setTpActivatePct(1.5);      // +1.5% 도달 시 트레일링 활성화
+        breakoutDetector.setTrailFromPeakPct(0.5);   // 피크에서 -0.5% 떨어지면 매도
         breakoutDetector.setListener(new OpeningBreakoutDetector.BreakoutListener() {
             @Override
             public void onBreakoutConfirmed(String market, double price, double rangeHigh, double breakoutPctActual) {
@@ -315,6 +326,36 @@ public class OpeningScannerService {
 
         scheduleTick();
 
+        // Entry phase 시간대 등록 (DB 설정값 → SharedPriceService 10초 갱신 활성화)
+        OpeningScannerConfigEntity initCfg = configRepo.findById(1).orElse(null);
+        if (initCfg != null) {
+            sharedPriceService.registerEntryPhase(
+                    initCfg.getEntryStartHour(), initCfg.getEntryStartMin(),
+                    initCfg.getEntryEndHour(), initCfg.getEntryEndMin());
+        }
+
+        // 신규 TOP-N 마켓 콜백: entry phase 중 rangeHighCache + breakoutDetector에 즉시 등록
+        newMarketListener = new NewMarketListener() {
+            @Override
+            public void onNewMarketsAdded(List<String> newMarkets) {
+                if (!breakoutDetectorConnected) return; // range 수집 전이면 무시
+
+                for (String market : newMarkets) {
+                    if (rangeHighCache.containsKey(market)) continue; // 이미 등록됨
+
+                    // 현재가를 rangeHigh baseline으로 설정
+                    Double price = sharedPriceService.getPrice(market);
+                    if (price == null || price <= 0) continue;
+
+                    rangeHighCache.put(market, price);
+                    breakoutDetector.addRangeHigh(market, price);
+                    log.info("[OpeningScanner] 신규 TOP-N 동적 추가: {} rangeHigh={} (entry phase 중 감지)",
+                            market, price);
+                }
+            }
+        };
+        sharedPriceService.addNewMarketListener(newMarketListener);
+
         // 옵션 B: 1분봉 사전 캐시 스케줄러 (10초 주기로 갱신)
         scheduler.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -340,6 +381,10 @@ public class OpeningScannerService {
         breakoutDetector.disconnect();
         breakoutDetector.reset();
         breakoutDetectorConnected = false;
+        if (newMarketListener != null) {
+            sharedPriceService.removeNewMarketListener(newMarketListener);
+            newMarketListener = null;
+        }
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;

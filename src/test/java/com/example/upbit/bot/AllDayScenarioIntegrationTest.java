@@ -90,13 +90,11 @@ public class AllDayScenarioIntegrationTest {
     //  시나리오 1: WS Quick TP 전체 사이클
     // ═══════════════════════════════════════════════════════════
     @Test
-    @DisplayName("시나리오 1: 매수 → +2.3% 도달 → WS Quick TP 매도 → 포지션 삭제")
+    @DisplayName("시나리오 1: 매수 → +2.5% 활성화 → 피크+3% → 피크에서 -1% → TP_TRAIL 매도")
     public void scenario1_wsQuickTpCycle() throws Exception {
-        setField("cachedTpPct", 2.3);
-
-        // 포지션 생성
+        // 포지션 생성 [avgPrice=1000, peakPrice=1000, activated=0]
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{1000.0});
+        cache.put("KRW-TEST", new double[]{1000.0, 1000.0, 0});
 
         // PAPER 모드 설정
         AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
@@ -110,17 +108,23 @@ public class AllDayScenarioIntegrationTest {
         when(positionRepo.findById("KRW-TEST")).thenReturn(Optional.of(pe));
 
         // 가격 흐름 시뮬레이션
-        // 1. +1% (TP 미달) → 유지
+        // 1. +1% (활성화 미달) → 유지
         invokeCheckRealtimeTp("KRW-TEST", 1010.0);
-        assertTrue(cache.containsKey("KRW-TEST"), "+1%는 TP 미달, 유지");
+        assertTrue(cache.containsKey("KRW-TEST"), "+1%는 활성화 미달, 유지");
 
-        // 2. +2% (TP 미달) → 유지
-        invokeCheckRealtimeTp("KRW-TEST", 1020.0);
-        assertTrue(cache.containsKey("KRW-TEST"), "+2%는 TP 미달, 유지");
-
-        // 3. +2.5% (TP 도달) → 매도
+        // 2. +2.5% → 활성화 (TP_TRAIL_ACTIVATE_PCT=2.0%)
         invokeCheckRealtimeTp("KRW-TEST", 1025.0);
-        assertFalse(cache.containsKey("KRW-TEST"), "+2.5%는 TP 도달, 매도");
+        assertTrue(cache.containsKey("KRW-TEST"), "활성화됐지만 아직 매도 안 함");
+        assertEquals(1.0, cache.get("KRW-TEST")[2], 0.01, "활성화 플래그=1");
+
+        // 3. +3% → 피크 갱신
+        invokeCheckRealtimeTp("KRW-TEST", 1030.0);
+        assertTrue(cache.containsKey("KRW-TEST"), "피크 갱신만, 아직 유지");
+        assertEquals(1030.0, cache.get("KRW-TEST")[1], 0.01, "peak=1030");
+
+        // 4. 피크(1030)에서 -1.0% = 1019.7 이하 → 1019.0 → 매도
+        invokeCheckRealtimeTp("KRW-TEST", 1019.0);
+        assertFalse(cache.containsKey("KRW-TEST"), "피크에서 -1% 이상 하락, TP_TRAIL 매도");
 
         // scheduler 매도 실행 대기
         Thread.sleep(500);

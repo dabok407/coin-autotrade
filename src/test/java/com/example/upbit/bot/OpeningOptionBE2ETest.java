@@ -73,7 +73,8 @@ public class OpeningOptionBE2ETest {
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
                 new OpeningBreakoutDetector(mock(SharedPriceService.class)),
-                sharedThrottle
+                sharedThrottle,
+                null
         );
         // running=true 강제
         setField("running", new AtomicBoolean(true));

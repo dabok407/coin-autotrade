@@ -106,31 +106,35 @@ public class MorningRushScenarioIntegrationTest {
     // ═══════════════════════════════════════════════════════════
     //  시나리오 1: 정상 TP 익절
     // ═══════════════════════════════════════════════════════════
+    // 2026-04-09 변경: TP 즉시 매도 → TP trail 매도
     @Test
-    @DisplayName("시나리오 1: 매수 직후 +2.5% → 즉시 TP 익절")
+    @DisplayName("시나리오 1: 매수 직후 +2.5% → trail 활성 → peak drop → TP trail 매도")
     public void scenario1_normalTp() throws Exception {
         PriceTick[] ticks = {
-            new PriceTick(10, 100.5),  // 10초 후 +0.5% (그레이스)
-            new PriceTick(30, 102.5),  // 30초 후 +2.5% → TP 발동
+            new PriceTick(10, 100.5),  // 10초 후 +0.5%
+            new PriceTick(30, 102.5),  // 30초 후 +2.5% → trail 활성화 (peak=102.5)
+            new PriceTick(40, 101.3),  // 40초 후 peak에서 -1.17% drop → TP_TRAIL 매도
         };
         boolean sold = runScenario(100.0, 0, ticks);
-        assertTrue(sold, "TP 도달 시 즉시 매도되어야 함");
+        assertTrue(sold, "TP trail 활성 후 peak drop 시 매도되어야 함");
     }
 
     // ═══════════════════════════════════════════════════════════
     //  시나리오 2: 그레이스 보호 (1분 안에 -10% 흔들기 후 회복)
     // ═══════════════════════════════════════════════════════════
+    // 2026-04-09 변경: TP 즉시 매도 → TP trail 매도 (peak 추적 후 drop)
     @Test
-    @DisplayName("시나리오 2: 매수 후 30초 -10% 급락 → 그레이스 보호 → 회복 → TP")
+    @DisplayName("시나리오 2: 매수 후 30초 -10% 급락 → 그레이스 보호 → 회복 → TP trail 매도")
     public void scenario2_graceProtection() throws Exception {
         PriceTick[] ticks = {
             new PriceTick(10, 95.0),    // 10초 후 -5% (그레이스 보호)
             new PriceTick(30, 90.0),    // 30초 후 -10% (그레이스 보호 - SL 무시)
             new PriceTick(50, 95.0),    // 50초 후 -5% (그레이스 보호)
-            new PriceTick(120, 102.5),  // 2분 후 +2.5% → TP 발동
+            new PriceTick(120, 102.5),  // 2분 후 +2.5% → trail 활성화 (peak=102.5)
+            new PriceTick(130, 101.3),  // peak에서 -1.17% drop → TP_TRAIL 매도
         };
         boolean sold = runScenario(100.0, 0, ticks);
-        assertTrue(sold, "그레이스 동안 SL 무시되고 회복 후 TP 매도");
+        assertTrue(sold, "그레이스 동안 SL 무시되고 회복 후 TP trail 매도");
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -183,30 +187,34 @@ public class MorningRushScenarioIntegrationTest {
     // ═══════════════════════════════════════════════════════════
     //  시나리오 6: 흔들기 후 회복 (5분 -5% → 회복 → TP)
     // ═══════════════════════════════════════════════════════════
+    // 2026-04-09 변경: TP 즉시 매도 → TP trail 매도
     @Test
-    @DisplayName("시나리오 6: 매수 후 5분 -5% (SL_WIDE 미달) → 회복 → TP")
+    @DisplayName("시나리오 6: 매수 후 5분 -5% (SL_WIDE 미달) → 회복 → TP trail 매도")
     public void scenario6_shakeRecovery() throws Exception {
         PriceTick[] ticks = {
             new PriceTick(120, 95.0),    // 2분 후 -5% (보호)
             new PriceTick(300, 95.5),    // 5분 후 -4.5% (보호)
             new PriceTick(600, 99.0),    // 10분 후 -1% (회복 중)
-            new PriceTick(900, 102.5),   // 15분 후 +2.5% → TP 발동
+            new PriceTick(900, 102.5),   // 15분 후 +2.5% → trail 활성화
+            new PriceTick(910, 101.3),   // peak에서 -1.17% drop → TP_TRAIL 매도
         };
         boolean sold = runScenario(100.0, 0, ticks);
-        assertTrue(sold, "흔들기 후 회복하여 TP 매도");
+        assertTrue(sold, "흔들기 후 회복하여 TP trail 매도");
     }
 
     // ═══════════════════════════════════════════════════════════
     //  시나리오 7: TP는 그레이스 무관하게 작동
     // ═══════════════════════════════════════════════════════════
+    // 2026-04-09 변경: TP 즉시 매도 → TP trail 매도
     @Test
-    @DisplayName("시나리오 7: 그레이스 안에도 TP 도달 시 즉시 매도")
+    @DisplayName("시나리오 7: 그레이스 안에도 TP trail 작동")
     public void scenario7_tpDuringGrace() throws Exception {
         PriceTick[] ticks = {
-            new PriceTick(20, 102.5),   // 20초 후 +2.5% → 그레이스 안이지만 TP 발동
+            new PriceTick(20, 102.5),   // 20초 후 +2.5% → trail 활성화 (그레이스 안)
+            new PriceTick(30, 101.3),   // peak에서 -1.17% drop → TP_TRAIL 매도 (그레이스 안)
         };
         boolean sold = runScenario(100.0, 0, ticks);
-        assertTrue(sold, "그레이스 안에도 TP는 작동");
+        assertTrue(sold, "그레이스 안에도 TP trail 작동");
     }
 
     // ═══════════════════════════════════════════════════════════

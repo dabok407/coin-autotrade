@@ -33,11 +33,11 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * AllDay WebSocket TP 통합 검증.
- * - 포지션 캐시 동기화 → WebSocket 가격 수신 시뮬레이션 → TP 매도 실행
- * - cachedTpPct 값 검증 (DB에서 읽는지 확인)
+ * AllDay WebSocket TP_TRAIL 통합 검증.
+ * - 포지션 캐시 동기화 (3-element array: [avgPrice, peakPrice, activated])
+ * - TP_TRAIL: +2.0% 도달 시 활성화 → 피크에서 -1.0% 하락 시 매도
  * - TP 미도달 → 매도 안 됨
- * - TP 도달 → 매도 실행 + 포지션 삭제
+ * - 피크 추적 검증
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -84,30 +84,31 @@ public class AllDayWsTpTest {
         });
     }
 
-    // ===== Test: cachedTpPct가 DB에서 정확히 읽히는지 =====
+    // ===== Test: TP_TRAIL 활성화 (2.0% 도달) =====
     @Test
-    public void testCachedTpPctFromDb() throws Exception {
-        AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
-        cfg.setQuickTpPct(BigDecimal.valueOf(2.3));
-        when(configRepo.loadOrCreate()).thenReturn(cfg);
+    public void testTpTrailActivation() throws Exception {
+        ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
+        // [avgPrice=100, peakPrice=100, activated=0]
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0});
 
-        // syncTpWebSocket 호출
-        List<PositionEntity> positions = new ArrayList<PositionEntity>();
-        invokeSyncTpWebSocket(positions);
+        // +2.0% 도달 → 활성화
+        invokeCheckRealtimeTp("KRW-TEST", 102.0);
 
-        double cachedTpPct = (double) getField("cachedTpPct");
-        assertEquals(2.3, cachedTpPct, 0.01,
-                "cachedTpPct가 DB의 quick_tp_pct(2.3)에서 읽혀야 함");
+        assertTrue(cache.containsKey("KRW-TEST"),
+                "활성화만 되고 매도하지 않아야 함");
+        double[] pos = cache.get("KRW-TEST");
+        assertEquals(1.0, pos[2], 0.01,
+                "activated 플래그가 1이어야 함");
+        assertEquals(102.0, pos[1], 0.01,
+                "peakPrice가 102.0으로 업데이트되어야 함");
     }
 
-    // ===== Test: TP 도달 → 포지션 캐시 제거 + 매도 스케줄 =====
+    // ===== Test: TP_TRAIL 트리거 (활성화 후 피크에서 -1.0% 하락) =====
     @Test
-    public void testTpTriggered() throws Exception {
-        setField("cachedTpPct", 2.3);
-
-        // 포지션 캐시에 등록
+    public void testTpTrailTriggered() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0});
+        // 이미 활성화된 상태, peak=103.0
+        cache.put("KRW-TEST", new double[]{100.0, 103.0, 1.0});
 
         // PAPER 매도용 mock
         AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
@@ -120,12 +121,12 @@ public class AllDayWsTpTest {
         pe.setAvgPrice(100.0);
         when(positionRepo.findById("KRW-TEST")).thenReturn(Optional.of(pe));
 
-        // +2.5% 도달 → TP(2.3%) 초과
-        invokeCheckRealtimeTp("KRW-TEST", 102.5);
+        // 피크(103.0)에서 -1.0% = 101.97 이하 → 101.9 전달
+        invokeCheckRealtimeTp("KRW-TEST", 101.9);
 
         // 캐시에서 즉시 제거
         assertFalse(cache.containsKey("KRW-TEST"),
-                "TP 도달 시 포지션 캐시에서 즉시 제거되어야 함");
+                "TP_TRAIL 트리거 시 포지션 캐시에서 즉시 제거되어야 함");
 
         // scheduler에서 매도 실행 대기
         Thread.sleep(500);
@@ -135,25 +136,40 @@ public class AllDayWsTpTest {
         verify(positionRepo, timeout(2000)).deleteById("KRW-TEST");
     }
 
-    // ===== Test: TP 미도달 → 포지션 유지 =====
+    // ===== Test: TP 미도달 (활성화 전 + 가격 부족) → 포지션 유지 =====
     @Test
     public void testTpNotReached() throws Exception {
-        setField("cachedTpPct", 2.3);
-
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0});
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0});
 
-        // +1.5% → TP(2.3%) 미도달
+        // +1.5% → TP_TRAIL 활성화(2.0%) 미도달
         invokeCheckRealtimeTp("KRW-TEST", 101.5);
 
         assertTrue(cache.containsKey("KRW-TEST"),
                 "TP 미도달 시 포지션 캐시에 유지되어야 함");
+        double[] pos = cache.get("KRW-TEST");
+        assertEquals(0, pos[2], 0.01,
+                "아직 활성화되지 않아야 함");
+        assertEquals(101.5, pos[1], 0.01,
+                "peakPrice는 업데이트되어야 함");
+    }
+
+    // ===== Test: 활성화 후 피크 갱신 + 드롭 미달 → 매도 안 됨 =====
+    @Test
+    public void testTrailActivatedButNotDropped() throws Exception {
+        ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
+        cache.put("KRW-TEST", new double[]{100.0, 103.0, 1.0});
+
+        // 피크(103.0)에서 -0.5% = 102.485 → 매도 안 됨
+        invokeCheckRealtimeTp("KRW-TEST", 102.5);
+
+        assertTrue(cache.containsKey("KRW-TEST"),
+                "드롭 미달 시 매도하지 않아야 함");
     }
 
     // ===== Test: 포지션 없는 마켓 → 무시 =====
     @Test
     public void testIgnoresUnknownMarket() throws Exception {
-        setField("cachedTpPct", 2.3);
         // 캐시 비어있음
         invokeCheckRealtimeTp("KRW-UNKNOWN", 105.0);
         // 에러 없으면 성공
@@ -168,8 +184,8 @@ public class AllDayWsTpTest {
 
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
 
-        // 기존 캐시에 OLD 포지션
-        cache.put("KRW-OLD", new double[]{50.0});
+        // 기존 캐시에 OLD 포지션 (3-element)
+        cache.put("KRW-OLD", new double[]{50.0, 50.0, 0});
 
         // 현재 포지션: NEW만 있음 (OLD는 매도됨)
         List<PositionEntity> positions = new ArrayList<PositionEntity>();
@@ -188,6 +204,46 @@ public class AllDayWsTpTest {
                 "새 포지션(NEW)은 캐시에 추가되어야 함");
         assertEquals(200.0, cache.get("KRW-NEW")[0], 0.01,
                 "avgPrice가 정확히 캐시되어야 함");
+        assertEquals(200.0, cache.get("KRW-NEW")[1], 0.01,
+                "peakPrice가 avgPrice로 초기화되어야 함");
+        assertEquals(0, cache.get("KRW-NEW")[2], 0.01,
+                "activated가 0으로 초기화되어야 함");
+    }
+
+    // ===== Test: 피크 갱신 후 새 피크에서 트레일링 =====
+    @Test
+    public void testPeakUpdateThenTrail() throws Exception {
+        ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0});
+
+        // 1단계: +3.0% → 활성화 + 피크 갱신
+        invokeCheckRealtimeTp("KRW-TEST", 103.0);
+        assertEquals(1.0, cache.get("KRW-TEST")[2], 0.01, "활성화됨");
+        assertEquals(103.0, cache.get("KRW-TEST")[1], 0.01, "peak=103");
+
+        // 2단계: +5.0% → 피크 추가 갱신
+        invokeCheckRealtimeTp("KRW-TEST", 105.0);
+        assertEquals(105.0, cache.get("KRW-TEST")[1], 0.01, "peak=105");
+
+        // 3단계: 103.9 → 피크(105)에서 -1.05% → 매도
+        AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
+        cfg.setMode("PAPER");
+        when(configRepo.loadOrCreate()).thenReturn(cfg);
+
+        PositionEntity pe = new PositionEntity();
+        pe.setMarket("KRW-TEST");
+        pe.setQty(1000.0);
+        pe.setAvgPrice(100.0);
+        when(positionRepo.findById("KRW-TEST")).thenReturn(Optional.of(pe));
+
+        invokeCheckRealtimeTp("KRW-TEST", 103.9);
+
+        assertFalse(cache.containsKey("KRW-TEST"),
+                "피크(105)에서 -1.05% 하락으로 매도되어야 함");
+
+        Thread.sleep(500);
+        verify(tradeLogRepo, timeout(2000)).save(any(TradeEntity.class));
+        verify(positionRepo, timeout(2000)).deleteById("KRW-TEST");
     }
 
     // ===== Helpers =====

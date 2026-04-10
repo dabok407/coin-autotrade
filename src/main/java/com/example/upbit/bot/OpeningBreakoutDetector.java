@@ -116,6 +116,15 @@ public class OpeningBreakoutDetector {
         log.info("[BreakoutDetector] rangeHighMap set: {} markets", map.size());
     }
 
+    /**
+     * 단일 마켓의 rangeHigh를 동적 추가 (entry phase 중 신규 TOP-N 감지 시).
+     * 기존 rangeHighMap/confirmedMarkets는 건드리지 않음.
+     */
+    public void addRangeHigh(String market, double rangeHigh) {
+        rangeHighMap.put(market, rangeHigh);
+        log.info("[BreakoutDetector] rangeHigh 동적 추가: {} = {}", market, rangeHigh);
+    }
+
     public boolean isAlreadyConfirmed(String market) {
         return confirmedMarkets.contains(market);
     }

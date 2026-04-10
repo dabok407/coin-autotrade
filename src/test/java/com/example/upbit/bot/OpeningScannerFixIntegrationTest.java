@@ -70,7 +70,8 @@ public class OpeningScannerFixIntegrationTest {
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                breakoutDetector, sharedThrottle
+                breakoutDetector, sharedThrottle,
+                null
         );
 
         Field running = OpeningScannerService.class.getDeclaredField("running");

@@ -66,7 +66,8 @@ public class MorningRushTpSlTest {
         getPositionCache().put(market, new double[]{avgPrice, 1000.0, openedAtMs, avgPrice, 0});
     }
 
-    // ===== Test 1: TP 도달 → 즉시 매도 (그레이스 무관) =====
+    // ===== Test 1: TP 트레일링 — peak 추적 후 drop 시 매도 (그레이스 무관) =====
+    // 2026-04-09 변경: 즉시 매도 → trail 매도
     @Test
     public void testTpFiresEvenInGracePeriod() throws Exception {
         setField("cachedTpPct", 2.0);
@@ -75,11 +76,15 @@ public class MorningRushTpSlTest {
         // 매수 직후 (0초 경과)
         putPosition("KRW-TEST", 100.0, System.currentTimeMillis());
 
-        // pnl=+5% → TP 즉시 발동 (그레이스 무관)
+        // pnl=+5% → trail 활성화 (peak=105), 아직 drop 없음 → 매도 안 함
         invokeCheckRealtimeTpSl("KRW-TEST", 105.0);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "trail 활성화됨, drop 없음 → 매도 안 함");
 
+        // peak에서 -1.1% drop → TP_TRAIL 매도 (그레이스 무관)
+        invokeCheckRealtimeTpSl("KRW-TEST", 103.8);  // 105 × 0.989 = 103.845
         assertFalse(getPositionCache().containsKey("KRW-TEST"),
-                "TP 도달 시 그레이스 기간에도 즉시 매도해야 함");
+                "peak 105에서 -1.1% drop → TP_TRAIL 매도 (그레이스 기간에도 발동)");
     }
 
     // ===== Test 2: 1분 그레이스 — SL 무시 =====
@@ -141,7 +146,8 @@ public class MorningRushTpSlTest {
                 "5분 이후 -4%는 SL 3% 초과라 매도되어야 함");
     }
 
-    // ===== Test 5: 5분 이후에도 단순 TP 매도 (트레일링 없음) =====
+    // ===== Test 5: 5분 이후 TP trail 동작 =====
+    // 2026-04-09 변경: 즉시 매도 → trail 매도
     @Test
     public void testSimpleTpAfter5Min() throws Exception {
         setField("cachedTpPct", 2.0);
@@ -151,20 +157,25 @@ public class MorningRushTpSlTest {
         long openedAt = System.currentTimeMillis() - 360_000L;
         putPosition("KRW-TEST", 100.0, openedAt);
 
-        // 가격 상승 (+1%) → TP 2.0% 미달, 트레일링 없음 → 유지
+        // 가격 상승 (+1%) → TP 2.0% 미달, trail 미활성 → 유지
         invokeCheckRealtimeTpSl("KRW-TEST", 101.0);
         assertTrue(getPositionCache().containsKey("KRW-TEST"),
-                "+1%는 TP(2.0%) 미달, 5분 이후에도 트레일링 없으므로 유지");
+                "+1%는 TP(2.0%) 미달, trail 미활성 → 유지");
 
-        // 가격 하락 (-1%) → 트레일링 없음, SL 3% 미달 → 유지
+        // 가격 하락 (-1%) → trail 미활성, SL 3% 미달 → 유지
         invokeCheckRealtimeTpSl("KRW-TEST", 99.0);
         assertTrue(getPositionCache().containsKey("KRW-TEST"),
-                "-1%는 SL 3% 미달, 트레일링 없으므로 유지");
+                "-1%는 SL 3% 미달, trail 미활성 → 유지");
 
-        // 가격 상승 (+2.5%) → TP 발동
+        // 가격 상승 (+2.5%) → trail 활성화 (peak=102.5), 아직 drop 없음 → 유지
         invokeCheckRealtimeTpSl("KRW-TEST", 102.5);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "+2.5%는 trail 활성화, drop 없음 → 유지 (즉시 매도 안 함)");
+
+        // peak에서 -1.1% drop → TP_TRAIL 매도
+        invokeCheckRealtimeTpSl("KRW-TEST", 101.37);  // 102.5 × 0.989
         assertFalse(getPositionCache().containsKey("KRW-TEST"),
-                "+2.5%는 TP 도달 → 즉시 매도");
+                "peak 102.5에서 -1.1% drop → TP_TRAIL 매도");
     }
 
     // ===== Test 6: TP/SL 미도달 → 포지션 유지 =====

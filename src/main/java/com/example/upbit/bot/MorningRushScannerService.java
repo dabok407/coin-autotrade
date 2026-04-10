@@ -7,6 +7,7 @@ import com.example.upbit.trade.LiveOrderService;
 import com.example.upbit.upbit.UpbitAccount;
 import com.example.upbit.upbit.UpbitPrivateClient;
 
+import com.example.upbit.market.NewMarketListener;
 import com.example.upbit.market.PriceUpdateListener;
 import com.example.upbit.market.SharedPriceService;
 
@@ -101,6 +102,24 @@ public class MorningRushScannerService {
     private volatile double cachedWideSlPct = 5.0;             // SL_WIDE 값 (DB wide_sl_pct)
     private volatile double cachedTpPct = 2.0;
     private volatile double cachedSlPct = 3.0;                 // SL_TIGHT (DB sl_pct)
+
+    // ════════════════════════════════════════════════════════════════
+    // TP 트레일링 설정 (2026-04-09 도입)
+    // ════════════════════════════════════════════════════════════════
+    // 기존: +2.3% 도달 → 즉시 매도 (큰 추세 못 먹음, KRW-ONT 사례)
+    // 변경: +2.3% 도달 → peak 추적 → peak에서 -1% 떨어지면 매도
+    //
+    // 동작:
+    //   1. 가격이 한 번이라도 +cachedTpPct(2.3%) 도달 → trail 활성화
+    //   2. peak 계속 추적 (더 오르면 peak 갱신)
+    //   3. peak에서 -TP_TRAIL_FROM_PEAK_PCT(1.0%) 떨어지면 매도
+    //   4. 단 pnl > 0 인 경우에만 trail 매도 (마이너스면 SL에 위임)
+    //
+    // 안전장치: SL (Grace/Wide/Tight)는 trail 미발동 시 그대로 동작
+    //
+    // 백테스트 결과에 따라 값 조정 예정. 현재 1.0% 기본값.
+    // ════════════════════════════════════════════════════════════════
+    private static final double TP_TRAIL_FROM_PEAK_PCT = 1.0;
     private volatile String cachedMode = "PAPER";
     private volatile double cachedGapPct = 2.0;
     private volatile double cachedSurgePct = 3.0;
@@ -113,6 +132,7 @@ public class MorningRushScannerService {
     // Surge detection: market → deque of (epochMs, price) for rolling window
     private final ConcurrentHashMap<String, Deque<long[]>> priceHistory = new ConcurrentHashMap<String, Deque<long[]>>();
     private volatile PriceUpdateListener priceListener;
+    private volatile NewMarketListener newMarketListener;
 
     // Decision log
     private static final int MAX_DECISION_LOG = 200;
@@ -210,6 +230,36 @@ public class MorningRushScannerService {
         };
         sharedPriceService.addGlobalListener(priceListener);
 
+        // Entry phase 시간대 등록 (DB 설정값 → SharedPriceService 10초 갱신 활성화)
+        MorningRushConfigEntity initCfg = configRepo.findById(1).orElse(null);
+        if (initCfg != null) {
+            sharedPriceService.registerEntryPhase(
+                    initCfg.getEntryStartHour(), initCfg.getEntryStartMin(),
+                    initCfg.getEntryEndHour(), initCfg.getEntryEndMin());
+        }
+
+        // 신규 TOP-N 마켓 콜백: entry phase 중 rangeHighMap에 즉시 등록
+        newMarketListener = new NewMarketListener() {
+            @Override
+            public void onNewMarketsAdded(List<String> newMarkets) {
+                if (entryPhaseComplete || !rangeCollected) return; // entry phase가 아니면 무시
+
+                for (String market : newMarkets) {
+                    if (rangeHighMap.containsKey(market)) continue; // 이미 등록됨
+
+                    // 현재가를 rangeHigh baseline으로 설정
+                    Double price = sharedPriceService.getPrice(market);
+                    if (price == null || price <= 0) continue;
+
+                    rangeHighMap.put(market, price);
+                    priceHistory.putIfAbsent(market, new ConcurrentLinkedDeque<long[]>());
+                    log.info("[MorningRush] 신규 TOP-N 동적 추가: {} rangeHigh={} (entry phase 중 감지)",
+                            market, price);
+                }
+            }
+        };
+        sharedPriceService.addNewMarketListener(newMarketListener);
+
         // Schedule the main loop at 1-second resolution to detect time phases
         scheduler.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -235,6 +285,10 @@ public class MorningRushScannerService {
         if (priceListener != null) {
             sharedPriceService.removeGlobalListener(priceListener);
             priceListener = null;
+        }
+        if (newMarketListener != null) {
+            sharedPriceService.removeNewMarketListener(newMarketListener);
+            newMarketListener = null;
         }
         if (scheduler != null) {
             scheduler.shutdownNow();
@@ -442,37 +496,65 @@ public class MorningRushScannerService {
         if (avgPrice <= 0) return;
         long openedAtMs = (long) pos[2];
 
+        // peak 업데이트 (항상 — TP 트레일링용)
+        double peakPrice = pos[3];
+        if (price > peakPrice) {
+            pos[3] = price;  // peak 갱신 (positionCache는 reference 공유)
+            peakPrice = price;
+        }
+
         double pnlPct = (price - avgPrice) / avgPrice * 100.0;
         long elapsedMs = System.currentTimeMillis() - openedAtMs;
 
         String sellType = null;
         String reason = null;
 
-        // 1. TP 체크 — 도달 즉시 매도 (단순 TP, 트레일링 없음)
-        if (pnlPct >= cachedTpPct) {
-            sellType = "TP";
-            reason = String.format(Locale.ROOT,
-                    "TP pnl=%.2f%% >= %.2f%% price=%.2f avg=%.2f (realtime)",
-                    pnlPct, cachedTpPct, price, avgPrice);
-        }
-        // 2. SL 종합안 (TP 미달 시) — DB 설정값 사용
-        else if (elapsedMs < cachedGracePeriodMs) {
-            // 그레이스 — SL 무시
-        } else if (elapsedMs < cachedWidePeriodMs) {
-            // 그레이스 후 ~ wide_period: SL_WIDE (흔들기 보호)
-            if (pnlPct <= -cachedWideSlPct) {
-                sellType = "SL";
+        // ════════════════════════════════════════
+        // 1. TP TRAIL 체크 (2026-04-09 변경: 즉시 매도 → 트레일링)
+        // ════════════════════════════════════════
+        // peak이 한 번이라도 +cachedTpPct(2.3%) 도달했으면 trail 활성화.
+        // peak에서 -TP_TRAIL_FROM_PEAK_PCT(1.0%) 떨어지면 매도.
+        // 단 pnl > 0 인 경우에만 (마이너스면 SL에 위임).
+        //
+        // 기존: pnlPct >= cachedTpPct → 즉시 매도 (큰 추세 못 먹음)
+        // 변경: peak 추적 → peak 근처에서 매도 (큰 추세 캡처)
+        double peakPnlPct = (peakPrice - avgPrice) / avgPrice * 100.0;
+        boolean trailActivated = peakPnlPct >= cachedTpPct;
+
+        if (trailActivated && pnlPct > 0) {
+            double dropFromPeakPct = (peakPrice - price) / peakPrice * 100.0;
+            if (dropFromPeakPct >= TP_TRAIL_FROM_PEAK_PCT) {
+                sellType = "TP_TRAIL";
                 reason = String.format(Locale.ROOT,
-                        "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
-                        pnlPct, cachedWideSlPct, price, avgPrice);
+                        "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=+%.2f%% (realtime)",
+                        avgPrice, peakPrice, price, dropFromPeakPct, pnlPct);
             }
-        } else {
-            // wide_period 이후: SL_TIGHT
-            if (pnlPct <= -cachedSlPct) {
-                sellType = "SL";
-                reason = String.format(Locale.ROOT,
-                        "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
-                        pnlPct, cachedSlPct, price, avgPrice);
+            // trail 활성화 중이지만 아직 drop 미달 → 계속 peak 추적, SL은 아래에서 체크
+        }
+
+        // ════════════════════════════════════════
+        // 2. SL 종합안 (TP_TRAIL 미발동 시) — 기존 SL 로직 그대로
+        // ════════════════════════════════════════
+        // trail 활성화 중이어도 갑자기 -5% 폭락 시 SL이 안전망 역할
+        if (sellType == null) {
+            if (elapsedMs < cachedGracePeriodMs) {
+                // 그레이스 — SL 무시
+            } else if (elapsedMs < cachedWidePeriodMs) {
+                // 그레이스 후 ~ wide_period: SL_WIDE (흔들기 보호)
+                if (pnlPct <= -cachedWideSlPct) {
+                    sellType = "SL";
+                    reason = String.format(Locale.ROOT,
+                            "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
+                            pnlPct, cachedWideSlPct, price, avgPrice);
+                }
+            } else {
+                // wide_period 이후: SL_TIGHT
+                if (pnlPct <= -cachedSlPct) {
+                    sellType = "SL";
+                    reason = String.format(Locale.ROOT,
+                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
+                            pnlPct, cachedSlPct, price, avgPrice);
+                }
             }
         }
 

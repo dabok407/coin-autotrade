@@ -77,6 +77,27 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     // ===== OPEN_FAILED 청산 옵션 =====
     private boolean openFailedEnabled = false;
 
+    // ════════════════════════════════════════════════════════════════
+    // OPEN_TRAIL (5분봉 boundary 트레일링) 비활성화 플래그
+    // ════════════════════════════════════════════════════════════════
+    // 비활성화 일시: 2026-04-10 (사용자 요청)
+    // 비활성화 이유:
+    //   - OPEN_TRAIL은 5분봉 '종가' 기준으로 peak 대비 하락 판단
+    //   - 실시간 TP_TRAIL (BreakoutDetector.checkRealtimeTp)이 매 틱마다 판단하므로
+    //     더 정밀하고 반등을 감안한 매도 가능
+    //   - 2026-04-10 실거래 분석:
+    //     KRW-ONG: OPEN_TRAIL이 09:35에 ±0% 매도 → TP_TRAIL이면 09:38에 +1.48% 매도
+    //     KRW-CFG: OPEN_TRAIL이 10:15에 +0.97% 매도 → TP_TRAIL이면 10:17에 +1.94% 매도
+    //   - OPEN_TRAIL이 TP_TRAIL보다 수 분 먼저 발동하여 수익 구간을 조기 절단
+    //   - TP_TRAIL이 독립적으로 동작하므로 OPEN_TRAIL 비활성화해도 트레일링 매도 누락 없음
+    //
+    // 재활성화 조건:
+    //   - TP_TRAIL(실시간)이 미작동하는 케이스 발견 시
+    //   - 또는 5분봉 기반 트레일링이 더 적합한 전략적 판단이 있을 때
+    //   - 재활성화 전 반드시 사용자 동의 필수
+    // ════════════════════════════════════════════════════════════════
+    private static final boolean OPEN_TRAIL_ENABLED = false;
+
     // ===== 안전 =====
     private static final int MIN_CANDLES = 30;
 
@@ -351,7 +372,8 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         }
 
         // 5. 트레일링 스탑: peak - trailAtrMult × ATR (이익 구간)
-        if (close > avgPrice) {
+        //    OPEN_TRAIL_ENABLED=false 시 skip → 실시간 TP_TRAIL(BreakoutDetector)에 위임
+        if (OPEN_TRAIL_ENABLED && close > avgPrice) {
             java.time.Instant openedAt = ctx.position != null ? ctx.position.getOpenedAt() : null;
             double peakHigh = Indicators.peakHighSinceEntry(candles, avgPrice, openedAt);
             double trailStop = peakHigh - trailAtrMult * atr;

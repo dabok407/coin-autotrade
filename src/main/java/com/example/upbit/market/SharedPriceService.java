@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,7 +40,9 @@ public class SharedPriceService {
     private static final int WS_MAX_CODES_PER_CONN = 15;
     private static final int WS_PING_INTERVAL_SEC = 25;
     private static final int MARKET_REFRESH_INTERVAL_MIN = 10;       // 전체 갱신 주기 (재연결 발생)
-    private static final long FAST_REFRESH_INTERVAL_SEC = 60;        // 신규 종목 추가용 빠른 갱신 (재연결 없음)
+    private static final long FAST_REFRESH_INTERVAL_SEC = 60;        // 신규 종목 추가용 기본 갱신 (재연결 없음)
+    private static final long FAST_REFRESH_ENTRY_SEC = 10;           // entry phase 빠른 갱신 (스캐너 등록 시간대)
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int MAX_RECONNECT_ATTEMPTS = 10;
     private static final int DEFAULT_TOP_N = 50;
     private static final long MIN_RECONNECT_INTERVAL_MS = 30_000; // 전체 재연결 최소 간격
@@ -75,6 +78,14 @@ public class SharedPriceService {
     // ── 리스너 ──
     private final CopyOnWriteArrayList<PriceUpdateListener> globalListeners =
             new CopyOnWriteArrayList<PriceUpdateListener>();
+    private final CopyOnWriteArrayList<NewMarketListener> newMarketListeners =
+            new CopyOnWriteArrayList<NewMarketListener>();
+
+    // ── 동적 갱신 주기 제어 ──
+    private volatile long lastFastRefreshMs = 0;
+    // 스캐너들이 등록한 entry phase 시간대 (KST). 이 시간대에만 10초 주기 갱신.
+    private final CopyOnWriteArrayList<int[]> entryPhaseWindows =
+            new CopyOnWriteArrayList<int[]>(); // [startHour, startMin, endHour, endMin]
 
     public SharedPriceService(UpbitMarketCatalogService catalogService) {
         this.catalogService = catalogService;
@@ -118,17 +129,24 @@ public class SharedPriceService {
             }
         }, MARKET_REFRESH_INTERVAL_MIN, MARKET_REFRESH_INTERVAL_MIN, TimeUnit.MINUTES);
 
-        // 빠른 갱신 (1분 — 신규 종목만 추가, 재연결 없음)
+        // 빠른 갱신 (10초 주기 스케줄, entry phase 밖에서는 60초 간격으로 skip)
         scheduler.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
                 try {
+                    long now = System.currentTimeMillis();
+                    boolean entryPhase = isEntryPhase();
+                    long interval = entryPhase ? FAST_REFRESH_ENTRY_SEC * 1000 : FAST_REFRESH_INTERVAL_SEC * 1000;
+
+                    if (now - lastFastRefreshMs < interval) return; // 주기 미달 → 스킵
+                    lastFastRefreshMs = now;
+
                     fastAddNewMarkets();
                 } catch (Exception e) {
                     log.error("[SharedPrice] 신규 종목 추가 실패", e);
                 }
             }
-        }, FAST_REFRESH_INTERVAL_SEC, FAST_REFRESH_INTERVAL_SEC, TimeUnit.SECONDS);
+        }, FAST_REFRESH_ENTRY_SEC, FAST_REFRESH_ENTRY_SEC, TimeUnit.SECONDS);
 
         log.info("[SharedPrice] 서비스 초기화 완료");
     }
@@ -196,6 +214,40 @@ public class SharedPriceService {
             globalListeners.remove(listener);
             log.info("[SharedPrice] 리스너 해제 (total={})", globalListeners.size());
         }
+    }
+
+    /** 신규 마켓 추가 리스너 등록. */
+    public void addNewMarketListener(NewMarketListener listener) {
+        if (listener != null) {
+            newMarketListeners.add(listener);
+            log.info("[SharedPrice] 신규마켓 리스너 등록 (total={})", newMarketListeners.size());
+        }
+    }
+
+    /** 신규 마켓 추가 리스너 해제. */
+    public void removeNewMarketListener(NewMarketListener listener) {
+        if (listener != null) {
+            newMarketListeners.remove(listener);
+            log.info("[SharedPrice] 신규마켓 리스너 해제 (total={})", newMarketListeners.size());
+        }
+    }
+
+    /**
+     * 스캐너의 entry phase 시간대를 등록.
+     * 등록된 시간대에는 fastAddNewMarkets 주기가 10초로 단축된다.
+     * 각 스캐너가 start() 시 자신의 DB entry 시간대를 등록.
+     */
+    public void registerEntryPhase(int startHour, int startMin, int endHour, int endMin) {
+        entryPhaseWindows.add(new int[]{startHour, startMin, endHour, endMin});
+        log.info("[SharedPrice] entry phase 등록: {}:{}~{}:{} (총 {}개)",
+                String.format("%02d", startHour), String.format("%02d", startMin),
+                String.format("%02d", endHour), String.format("%02d", endMin),
+                entryPhaseWindows.size());
+    }
+
+    /** entry phase 시간대 전체 초기화. */
+    public void clearEntryPhases() {
+        entryPhaseWindows.clear();
     }
 
     /**
@@ -292,6 +344,7 @@ public class SharedPriceService {
                 log.info("[SharedPrice] 신규 TOP-N 종목 발견: {}개 → 동적 추가: {}",
                         newMarkets.size(), newMarkets);
                 addMarketsToActiveConnection(newMarkets);
+                notifyNewMarketListeners(newMarkets);
             }
         } catch (Exception e) {
             log.debug("[SharedPrice] fastAddNewMarkets 실패: {}", e.getMessage());
@@ -582,6 +635,28 @@ public class SharedPriceService {
         } catch (Exception e) {
             log.debug("[SharedPrice] 메시지 파싱 오류: {}", e.getMessage());
         }
+    }
+
+    private void notifyNewMarketListeners(List<String> newMarkets) {
+        for (NewMarketListener listener : newMarketListeners) {
+            try {
+                listener.onNewMarketsAdded(newMarkets);
+            } catch (Exception e) {
+                log.error("[SharedPrice] 신규마켓 리스너 콜백 오류: {}", e.getMessage());
+            }
+        }
+    }
+
+    /** 현재 시각이 등록된 entry phase 시간대에 해당하는지 판단. */
+    private boolean isEntryPhase() {
+        if (entryPhaseWindows.isEmpty()) return false;
+        LocalTime now = LocalTime.now(KST);
+        for (int[] w : entryPhaseWindows) {
+            LocalTime start = LocalTime.of(w[0], w[1]);
+            LocalTime end = LocalTime.of(w[2], w[3]);
+            if (!now.isBefore(start) && now.isBefore(end)) return true;
+        }
+        return false;
     }
 
     private void notifyListeners(String market, double price) {

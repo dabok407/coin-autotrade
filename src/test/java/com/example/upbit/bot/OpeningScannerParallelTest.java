@@ -62,7 +62,8 @@ public class OpeningScannerParallelTest {
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
                 new OpeningBreakoutDetector(mock(SharedPriceService.class)),
-                new SharedTradeThrottle()
+                new SharedTradeThrottle(),
+                null
         );
         // Set running=true so tick() doesn't return early
         java.lang.reflect.Field runningField = OpeningScannerService.class.getDeclaredField("running");
