@@ -128,7 +128,11 @@ public class AllDayScannerService {
     private static final long PRICE_HISTORY_MAX_MS = 180_000L;      // 3분 보관
     private final ConcurrentHashMap<String, Long> surgeCheckCooldownMap = new ConcurrentHashMap<String, Long>();
     private final Set<String> wsBreakoutProcessing = ConcurrentHashMap.newKeySet();
-    private static final double SURGE_DETECT_PCT = 1.5;    // 2분 내 1.5% 급등 시 감지
+    // 5분봉 tick() 매수 비활성화 (2026-04-11): 실시간 WS surge 매수만 사용
+    private static final boolean TICK_BUY_ENABLED = false;
+
+    private static final double SURGE_DETECT_PCT = 2.0;    // 2분 내 2.0% 급등 시 감지 (2026-04-11: 1.5→2.0, 노이즈 감소)
+    private static final double SURGE_MIN_DAILY_PCT = 1.5; // 당일 시가 대비 최소 +1.5% 이상이어야 surge 감지 대상
     private static final long SURGE_WINDOW_MS = 120_000L;   // 2분
     private static final long SURGE_COOLDOWN_MS = 30_000L;  // 같은 코인 30초 쿨다운
 
@@ -505,7 +509,9 @@ public class AllDayScannerService {
                         cfg.getMinConfidence().doubleValue())
                 .withTiming(cfg.getSessionEndHour(), cfg.getSessionEndMin())
                 .withTimeStop(cfg.getTimeStopCandles(), cfg.getTimeStopMinPnl().doubleValue())
-                .withTrailActivate(cfg.getTrailActivatePct())
+                // HC_TRAIL 비활성화: 실시간 TP_TRAIL에 위임 (2026-04-11)
+                // 999%로 설정하면 캔들 기반 trail은 절대 활성화 안 됨
+                .withTrailActivate(TICK_BUY_ENABLED ? cfg.getTrailActivatePct() : 999.0)
                 .withGracePeriod(cfg.getGracePeriodCandles())
                 .withExitFlags(cfg.isEmaExitEnabled(), cfg.isMacdExitEnabled());
 
@@ -645,9 +651,29 @@ public class AllDayScannerService {
             }
         }
 
+        // ════════════════════════════════════════════════════════════════
+        // Phase 2,3 (5분봉 매수) 비활성화 — 실시간 WS surge 매수만 사용
+        // ════════════════════════════════════════════════════════════════
+        // 비활성화 일시: 2026-04-11 (사용자 요청)
+        // 비활성화 이유:
+        //   - 5분봉 tick()이 실시간 surge 감지보다 늦게 매수 → 고점 진입
+        //   - AWE 케이스: surge 감지 전 5분봉이 고점에서 매수 → -4.06% 손실
+        //   - MMT/ONT 케이스: 5분봉이 먼저 매수 → surge는 "이미 보유" 차단
+        //   - 느린 상승(2분 내 2% 미달)은 돌파 모멘텀 약해 승률 낮음
+        //   - 매수는 실시간 checkRealtimeBuy → processSurgeBuy 경로만 사용
+        //
+        // Phase 1(매도)은 유지: HC_SL(손절) + HC_SESSION_END(강제 청산)
+        // HC_TRAIL(캔들 기반 익절)은 실시간 TP_TRAIL과 중복 → 비활성화
+        //
+        // 재활성화 조건:
+        //   - 실시간 surge가 충분한 거래를 잡지 못하는 케이스 다수 발견 시
+        //   - 재활성화 전 반드시 사용자 동의 필수
+        // ════════════════════════════════════════════════════════════════
+        // TICK_BUY_ENABLED는 클래스 상수 참조
+
         // ========== Phase 2: BUY signal detection - Parallel candle fetch + evaluation ==========
         // C안: BTC 필터는 per-signal로 바이패스하므로 canEnter 조건에서 제외
-        boolean canEnter = scannerPosCount < cfg.getMaxPositions() && inEntryWindow;
+        boolean canEnter = TICK_BUY_ENABLED && scannerPosCount < cfg.getMaxPositions() && inEntryWindow;
 
         if (!canEnter && !inEntryWindow) {
             // 엔트리 윈도우 밖 — 매수 차단, 매도만 처리
@@ -1401,6 +1427,13 @@ public class AllDayScannerService {
      */
     private void checkRealtimeBuy(final String market, final double price) {
         if (!running.get()) return;
+
+        // 당일 시가 대비 최소 +1.5% 이상 체크 (2026-04-11 추가)
+        Double dailyOpen = dailyOpenPriceCache.get(market);
+        if (dailyOpen != null && dailyOpen > 0) {
+            double dailyPct = (price - dailyOpen) / dailyOpen * 100.0;
+            if (dailyPct < SURGE_MIN_DAILY_PCT) return;
+        }
 
         // 쿨다운 체크
         Long lastCheck = surgeCheckCooldownMap.get(market);

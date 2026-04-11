@@ -263,7 +263,8 @@ public class OpeningScannerService {
 
         // WebSocket 돌파 감지기 + 실시간 TP 트레일링 콜백 설정
         breakoutDetector.setBreakoutPct(1.0);
-        breakoutDetector.setRequiredConfirm(3);
+        // 2026-04-11: 3→4회 + 500ms 간격 + 방향 확인 (고점 매수 방지)
+        breakoutDetector.setRequiredConfirm(4);
         // TP_TRAIL 설정 (2026-04-10 백테스트 최적화: A9→A1)
         // 변경 전: activate=2.3%, trail=1.0% → 총PnL +144% (12위)
         // 변경 후: activate=1.5%, trail=0.5% → 총PnL +190% (1위, 14일 109건 시뮬레이션)

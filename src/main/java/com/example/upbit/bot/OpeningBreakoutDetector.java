@@ -36,9 +36,15 @@ public class OpeningBreakoutDetector {
     private final ConcurrentHashMap<String, Integer> confirmCounts = new ConcurrentHashMap<String, Integer>();
     private final Set<String> confirmedMarkets = ConcurrentHashMap.newKeySet();
 
+    // confirm 방향 확인 (2026-04-11 추가)
+    // confirm1 가격 기록 + confirm 간 최소 500ms 간격 + confirm3 or confirm4 ≥ confirm1
+    private final ConcurrentHashMap<String, Double> confirmFirstPrice = new ConcurrentHashMap<String, Double>();
+    private final ConcurrentHashMap<String, Long> confirmLastTime = new ConcurrentHashMap<String, Long>();
+    private volatile long confirmMinIntervalMs = 500; // confirm 간 최소 500ms
+
     // Configuration
     private volatile double breakoutPct = 1.0;
-    private volatile int requiredConfirm = 3;
+    private volatile int requiredConfirm = 4; // 2026-04-11: 3→4 (방향 확인용)
 
     // Entry window 체크 (2026-04-09 추가)
     // 09:00~09:05 사이에 listener가 미리 등록되어 가격 update를 받지만,
@@ -95,6 +101,9 @@ public class OpeningBreakoutDetector {
     public void setRequiredConfirm(int count) { this.requiredConfirm = count; }
     public void setListener(BreakoutListener listener) { this.listener = listener; }
     public void setTpActivatePct(double pct) { this.tpActivatePct = pct; }
+
+    /** Test-only: override confirm interval (default 500ms) */
+    void setConfirmMinIntervalMs(long ms) { this.confirmMinIntervalMs = ms; }
     public void setTrailFromPeakPct(double pct) { this.trailFromPeakPct = pct; }
 
     /**
@@ -141,6 +150,8 @@ public class OpeningBreakoutDetector {
         if (market == null) return;
         confirmedMarkets.remove(market);
         confirmCounts.remove(market);
+        confirmFirstPrice.remove(market);
+        confirmLastTime.remove(market);
     }
 
     public void addPosition(String market, double avgPrice) {
@@ -284,14 +295,51 @@ public class OpeningBreakoutDetector {
         boolean breakout = price >= threshold;
 
         if (breakout) {
+            // confirm 간 최소 500ms 간격 체크 (2026-04-11)
+            Long lastConfirmTime = confirmLastTime.get(market);
+            long now = System.currentTimeMillis();
+            if (lastConfirmTime != null && now - lastConfirmTime < confirmMinIntervalMs) {
+                return; // 500ms 미경과 → 이번 tick은 무시
+            }
+
             Integer count = confirmCounts.get(market);
             int newCount = (count != null ? count : 0) + 1;
             confirmCounts.put(market, newCount);
+            confirmLastTime.put(market, now);
+
+            // confirm1 가격 기록
+            if (newCount == 1) {
+                confirmFirstPrice.put(market, price);
+            }
 
             if (newCount >= requiredConfirm) {
+                // 방향 확인 (2026-04-11): confirm3 or confirm4 ≥ confirm1
+                // confirm3에서 이미 통과했으면(newCount==requiredConfirm이 4일 때 3에서 체크 안 함)
+                // confirm4(마지막)에서 최종 체크
+                Double firstPrice = confirmFirstPrice.get(market);
+                if (firstPrice != null && price < firstPrice) {
+                    // confirm#last < confirm#1 → 하락 중 매수 차단
+                    // confirm3에서 실패 시 confirm4에서 한 번 더 기회
+                    if (newCount == requiredConfirm) {
+                        // 마지막 confirm인데도 confirm1보다 낮음 → 진짜 하락 → 리셋
+                        log.info("[BreakoutDetector] {} confirm REJECTED (falling): confirm1={} confirm{}={} → 리셋",
+                                market, firstPrice, newCount, price);
+                        confirmCounts.remove(market);
+                        confirmFirstPrice.remove(market);
+                        confirmLastTime.remove(market);
+                        return;
+                    }
+                    // requiredConfirm-1 (confirm3)에서 실패 → confirm4까지 기회 줌
+                    log.debug("[BreakoutDetector] {} confirm{} < confirm1 ({}<{}), confirm{} 기회 남음",
+                            market, newCount, price, firstPrice, requiredConfirm);
+                    return;
+                }
+
                 double actualPct = (price - rangeHigh) / rangeHigh * 100.0;
                 confirmedMarkets.add(market);
                 confirmCounts.remove(market);
+                confirmFirstPrice.remove(market);
+                confirmLastTime.remove(market);
 
                 log.info("[BreakoutDetector] BREAKOUT CONFIRMED: {} price={} rangeHigh={} bo=+{}% confirm={}/{}",
                         market, price, rangeHigh, String.format(java.util.Locale.ROOT, "%.2f", actualPct), newCount, requiredConfirm);
@@ -309,6 +357,8 @@ public class OpeningBreakoutDetector {
         } else {
             if (confirmCounts.containsKey(market)) {
                 confirmCounts.put(market, 0);
+                confirmFirstPrice.remove(market);
+                confirmLastTime.remove(market);
             }
         }
     }
@@ -419,5 +469,7 @@ public class OpeningBreakoutDetector {
         positionCache.clear();
         peakPrices.clear();
         tpActivated.clear();
+        confirmFirstPrice.clear();
+        confirmLastTime.clear();
     }
 }

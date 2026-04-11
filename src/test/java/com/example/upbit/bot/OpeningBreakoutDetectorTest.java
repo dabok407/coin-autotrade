@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for OpeningBreakoutDetector.
  *
  * Tests cover:
- * a) Breakout detection: 3 consecutive prices above threshold fires callback
+ * a) Breakout detection: 4 consecutive prices above threshold fires callback
  * b) Confirm reset: count resets when price drops below threshold
  * c) Already confirmed market: no duplicate callbacks
  * d) Multiple markets: independent tracking per market
@@ -46,6 +46,7 @@ public class OpeningBreakoutDetectorTest {
     @BeforeEach
     void setUp() {
         detector = new OpeningBreakoutDetector(mock(SharedPriceService.class));
+        detector.setConfirmMinIntervalMs(0); // disable 500ms interval for unit tests
         callbackMarkets.clear();
         callbackPrices.clear();
         callbackRangeHighs.clear();
@@ -79,12 +80,12 @@ public class OpeningBreakoutDetectorTest {
     // ─── (a) Basic breakout detection ───────────────────────────────────────────
 
     @Test
-    @DisplayName("a) 3 consecutive breakout prices should fire callback")
-    void testBasicBreakoutFiresAfterThreeConsecutive() throws Exception {
+    @DisplayName("a) 4 consecutive breakout prices should fire callback")
+    void testBasicBreakoutFiresAfterFourConsecutive() throws Exception {
         // rangeHigh=100, breakoutPct=1.0 → threshold = 101.0
         setupRange("KRW-BTC", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // price 101.5 > 101.0 → count should increment each time
         checkBreakout("KRW-BTC", 101.5); // count=1
@@ -93,8 +94,11 @@ public class OpeningBreakoutDetectorTest {
         checkBreakout("KRW-BTC", 101.5); // count=2
         assertEquals(0, callbackMarkets.size(), "No callback yet at count=2");
 
-        checkBreakout("KRW-BTC", 101.5); // count=3 → fires
-        assertEquals(1, callbackMarkets.size(), "Callback must fire at count=3");
+        checkBreakout("KRW-BTC", 101.5); // count=3
+        assertEquals(0, callbackMarkets.size(), "No callback yet at count=3");
+
+        checkBreakout("KRW-BTC", 101.5); // count=4 → fires
+        assertEquals(1, callbackMarkets.size(), "Callback must fire at count=4");
         assertEquals("KRW-BTC", callbackMarkets.get(0));
     }
 
@@ -103,13 +107,14 @@ public class OpeningBreakoutDetectorTest {
     void testExactThresholdCounts() throws Exception {
         setupRange("KRW-ETH", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         double threshold = 100.0 * 1.01; // 101.0
 
         checkBreakout("KRW-ETH", threshold); // count=1
         checkBreakout("KRW-ETH", threshold); // count=2
         checkBreakout("KRW-ETH", threshold); // count=3
+        checkBreakout("KRW-ETH", threshold); // count=4
 
         assertEquals(1, callbackMarkets.size(), "Callback must fire when price == threshold");
     }
@@ -117,11 +122,11 @@ public class OpeningBreakoutDetectorTest {
     // ─── (b) Confirm reset ───────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("b) Count resets to 0 when price drops below threshold; subsequent 3 hits still fire")
+    @DisplayName("b) Count resets to 0 when price drops below threshold; subsequent 4 hits still fire")
     void testConfirmResetWhenPriceDips() throws Exception {
         setupRange("KRW-SOL", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         checkBreakout("KRW-SOL", 101.5); // count=1
         assertEquals(0, callbackMarkets.size());
@@ -130,12 +135,13 @@ public class OpeningBreakoutDetectorTest {
         checkBreakout("KRW-SOL", 100.5); // below 101.0 → reset to 0
         assertEquals(0, callbackMarkets.size(), "No callback after price drop");
 
-        // Verify count is truly reset: need 3 more hits now
+        // Verify count is truly reset: need 4 more hits now
         checkBreakout("KRW-SOL", 101.5); // count=1
         checkBreakout("KRW-SOL", 101.5); // count=2
-        assertEquals(0, callbackMarkets.size(), "Still no callback at count=2");
-        checkBreakout("KRW-SOL", 101.5); // count=3 → fires
-        assertEquals(1, callbackMarkets.size(), "Callback fires after reset + 3 new hits");
+        checkBreakout("KRW-SOL", 101.5); // count=3
+        assertEquals(0, callbackMarkets.size(), "Still no callback at count=3");
+        checkBreakout("KRW-SOL", 101.5); // count=4 → fires
+        assertEquals(1, callbackMarkets.size(), "Callback fires after reset + 4 new hits");
     }
 
     @Test
@@ -143,17 +149,18 @@ public class OpeningBreakoutDetectorTest {
     void testNoResetIfNeverCountedBefore() throws Exception {
         setupRange("KRW-ADA", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // Only below-threshold prices
         checkBreakout("KRW-ADA", 100.5);
         checkBreakout("KRW-ADA", 100.5);
-        // Then above threshold 3 times
+        // Then above threshold 4 times
+        checkBreakout("KRW-ADA", 101.5);
         checkBreakout("KRW-ADA", 101.5);
         checkBreakout("KRW-ADA", 101.5);
         checkBreakout("KRW-ADA", 101.5);
 
-        assertEquals(1, callbackMarkets.size(), "Callback must fire after 3 hits");
+        assertEquals(1, callbackMarkets.size(), "Callback must fire after 4 hits");
     }
 
     // ─── (c) Already confirmed market ───────────────────────────────────────────
@@ -163,13 +170,14 @@ public class OpeningBreakoutDetectorTest {
     void testNoDoubleCallbackAfterConfirmation() throws Exception {
         setupRange("KRW-XRP", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
+        checkBreakout("KRW-XRP", 101.5);
         checkBreakout("KRW-XRP", 101.5);
         checkBreakout("KRW-XRP", 101.5);
         checkBreakout("KRW-XRP", 101.5); // fires once
 
-        assertEquals(1, callbackMarkets.size(), "Exactly one callback after 3 hits");
+        assertEquals(1, callbackMarkets.size(), "Exactly one callback after 4 hits");
 
         // More price updates above threshold
         checkBreakout("KRW-XRP", 102.0);
@@ -190,10 +198,11 @@ public class OpeningBreakoutDetectorTest {
         map.put("KRW-DOGE", 0.5);
         detector.setRangeHighMap(map);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // Confirm KRW-NEAR
         checkBreakout("KRW-NEAR", 202.5); // 200 * 1.01 = 202.0 → above
+        checkBreakout("KRW-NEAR", 202.5);
         checkBreakout("KRW-NEAR", 202.5);
         checkBreakout("KRW-NEAR", 202.5); // fires
 
@@ -205,6 +214,7 @@ public class OpeningBreakoutDetectorTest {
 
         // Confirm KRW-DOGE independently
         double dogeThreshold = 0.5 * 1.01; // 0.505
+        checkBreakout("KRW-DOGE", dogeThreshold + 0.01);
         checkBreakout("KRW-DOGE", dogeThreshold + 0.01);
         checkBreakout("KRW-DOGE", dogeThreshold + 0.01);
         checkBreakout("KRW-DOGE", dogeThreshold + 0.01); // fires
@@ -221,7 +231,7 @@ public class OpeningBreakoutDetectorTest {
     void testBelowThresholdNeverFiresCallback() throws Exception {
         setupRange("KRW-LINK", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // 100.5 < 101.0 (threshold)
         checkBreakout("KRW-LINK", 100.5);
@@ -239,16 +249,17 @@ public class OpeningBreakoutDetectorTest {
     void testJustBelowThresholdDoesNotCount() throws Exception {
         setupRange("KRW-ATOM", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         checkBreakout("KRW-ATOM", 100.99); // threshold=101.0, so this is below
 
-        // Then hit threshold exactly 3 times
+        // Then hit threshold exactly 4 times
+        checkBreakout("KRW-ATOM", 101.0);
         checkBreakout("KRW-ATOM", 101.0);
         checkBreakout("KRW-ATOM", 101.0);
         checkBreakout("KRW-ATOM", 101.0);
 
-        assertEquals(1, callbackMarkets.size(), "Callback fires for 3 hits, the below-threshold one did not count");
+        assertEquals(1, callbackMarkets.size(), "Callback fires for 4 hits, the below-threshold one did not count");
     }
 
     // ─── (f) Integration-like: full flow + callback content verification ─────────
@@ -275,8 +286,9 @@ public class OpeningBreakoutDetectorTest {
         double breakoutPrice = 510.0; // (510-500)/500*100 = 2.0%
         setupRange("KRW-AVAX", rangeHigh);
         detector.setBreakoutPct(1.0);   // threshold = 505.0
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
+        checkBreakout("KRW-AVAX", breakoutPrice);
         checkBreakout("KRW-AVAX", breakoutPrice);
         checkBreakout("KRW-AVAX", breakoutPrice);
         checkBreakout("KRW-AVAX", breakoutPrice);
@@ -291,11 +303,11 @@ public class OpeningBreakoutDetectorTest {
     }
 
     @Test
-    @DisplayName("f2) Integration: sequential prices, callback fires at correct 3rd tick")
-    void testCallbackFiresAtExactlyThirdConsecutiveTick() throws Exception {
+    @DisplayName("f2) Integration: sequential prices, callback fires at correct 4th tick")
+    void testCallbackFiresAtExactlyFourthConsecutiveTick() throws Exception {
         setupRange("KRW-MATIC", 1000.0);
         detector.setBreakoutPct(0.5);   // threshold = 1005.0
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         checkBreakout("KRW-MATIC", 1004.0); // below → no count
         checkBreakout("KRW-MATIC", 1006.0); // count=1
@@ -303,9 +315,10 @@ public class OpeningBreakoutDetectorTest {
         checkBreakout("KRW-MATIC", 1004.0); // below → reset count
         checkBreakout("KRW-MATIC", 1006.0); // count=1 again
         checkBreakout("KRW-MATIC", 1006.0); // count=2
-        assertEquals(0, callbackMarkets.size(), "No callback after 2nd confirm");
-        checkBreakout("KRW-MATIC", 1006.0); // count=3 → fires
-        assertEquals(1, callbackMarkets.size(), "Callback fires at exactly 3rd consecutive tick");
+        checkBreakout("KRW-MATIC", 1006.0); // count=3
+        assertEquals(0, callbackMarkets.size(), "No callback after 3rd confirm");
+        checkBreakout("KRW-MATIC", 1006.0); // count=4 → fires
+        assertEquals(1, callbackMarkets.size(), "Callback fires at exactly 4th consecutive tick");
     }
 
     // ─── (g) RSI threshold constant in ScalpOpeningBreakStrategy ────────────────
@@ -328,9 +341,10 @@ public class OpeningBreakoutDetectorTest {
     void testUnknownMarketIsIgnored() throws Exception {
         setupRange("KRW-BTC", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // Feed prices for a market not in the map
+        checkBreakout("KRW-UNKNOWN", 999.0);
         checkBreakout("KRW-UNKNOWN", 999.0);
         checkBreakout("KRW-UNKNOWN", 999.0);
         checkBreakout("KRW-UNKNOWN", 999.0);
@@ -346,9 +360,10 @@ public class OpeningBreakoutDetectorTest {
         // 1차 BREAKOUT 시뮬레이션
         setupRange("KRW-DRIFT", 72.5);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
-        // 1차: 3틱 연속 → BREAKOUT CONFIRMED
+        // 1차: 4틱 연속 → BREAKOUT CONFIRMED
+        checkBreakout("KRW-DRIFT", 73.4);
         checkBreakout("KRW-DRIFT", 73.4);
         checkBreakout("KRW-DRIFT", 73.4);
         checkBreakout("KRW-DRIFT", 73.4);
@@ -360,17 +375,19 @@ public class OpeningBreakoutDetectorTest {
         checkBreakout("KRW-DRIFT", 75.0);
         checkBreakout("KRW-DRIFT", 75.0);
         checkBreakout("KRW-DRIFT", 75.0);
+        checkBreakout("KRW-DRIFT", 75.0);
         assertEquals(1, callbackMarkets.size(), "release 전에는 재BREAKOUT 무시 (사고 재현)");
 
         // ★ releaseMarket 호출 (SELL 후 핫픽스로 추가됨)
         detector.releaseMarket("KRW-DRIFT");
         assertFalse(detector.isAlreadyConfirmed("KRW-DRIFT"), "release 후 confirmedMarkets에서 제거됨");
 
-        // 2차: 다시 3틱 연속 → 재 BREAKOUT 정상 감지
+        // 2차: 다시 4틱 연속 → 재 BREAKOUT 정상 감지
         checkBreakout("KRW-DRIFT", 75.0);
         checkBreakout("KRW-DRIFT", 75.0);
         checkBreakout("KRW-DRIFT", 75.0);
-        assertEquals(2, callbackMarkets.size(), "release 후 재 BREAKOUT 정상 감지 ✅");
+        checkBreakout("KRW-DRIFT", 75.0);
+        assertEquals(2, callbackMarkets.size(), "release 후 재 BREAKOUT 정상 감지");
         assertEquals("KRW-DRIFT", callbackMarkets.get(1));
     }
 
@@ -379,7 +396,7 @@ public class OpeningBreakoutDetectorTest {
     void testReleaseMarketResetsConfirmCount() throws Exception {
         setupRange("KRW-RED", 300.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // 2틱만 누적 (아직 BREAKOUT 안 됨)
         checkBreakout("KRW-RED", 305.0);
@@ -389,14 +406,15 @@ public class OpeningBreakoutDetectorTest {
         // release 호출 → confirmCount도 리셋
         detector.releaseMarket("KRW-RED");
 
-        // release 후 1틱만 받으면 count=1 (이전 2틱 reset 확인)
+        // release 후 틱 받으면 count 새로 시작 (이전 2틱 reset 확인)
         checkBreakout("KRW-RED", 305.0);
         checkBreakout("KRW-RED", 305.0);
-        assertEquals(0, callbackMarkets.size(), "release 후 1+1=2틱이라 미발동 (이전 카운트 리셋 증명)");
+        checkBreakout("KRW-RED", 305.0);
+        assertEquals(0, callbackMarkets.size(), "release 후 3틱이라 미발동 (이전 카운트 리셋 증명)");
 
-        // 1틱 더 (총 release 후 3틱) → 발동
+        // 1틱 더 (총 release 후 4틱) → 발동
         checkBreakout("KRW-RED", 305.0);
-        assertEquals(1, callbackMarkets.size(), "release 후 3틱 채워 발동");
+        assertEquals(1, callbackMarkets.size(), "release 후 4틱 채워 발동");
     }
 
     @Test
@@ -418,12 +436,14 @@ public class OpeningBreakoutDetectorTest {
         map.put("KRW-B", 200.0);
         detector.setRangeHighMap(map);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
         // A, B 모두 confirmed
         checkBreakout("KRW-A", 102.0);
         checkBreakout("KRW-A", 102.0);
         checkBreakout("KRW-A", 102.0);
+        checkBreakout("KRW-A", 102.0);
+        checkBreakout("KRW-B", 204.0);
         checkBreakout("KRW-B", 204.0);
         checkBreakout("KRW-B", 204.0);
         checkBreakout("KRW-B", 204.0);
@@ -440,9 +460,11 @@ public class OpeningBreakoutDetectorTest {
         checkBreakout("KRW-A", 102.0);
         checkBreakout("KRW-A", 102.0);
         checkBreakout("KRW-A", 102.0);
+        checkBreakout("KRW-A", 102.0);
         assertEquals(3, callbackMarkets.size(), "A 재 BREAKOUT 정상");
 
         // B는 여전히 차단
+        checkBreakout("KRW-B", 204.0);
         checkBreakout("KRW-B", 204.0);
         checkBreakout("KRW-B", 204.0);
         checkBreakout("KRW-B", 204.0);
@@ -454,8 +476,9 @@ public class OpeningBreakoutDetectorTest {
     void testResetClearsAllState() throws Exception {
         setupRange("KRW-BTC", 100.0);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
+        checkBreakout("KRW-BTC", 101.5);
         checkBreakout("KRW-BTC", 101.5);
         checkBreakout("KRW-BTC", 101.5);
         checkBreakout("KRW-BTC", 101.5); // confirmed
@@ -750,8 +773,9 @@ public class OpeningBreakoutDetectorTest {
         session1.put("KRW-BTC", 100.0);
         detector.setRangeHighMap(session1);
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
 
+        checkBreakout("KRW-BTC", 101.5);
         checkBreakout("KRW-BTC", 101.5);
         checkBreakout("KRW-BTC", 101.5);
         checkBreakout("KRW-BTC", 101.5); // confirmed

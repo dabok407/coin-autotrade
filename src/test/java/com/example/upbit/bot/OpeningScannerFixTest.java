@@ -179,7 +179,8 @@ public class OpeningScannerFixTest {
         OpeningBreakoutDetector detector = new OpeningBreakoutDetector(
                 mock(SharedPriceService.class));
         detector.setBreakoutPct(1.0);
-        detector.setRequiredConfirm(3);
+        detector.setRequiredConfirm(4);
+        detector.setConfirmMinIntervalMs(0);
         detector.setEntryWindow(-1, -1);
 
         HashMap<String, Double> rangeMap = new HashMap<>();
@@ -190,13 +191,14 @@ public class OpeningScannerFixTest {
                 "checkBreakout", String.class, double.class);
         checkBreakout.setAccessible(true);
 
-        // 3 tick 통과 → confirmedMarkets에 추가
+        // 4 tick 통과 (상승 방향) → confirmedMarkets에 추가
         checkBreakout.invoke(detector, "KRW-TEST", 102.0);
-        checkBreakout.invoke(detector, "KRW-TEST", 102.0);
-        checkBreakout.invoke(detector, "KRW-TEST", 102.0);
+        checkBreakout.invoke(detector, "KRW-TEST", 103.0);
+        checkBreakout.invoke(detector, "KRW-TEST", 104.0);
+        checkBreakout.invoke(detector, "KRW-TEST", 105.0);
 
         assertTrue(detector.isAlreadyConfirmed("KRW-TEST"),
-                "3 tick 후 confirmedMarkets에 추가됨");
+                "4 tick 후 confirmedMarkets에 추가됨");
 
         // releaseMarket 호출
         detector.releaseMarket("KRW-TEST");
