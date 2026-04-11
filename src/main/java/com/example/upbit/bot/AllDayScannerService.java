@@ -115,8 +115,17 @@ public class AllDayScannerService {
     private final java.util.Set<String> buyingMarkets = ConcurrentHashMap.newKeySet();
     private final java.util.Set<String> sellingMarkets = ConcurrentHashMap.newKeySet();
 
-    // ── 실시간 WS 매수 감지용 가격 추적 (Change 1: 2026-04-10) ──
-    private final ConcurrentHashMap<String, double[]> realtimePriceTracker = new ConcurrentHashMap<String, double[]>(); // market → [price, epochMs]
+    // 매도 후 재매수 쿨다운: 동일 마켓 매도 후 5분간 재매수 차단
+    // (2026-04-11 추가: 오프닝 스캐너와 동일 방어. SUPER/BARD 재매수 사고 방지)
+    private static final long SELL_COOLDOWN_MS = 300_000L;
+    private final ConcurrentHashMap<String, Long> sellCooldownMap = new ConcurrentHashMap<String, Long>();
+
+    // ── 실시간 WS 매수 감지용 가격 추적 (Change 1: 2026-04-10, 2026-04-11 rolling window 방식으로 변경) ──
+    // market → Deque of [epochMs, price] — 최근 3분간 10초 간격 가격 스냅샷 유지
+    private final ConcurrentHashMap<String, java.util.Deque<double[]>> realtimePriceHistory =
+            new ConcurrentHashMap<String, java.util.Deque<double[]>>();
+    private static final long PRICE_SNAPSHOT_INTERVAL_MS = 10_000L; // 10초마다 스냅샷
+    private static final long PRICE_HISTORY_MAX_MS = 180_000L;      // 3분 보관
     private final ConcurrentHashMap<String, Long> surgeCheckCooldownMap = new ConcurrentHashMap<String, Long>();
     private final Set<String> wsBreakoutProcessing = ConcurrentHashMap.newKeySet();
     private static final double SURGE_DETECT_PCT = 1.5;    // 2분 내 1.5% 급등 시 감지
@@ -263,14 +272,23 @@ public class AllDayScannerService {
             public void onPriceUpdate(String market, double price) {
                 // TP_TRAIL check (Change 2)
                 checkRealtimeTp(market, price);
-                // Check for surge (real-time buy) — tracker 갱신 전에 체크
-                checkRealtimeBuy(market, price);
-                // Track price for surge detection: 최초 기록 or 2분 경과 시에만 갱신
-                // (매 tick 덮어쓰기 버그 수정 2026-04-11: 항상 직전 tick과 비교 → elapsed<1s → 스킵)
-                double[] prevTrack = realtimePriceTracker.get(market);
-                if (prevTrack == null || System.currentTimeMillis() - (long) prevTrack[1] >= SURGE_WINDOW_MS) {
-                    realtimePriceTracker.put(market, new double[]{price, System.currentTimeMillis()});
+                // Rolling window 가격 기록 + surge 감지 (2026-04-11 전면 재설계)
+                long nowMs = System.currentTimeMillis();
+                java.util.Deque<double[]> history = realtimePriceHistory.get(market);
+                if (history == null) {
+                    history = new java.util.concurrent.ConcurrentLinkedDeque<double[]>();
+                    realtimePriceHistory.put(market, history);
                 }
+                // 10초 간격으로 스냅샷 추가
+                if (history.isEmpty() || nowMs - (long) history.peekLast()[0] >= PRICE_SNAPSHOT_INTERVAL_MS) {
+                    history.addLast(new double[]{nowMs, price});
+                    // 3분 초과 데이터 제거
+                    while (!history.isEmpty() && nowMs - (long) history.peekFirst()[0] > PRICE_HISTORY_MAX_MS) {
+                        history.pollFirst();
+                    }
+                }
+                // surge 감지
+                checkRealtimeBuy(market, price);
             }
         };
         sharedPriceService.addGlobalListener(priceListener);
@@ -306,7 +324,9 @@ public class AllDayScannerService {
                 for (String market : newMarkets) {
                     Double price = sharedPriceService.getPrice(market);
                     if (price != null && price > 0) {
-                        realtimePriceTracker.put(market, new double[]{price, System.currentTimeMillis()});
+                        java.util.Deque<double[]> h = new java.util.concurrent.ConcurrentLinkedDeque<double[]>();
+                        h.addLast(new double[]{System.currentTimeMillis(), price});
+                        realtimePriceHistory.put(market, h);
                         log.info("[AllDayScanner] 신규 TOP-N 동적 추가 추적: {} price={} (entry phase 중 감지)",
                                 market, price);
                     }
@@ -335,7 +355,7 @@ public class AllDayScannerService {
             newMarketListener = null;
         }
         tpPositionCache.clear();
-        realtimePriceTracker.clear();
+        realtimePriceHistory.clear();
         surgeCheckCooldownMap.clear();
         wsBreakoutProcessing.clear();
         if (scheduler != null) {
@@ -822,6 +842,15 @@ public class AllDayScannerService {
             double spentKrw = 0;
 
             for (BuySignal bs : buySignals) {
+                // 매도 후 재매수 쿨다운 체크 (SUPER/BARD 재매수 사고 방지, 2026-04-11)
+                Long lastSellTime = sellCooldownMap.get(bs.market);
+                if (lastSellTime != null && System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
+                    long remainSec = (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) / 1000;
+                    addDecision(bs.market, "BUY", "BLOCKED", "SELL_COOLDOWN",
+                            String.format("매도 후 %d초 쿨다운 남음", remainSec));
+                    continue;
+                }
+
                 // 포지션 수 재확인
                 if (scannerPosCount >= cfg.getMaxPositions()) {
                     addDecision(bs.market, "BUY", "BLOCKED", "MAX_POSITIONS",
@@ -1116,6 +1145,7 @@ public class AllDayScannerService {
         log.info("[AllDayScanner] SELL {} price={} pnl={} roi={}% reason={}",
                 pe.getMarket(), fillPrice, String.format("%.0f", pnlKrw),
                 String.format("%.2f", roiPct), signal.reason);
+        sellCooldownMap.put(pe.getMarket(), System.currentTimeMillis());
     }
 
     // ========== Quick TP Ticker ==========
@@ -1295,6 +1325,7 @@ public class AllDayScannerService {
                 fSellType, market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
 
         addDecision(market, "SELL", "EXECUTED", fSellType, fReason);
+        sellCooldownMap.put(market, System.currentTimeMillis());
     }
 
     // ========== WebSocket Real-time TP_TRAIL (2026-04-10: Quick TP → TP_TRAIL 전환) ==========
@@ -1376,16 +1407,26 @@ public class AllDayScannerService {
         long now = System.currentTimeMillis();
         if (lastCheck != null && now - lastCheck < SURGE_COOLDOWN_MS) return;
 
-        // 이전 가격 조회 (2분 전 가격과 비교)
-        double[] prev = realtimePriceTracker.get(market);
-        if (prev == null) return;
-        double prevPrice = prev[0];
-        double prevTime = prev[1];
-        if (prevPrice <= 0) return;
+        // Rolling window에서 2분 전 가격 조회
+        java.util.Deque<double[]> history = realtimePriceHistory.get(market);
+        if (history == null || history.size() < 2) return;
 
-        // 시간 윈도우 내 가격 변화율 계산
-        long elapsed = now - (long) prevTime;
-        if (elapsed > SURGE_WINDOW_MS || elapsed < 1000) return; // 2분 초과이거나 1초 미만이면 스킵
+        // 2분 전(±30초) 스냅샷 찾기
+        double prevPrice = 0;
+        long prevTime = 0;
+        long targetTime = now - SURGE_WINDOW_MS; // 2분 전
+        for (double[] snap : history) {
+            long snapTime = (long) snap[0];
+            // targetTime 이전의 가장 가까운 스냅샷
+            if (snapTime <= targetTime) {
+                prevPrice = snap[1];
+                prevTime = snapTime;
+            }
+        }
+        if (prevPrice <= 0 || prevTime == 0) return;
+
+        long elapsed = now - prevTime;
+        if (elapsed < 30_000L) return; // 최소 30초 이상 경과
 
         double changePct = (price - prevPrice) / prevPrice * 100.0;
         if (changePct < SURGE_DETECT_PCT) return;
@@ -1468,6 +1509,15 @@ public class AllDayScannerService {
         if (ownedMarkets.contains(market)) {
             addDecision(market, "BUY", "BLOCKED", "WS_SURGE_ALREADY_HELD",
                     String.format(Locale.ROOT, "급등 감지(+%.2f%%)했지만 이미 보유 중", changePct));
+            return;
+        }
+
+        // 매도 후 재매수 쿨다운 (2026-04-11)
+        Long lastSellTime = sellCooldownMap.get(market);
+        if (lastSellTime != null && System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
+            long remainSec = (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) / 1000;
+            addDecision(market, "BUY", "BLOCKED", "WS_SURGE_SELL_COOLDOWN",
+                    String.format(Locale.ROOT, "급등 감지(+%.2f%%)했지만 매도 후 %d초 쿨다운", changePct, remainSec));
             return;
         }
 
@@ -1669,6 +1719,7 @@ public class AllDayScannerService {
         log.info("[AllDayScanner] TP_TRAIL SELL {} price={} pnl={} roi={}%",
                 market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
         addDecision(market, "SELL", "EXECUTED", "TP_TRAIL", reason);
+        sellCooldownMap.put(market, System.currentTimeMillis());
     }
 
     /**
