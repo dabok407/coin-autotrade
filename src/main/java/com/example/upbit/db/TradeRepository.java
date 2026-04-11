@@ -13,4 +13,7 @@ public interface TradeRepository extends JpaRepository<TradeEntity, Long> {
 
     /** 특정 마켓의 가장 최근 BUY/SELL 트레이드 조회 (Quick TP confidence 참조용) */
     TradeEntity findTop1ByMarketAndActionOrderByTsEpochMsDesc(String market, String action);
+
+    /** 최근 1시간 내 BUY 기록 조회 (서버 재시작 시 throttle 복원용, 2026-04-11) */
+    List<TradeEntity> findByActionAndTsEpochMsGreaterThanEqual(String action, long tsEpochMs);
 }

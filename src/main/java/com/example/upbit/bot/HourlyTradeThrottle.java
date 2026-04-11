@@ -68,6 +68,19 @@ public class HourlyTradeThrottle {
     }
 
     /**
+     * 특정 시각의 매수 기록 추가 (서버 재시작 시 DB 복원용, 2026-04-11).
+     * @param market 마켓 코드
+     * @param epochMs 매수 시각 (epoch milliseconds)
+     */
+    public void recordBuyAt(String market, long epochMs) {
+        Deque<Long> history = tradeHistory.computeIfAbsent(market,
+                k -> new ArrayDeque<Long>());
+        synchronized (history) {
+            history.addLast(epochMs);
+        }
+    }
+
+    /**
      * 가장 최근 매수 기록 1건 제거 (매수 실패 시 권한 반환용).
      * SharedTradeThrottle.releaseClaim() 에서 호출.
      */

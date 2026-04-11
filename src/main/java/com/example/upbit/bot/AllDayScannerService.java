@@ -263,10 +263,14 @@ public class AllDayScannerService {
             public void onPriceUpdate(String market, double price) {
                 // TP_TRAIL check (Change 2)
                 checkRealtimeTp(market, price);
-                // Track price for surge detection (Change 1)
-                realtimePriceTracker.put(market, new double[]{price, System.currentTimeMillis()});
-                // Check for surge (real-time buy)
+                // Check for surge (real-time buy) — tracker 갱신 전에 체크
                 checkRealtimeBuy(market, price);
+                // Track price for surge detection: 최초 기록 or 2분 경과 시에만 갱신
+                // (매 tick 덮어쓰기 버그 수정 2026-04-11: 항상 직전 tick과 비교 → elapsed<1s → 스킵)
+                double[] prevTrack = realtimePriceTracker.get(market);
+                if (prevTrack == null || System.currentTimeMillis() - (long) prevTrack[1] >= SURGE_WINDOW_MS) {
+                    realtimePriceTracker.put(market, new double[]{price, System.currentTimeMillis()});
+                }
             }
         };
         sharedPriceService.addGlobalListener(priceListener);

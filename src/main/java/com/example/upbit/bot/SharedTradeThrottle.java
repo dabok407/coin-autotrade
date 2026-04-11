@@ -1,6 +1,14 @@
 package com.example.upbit.bot;
 
+import com.example.upbit.db.TradeEntity;
+import com.example.upbit.db.TradeRepository;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import javax.annotation.PostConstruct;
+import java.util.List;
 
 /**
  * 3개 스캐너(MorningRush, Opening, AllDay)가 공유하는 단일 매수 throttle.
@@ -22,11 +30,50 @@ import org.springframework.stereotype.Service;
 @Service
 public class SharedTradeThrottle {
 
-    private final HourlyTradeThrottle delegate;
+    private static final Logger log = LoggerFactory.getLogger(SharedTradeThrottle.class);
 
-    public SharedTradeThrottle() {
+    private final HourlyTradeThrottle delegate;
+    private final TradeRepository tradeRepo;
+
+    public SharedTradeThrottle(TradeRepository tradeRepo) {
         // 기본: 1시간 2회 + 20분 쿨다운
         this.delegate = new HourlyTradeThrottle(2, 20);
+        this.tradeRepo = tradeRepo;
+    }
+
+    /** 테스트용 생성자 (DB 복원 없이 메모리만 사용) */
+    SharedTradeThrottle() {
+        this.delegate = new HourlyTradeThrottle(2, 20);
+        this.tradeRepo = null;
+    }
+
+    /**
+     * 서버 시작 시 최근 1시간 BUY 기록을 DB에서 로드하여 throttle에 복원.
+     *
+     * 운영 사고 (2026-04-11 KRW-RED):
+     *   서버 재배포 시 메모리 tradeHistory 초기화 → 09:43 매수 기록 소실
+     *   → 10:00에 20분 쿨다운 미적용으로 재매수 허용
+     *
+     * 해결: @PostConstruct에서 trade_log의 최근 1시간 BUY를 읽어 recordBuy() 호출.
+     * trade_log는 DB 영속이므로 재시작과 무관하게 기록 유지.
+     */
+    @PostConstruct
+    public void restoreFromDb() {
+        if (tradeRepo == null) return; // 테스트용 생성자
+        try {
+            long oneHourAgo = System.currentTimeMillis() - 3600_000L;
+            List<TradeEntity> recentBuys = tradeRepo.findByActionAndTsEpochMsGreaterThanEqual("BUY", oneHourAgo);
+            int restored = 0;
+            for (TradeEntity t : recentBuys) {
+                delegate.recordBuyAt(t.getMarket(), t.getTsEpochMs());
+                restored++;
+            }
+            if (restored > 0) {
+                log.info("[SharedThrottle] 서버 재시작 throttle 복원: {}건 (최근 1시간 BUY)", restored);
+            }
+        } catch (Exception e) {
+            log.warn("[SharedThrottle] throttle 복원 실패 (무시, 신규 기록으로 동작): {}", e.getMessage());
+        }
     }
 
     /** 매수 가능 여부 — 두 조건 모두 만족해야 true */

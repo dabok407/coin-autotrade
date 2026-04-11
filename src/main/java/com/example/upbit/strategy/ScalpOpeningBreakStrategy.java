@@ -97,6 +97,7 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     //   - 재활성화 전 반드시 사용자 동의 필수
     // ════════════════════════════════════════════════════════════════
     private static final boolean OPEN_TRAIL_ENABLED = false;
+    private static final boolean OPEN_TP_ENABLED = false;
 
     // ===== 안전 =====
     private static final int MIN_CANDLES = 30;
@@ -349,12 +350,33 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         }
 
         // 3. Hard TP: entry + tpAtrMult × ATR
+        //    OPEN_TP_ENABLED=false 시 skip → 실시간 TP_TRAIL(BreakoutDetector)에 위임
+        // ════════════════════════════════════════════════════════════════
+        // OPEN_TP (5분봉 boundary hard TP) 비활성화 플래그
+        // ════════════════════════════════════════════════════════════════
+        // 비활성화 일시: 2026-04-11 (사용자 요청)
+        // 비활성화 이유:
+        //   - OPEN_TP는 5분봉 종가 기준 ATR×tpAtrMult 도달 시 즉시 매도
+        //   - 실시간 TP_TRAIL (BreakoutDetector.checkRealtimeTp)이 peak 추적하여
+        //     더 높은 가격에서 매도 가능
+        //   - 2026-04-11 실거래:
+        //     KRW-RED: OPEN_TP가 +3.40%에 매도 → TP_TRAIL peak=245 추적 중이었음
+        //     KRW-LPT: OPEN_TP가 +2.06%에 매도 → peak=3534(+6.4%)까지 올랐음
+        //   - OPEN_TP가 TP_TRAIL보다 먼저 발동하여 수익 극대화 차단
+        //   - OPEN_TRAIL과 동일한 구조적 문제 (2026-04-10 비활성화)
+        //
+        // 재활성화 조건:
+        //   - TP_TRAIL(실시간)이 미작동하는 케이스 발견 시
+        //   - 재활성화 전 반드시 사용자 동의 필수
+        // ════════════════════════════════════════════════════════════════
+        if (OPEN_TP_ENABLED) {
         double tpPrice = avgPrice + tpAtrMult * atr;
         if (last.high_price >= tpPrice) {
             double tpPnl = ((tpPrice - avgPrice) / avgPrice) * 100.0;
             String reason = String.format(Locale.ROOT,
                     "OPEN_TP avg=%.2f tp=%.2f pnl=%.2f%%", avgPrice, tpPrice, tpPnl);
             return Signal.of(SignalAction.SELL, type(), reason);
+        }
         }
 
         // 4. 빠른 실패 돌파: pnl < -1.0% + 2연속 음봉 (v3: 노이즈 내성 강화)
