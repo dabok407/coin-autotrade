@@ -262,7 +262,7 @@ public class OpeningScannerService {
         });
 
         // WebSocket 돌파 감지기 + 실시간 TP 트레일링 콜백 설정
-        breakoutDetector.setBreakoutPct(1.0);
+        breakoutDetector.setBreakoutPct(1.5);  // 2026-04-13: 1.0→1.5% (약한 돌파 필터링)
         // 2026-04-11: 3→4회 + 500ms 간격 + 방향 확인 (고점 매수 방지)
         breakoutDetector.setRequiredConfirm(4);
         // TP_TRAIL 설정 (2026-04-10 백테스트 최적화: A9→A1)
@@ -1591,11 +1591,11 @@ public class OpeningScannerService {
                 return;
             }
 
-            // 2. RSI 과매수 차단 (RSI 83 이상)
+            // 2. RSI 과매수 차단 (RSI 75 이상, 2026-04-13: 83→75 강화)
             double rsi = Indicators.rsi(candles, 14);
-            if (rsi >= 83) {
+            if (rsi >= 75) {
                 addDecision(market, "BUY", "SKIPPED", "RSI_OVERBOUGHT",
-                        String.format("RSI %.0f >= 83 (1min)", rsi));
+                        String.format("RSI %.0f >= 75 (1min)", rsi));
                 breakoutDetector.releaseMarket(market);
                 return;
             }
@@ -1609,15 +1609,42 @@ public class OpeningScannerService {
                 return;
             }
 
-            // 4. 최소 돌파 강도 (이미 detector가 1.0% 이상 통과한 건이지만 재확인)
-            if (breakoutPctActual < 1.0) {
+            // 4. 최소 돌파 강도 (2026-04-13: 1.0→1.5% 강화)
+            if (breakoutPctActual < 1.5) {
                 addDecision(market, "BUY", "SKIPPED", "BREAKOUT_WEAK",
-                        String.format("bo=%.2f%% < 1.0%%", breakoutPctActual));
+                        String.format("bo=%.2f%% < 1.5%%", breakoutPctActual));
                 breakoutDetector.releaseMarket(market);
                 return;
             }
 
-            // volRatio는 로그용으로만 계산 (필터 X)
+            // 5. 볼륨 필터 복원 (3분봉 평균, 2026-04-13)
+            // FLOCK 사고 교훈: 단일 1분봉 vol은 부정확 → 3분봉 합산 평균으로 개선
+            // 직전 3개 1분봉 평균 vs 20개 1분봉 평균 비교
+            int candleSize = candles.size();
+            double vol3Ratio = 0;
+            if (candleSize >= 23) {  // 최소 20+3개 필요
+                double avgVol20 = 0;
+                for (int i = candleSize - 23; i < candleSize - 3; i++) {
+                    avgVol20 += candles.get(i).candle_acc_trade_volume;
+                }
+                avgVol20 /= 20.0;
+
+                double avgVol3 = 0;
+                for (int i = candleSize - 3; i < candleSize; i++) {
+                    avgVol3 += candles.get(i).candle_acc_trade_volume;
+                }
+                avgVol3 /= 3.0;
+
+                vol3Ratio = avgVol20 > 0 ? avgVol3 / avgVol20 : 0;
+                if (vol3Ratio < 1.5) {
+                    addDecision(market, "BUY", "SKIPPED", "VOL_3MIN_WEAK",
+                            String.format(Locale.ROOT, "3분봉 vol=%.1fx < 1.5x", vol3Ratio));
+                    breakoutDetector.releaseMarket(market);
+                    return;
+                }
+            }
+
+            // volRatio는 로그용 (vol3Ratio 없을 때 fallback)
             double avgVolForLog = 0;
             int volCount = Math.min(20, candles.size());
             for (int i = candles.size() - volCount; i < candles.size(); i++) {
@@ -1626,6 +1653,35 @@ public class OpeningScannerService {
             avgVolForLog /= volCount;
             double curVol = last.candle_acc_trade_volume;
             double volRatio = avgVolForLog > 0 ? curVol / avgVolForLog : 0;
+
+            // 6. 간이 3-Factor 스코어 (2026-04-13: 진입 품질 강화)
+            // AllDay HCB 9.4점 대비 간이 버전: 돌파강도 + 볼륨 + RSI 복합 체크
+            double quickScore = 0;
+
+            // Factor A: 돌파 강도 (0~2.0)
+            if (breakoutPctActual >= 3.0) quickScore += 2.0;
+            else if (breakoutPctActual >= 2.0) quickScore += 1.5;
+            else if (breakoutPctActual >= 1.5) quickScore += 1.0;
+            else quickScore += 0.3;
+
+            // Factor B: 볼륨 (0~1.5) — vol3Ratio 사용
+            double volForScore = (candleSize >= 23) ? vol3Ratio : volRatio;
+            if (volForScore >= 5.0) quickScore += 1.5;
+            else if (volForScore >= 3.0) quickScore += 1.0;
+            else if (volForScore >= 1.5) quickScore += 0.5;
+
+            // Factor C: RSI 위치 (0~1.0)
+            if (rsi >= 50 && rsi < 65) quickScore += 1.0;
+            else if (rsi >= 65 && rsi < 75) quickScore += 0.6;
+            else if (rsi < 50) quickScore += 0.3;
+
+            if (quickScore < 2.0) {
+                addDecision(market, "BUY", "SKIPPED", "LOW_QUICK_SCORE",
+                        String.format(Locale.ROOT, "quickScore=%.1f < 2.0 (bo=%.2f%% vol=%.1fx rsi=%.0f)",
+                                quickScore, breakoutPctActual, volForScore, rsi));
+                breakoutDetector.releaseMarket(market);
+                return;
+            }
 
             // ★ atomic throttle claim — 모든 필터 통과 후, executeBuy 직전 (race fix)
             // 위치를 여기로 둔 이유: 위쪽 차단 분기들이 throttle을 잘못 기록하는 것 방지
@@ -1638,11 +1694,13 @@ public class OpeningScannerService {
             throttleClaimed = true;
 
             // 모든 필터 통과 → 즉시 매수
-            log.info("[OpeningScanner] WS_BREAKOUT BUY: {} price={} bo=+{}% vol={}x rsi={}",
+            double logVol = (candleSize >= 23) ? vol3Ratio : volRatio;
+            log.info("[OpeningScanner] WS_BREAKOUT BUY: {} price={} bo=+{}% vol={}x rsi={} qs={}",
                     market, wsPrice,
                     String.format(Locale.ROOT, "%.2f", breakoutPctActual),
-                    String.format(Locale.ROOT, "%.1f", volRatio),
-                    String.format(Locale.ROOT, "%.0f", rsi));
+                    String.format(Locale.ROOT, "%.1f", logVol),
+                    String.format(Locale.ROOT, "%.0f", rsi),
+                    String.format(Locale.ROOT, "%.1f", quickScore));
 
             // executeBuy 재사용 위해 가짜 candle/signal 생성
             UpbitCandle synth = new UpbitCandle();
@@ -1655,8 +1713,8 @@ public class OpeningScannerService {
             synth.candle_date_time_utc = last.candle_date_time_utc;
 
             String reason = String.format(Locale.ROOT,
-                    "WS_BREAK price=%.2f rH=%.2f bo=+%.2f%% vol=%.1fx rsi=%.0f (1min)",
-                    wsPrice, rangeHigh, breakoutPctActual, volRatio, rsi);
+                    "WS_BREAK price=%.2f rH=%.2f bo=+%.2f%% vol=%.1fx rsi=%.0f qs=%.1f (1min)",
+                    wsPrice, rangeHigh, breakoutPctActual, logVol, rsi, quickScore);
             Signal sig = Signal.of(SignalAction.BUY, StrategyType.SCALP_OPENING_BREAK, reason, 9.0);
 
             try {

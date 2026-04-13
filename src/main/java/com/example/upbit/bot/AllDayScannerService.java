@@ -67,7 +67,7 @@ public class AllDayScannerService {
             return t;
         }
     });
-    // market → [avgPrice, peakPrice, trailActivated(0/1)]  (Change 2: TP_TRAIL, 2026-04-10)
+    // market → [avgPrice, peakPrice, trailActivated(0/1), troughPrice]  (Change 2: TP_TRAIL, 2026-04-10; trough added 2026-04-10)
     private final ConcurrentHashMap<String, double[]> tpPositionCache = new ConcurrentHashMap<String, double[]>();
     private static final double TP_TRAIL_ACTIVATE_PCT = 2.0;  // +2.0% 도달 시 트레일링 활성화
     private static final double TP_TRAIL_DROP_PCT = 1.0;      // 피크에서 -1.0% 떨어지면 매도
@@ -918,8 +918,8 @@ public class AllDayScannerService {
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
-                    // 실시간 TP_TRAIL 캐시에 즉시 등록 [avgPrice, peakPrice, activated]
-                    tpPositionCache.put(bs.market, new double[]{bs.candle.trade_price, bs.candle.trade_price, 0});
+                    // 실시간 TP_TRAIL 캐시에 즉시 등록 [avgPrice, peakPrice, activated, troughPrice]
+                    tpPositionCache.put(bs.market, new double[]{bs.candle.trade_price, bs.candle.trade_price, 0, bs.candle.trade_price});
                     addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
                 } catch (Exception e) {
                     // 매수 실패 → throttle 권한 반환
@@ -1370,6 +1370,7 @@ public class AllDayScannerService {
         if (avgPrice <= 0) return;
         double peakPrice = pos[1];
         boolean activated = pos[2] > 0;
+        double troughPrice = pos.length >= 4 ? pos[3] : avgPrice;
 
         double pnlPct = (price - avgPrice) / avgPrice * 100.0;
 
@@ -1377,6 +1378,12 @@ public class AllDayScannerService {
         if (price > peakPrice) {
             pos[1] = price;
             peakPrice = price;
+        }
+
+        // Update trough (최저가 추적)
+        if (price < troughPrice) {
+            pos[3] = price;
+            troughPrice = price;
         }
 
         // Check activation
@@ -1397,9 +1404,11 @@ public class AllDayScannerService {
                 final double fPnlPct = pnlPct;
                 final double fPeakPrice = peakPrice;
                 final double fDropFromPeak = dropFromPeak;
+                final double fTroughPrice = troughPrice;
+                final double fTroughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                 final String reason = String.format(Locale.ROOT,
-                        "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=+%.2f%%",
-                        avgPrice, fPeakPrice, price, fDropFromPeak, fPnlPct);
+                        "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%%",
+                        avgPrice, fPeakPrice, price, fDropFromPeak, fPnlPct, fTroughPrice, fTroughPnl);
                 log.info("[AllDayScanner] TP_TRAIL triggered: {} | {}", market, reason);
 
                 // 매도 전용 스레드에서 즉시 실행
@@ -1407,13 +1416,13 @@ public class AllDayScannerService {
                     wsTpExecutor.submit(new Runnable() {
                         @Override
                         public void run() {
-                            executeSellForWsTp(market, price, fPnlPct);
+                            executeSellForWsTp(market, price, fPnlPct, fTroughPrice, fTroughPnl);
                         }
                     });
                 } catch (Exception e) {
                     log.error("[AllDayScanner] TP_TRAIL schedule failed for {}", market, e);
                     // 복구: 캐시 재삽입
-                    tpPositionCache.put(market, new double[]{avgPrice, fPeakPrice, 1.0});
+                    tpPositionCache.put(market, new double[]{avgPrice, fPeakPrice, 1.0, fTroughPrice});
                 }
             }
         }
@@ -1603,8 +1612,8 @@ public class AllDayScannerService {
                         market, signal.confidence, signal.reason);
                 executeBuy(market, candles.get(candles.size() - 1), signal, cfg);
                 bought = true;
-                // TP_TRAIL 캐시 즉시 등록
-                tpPositionCache.put(market, new double[]{wsPrice, wsPrice, 0});
+                // TP_TRAIL 캐시 즉시 등록 [avgPrice, peakPrice, activated, troughPrice]
+                tpPositionCache.put(market, new double[]{wsPrice, wsPrice, 0, wsPrice});
                 addDecision(market, "BUY", "EXECUTED", "WS_SURGE_HCB", signal.reason);
             }
 
@@ -1649,7 +1658,7 @@ public class AllDayScannerService {
                                     StrategyType.HIGH_CONFIDENCE_BREAKOUT, surgeReason, 10.0);
                             executeBuy(market, lastCandle, surgeSignal, cfg);
                             bought = true;
-                            tpPositionCache.put(market, new double[]{wsPrice, wsPrice, 0});
+                            tpPositionCache.put(market, new double[]{wsPrice, wsPrice, 0, wsPrice});
                             addDecision(market, "BUY", "EXECUTED", "WS_M2_SURGE", surgeReason);
                         }
                     }
@@ -1675,20 +1684,22 @@ public class AllDayScannerService {
     /**
      * WebSocket TP 매도 실행 (wsTpExecutor 스레드에서 호출, DB 접근 안전).
      */
-    private void executeSellForWsTp(String market, double wsPrice, double pnlPct) {
+    private void executeSellForWsTp(String market, double wsPrice, double pnlPct,
+                                     double troughPrice, double troughPnl) {
         // ★ race 방어: in-flight 매도 차단 (WS TP path와 mainLoop monitorPositions 동시 매도 가능)
         if (!sellingMarkets.add(market)) {
             log.debug("[AllDayScanner] WS_TP SELL in progress, skip duplicate: {}", market);
             return;
         }
         try {
-            executeSellForWsTpInner(market, wsPrice, pnlPct);
+            executeSellForWsTpInner(market, wsPrice, pnlPct, troughPrice, troughPnl);
         } finally {
             sellingMarkets.remove(market);
         }
     }
 
-    private void executeSellForWsTpInner(String market, double wsPrice, double pnlPct) {
+    private void executeSellForWsTpInner(String market, double wsPrice, double pnlPct,
+                                          double troughPrice, double troughPnl) {
         PositionEntity pe = positionRepo.findById(market).orElse(null);
         if (pe == null || pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("[AllDayScanner] WS_TP: position not found for {} (already sold?)", market);
@@ -1726,7 +1737,8 @@ public class AllDayScannerService {
         final double pnlKrw = (fFillPrice - avgPrice) * fQty;
         final double roiPct = avgPrice > 0 ? (fFillPrice - avgPrice) / avgPrice * 100.0 : 0;
         final String reason = String.format(Locale.ROOT,
-                "TP_TRAIL pnl=+%.2f%% price=%.2f avg=%.2f (realtime)", pnlPct, fFillPrice, avgPrice);
+                "TP_TRAIL pnl=%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                pnlPct, fFillPrice, avgPrice, troughPrice, troughPnl);
 
         txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
             @Override
@@ -1759,14 +1771,14 @@ public class AllDayScannerService {
      * tick()에서 호출: 포지션 캐시 동기화 + SharedPriceService 구독 관리.
      */
     private void syncTpWebSocket(List<PositionEntity> scannerPositions) {
-        // 포지션 캐시 동기화 (TP_TRAIL: [avgPrice, peakPrice, activated])
+        // 포지션 캐시 동기화 (TP_TRAIL: [avgPrice, peakPrice, activated, troughPrice])
         Set<String> currentMarkets = new HashSet<String>();
         for (PositionEntity pe : scannerPositions) {
             String market = pe.getMarket();
             currentMarkets.add(market);
             if (!tpPositionCache.containsKey(market)) {
                 double avg = pe.getAvgPrice().doubleValue();
-                tpPositionCache.put(market, new double[]{avg, avg, 0});
+                tpPositionCache.put(market, new double[]{avg, avg, 0, avg});
             }
         }
         // 없어진 포지션 제거

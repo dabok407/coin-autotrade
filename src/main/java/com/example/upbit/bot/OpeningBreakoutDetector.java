@@ -82,6 +82,7 @@ public class OpeningBreakoutDetector {
 
     // 실시간 TP 트레일링 상태
     private final ConcurrentHashMap<String, Double> peakPrices = new ConcurrentHashMap<String, Double>();
+    private final ConcurrentHashMap<String, Double> troughPrices = new ConcurrentHashMap<String, Double>();
     private final ConcurrentHashMap<String, Boolean> tpActivated = new ConcurrentHashMap<String, Boolean>();
     private volatile double tpActivatePct = 2.0;
     private volatile double trailFromPeakPct = 1.0;
@@ -167,6 +168,7 @@ public class OpeningBreakoutDetector {
     public void addPosition(String market, double avgPrice, long openedAtEpochMs, int volumeRank) {
         positionCache.put(market, new double[]{avgPrice, openedAtEpochMs, volumeRank});
         peakPrices.put(market, avgPrice);
+        troughPrices.put(market, avgPrice);
         tpActivated.put(market, false);
     }
 
@@ -196,6 +198,7 @@ public class OpeningBreakoutDetector {
     public void removePosition(String market) {
         positionCache.remove(market);
         peakPrices.remove(market);
+        troughPrices.remove(market);
         tpActivated.remove(market);
     }
 
@@ -212,6 +215,7 @@ public class OpeningBreakoutDetector {
                         : System.currentTimeMillis();
                 positionCache.put(e.getKey(), new double[]{e.getValue(), openedAt});
                 peakPrices.put(e.getKey(), e.getValue());
+                troughPrices.put(e.getKey(), e.getValue());
                 tpActivated.put(e.getKey(), false);
             }
         }
@@ -397,6 +401,13 @@ public class OpeningBreakoutDetector {
             peak = price;
         }
 
+        // 트로프(최저가) 업데이트
+        Double trough = troughPrices.get(market);
+        if (trough == null || price < trough) {
+            troughPrices.put(market, price);
+            trough = price;
+        }
+
         String sellType = null;
         String reason = null;
 
@@ -408,17 +419,19 @@ public class OpeningBreakoutDetector {
             double wideSlPct = getWideSlForRank(volumeRank);
             if (pnlPct <= -wideSlPct) {
                 sellType = "SL_WIDE";
+                double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
                 reason = String.format(java.util.Locale.ROOT,
-                        "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f rank=%d (realtime)",
-                        pnlPct, wideSlPct, price, avgPrice, volumeRank);
+                        "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f rank=%d trough=%.2f troughPnl=%.2f%% (realtime)",
+                        pnlPct, wideSlPct, price, avgPrice, volumeRank, trough, troughPnl);
             }
         } else {
             // SL_TIGHT — 단일
             if (pnlPct <= -cachedTightSlPct) {
                 sellType = "SL_TIGHT";
+                double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
                 reason = String.format(java.util.Locale.ROOT,
-                        "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
-                        pnlPct, cachedTightSlPct, price, avgPrice);
+                        "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                        pnlPct, cachedTightSlPct, price, avgPrice, trough, troughPnl);
             }
         }
 
@@ -438,10 +451,11 @@ public class OpeningBreakoutDetector {
                 double dropFromPeak = (peak - price) / peak * 100.0;
                 if (dropFromPeak >= trailFromPeakPct) {
                     double trailPnl = (price - avgPrice) / avgPrice * 100.0;
+                    double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
                     sellType = "TP_TRAIL";
                     reason = String.format(java.util.Locale.ROOT,
-                            "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=+%.2f%% (realtime)",
-                            avgPrice, peak, price, dropFromPeak, trailPnl);
+                            "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                            avgPrice, peak, price, dropFromPeak, trailPnl, trough, troughPnl);
                 }
             }
         }
@@ -468,6 +482,7 @@ public class OpeningBreakoutDetector {
         latestPrices.clear();
         positionCache.clear();
         peakPrices.clear();
+        troughPrices.clear();
         tpActivated.clear();
         confirmFirstPrice.clear();
         confirmLastTime.clear();

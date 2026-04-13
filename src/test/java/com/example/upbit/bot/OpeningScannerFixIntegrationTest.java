@@ -102,23 +102,19 @@ public class OpeningScannerFixIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  시나리오 1: KRW-FLOCK 사고 재현 — vol 0.2x여도 매수 통과
+    //  시나리오 1: vol3Ratio < 1.5x → 매수 차단 (2026-04-13 필터 복원)
     // ═══════════════════════════════════════════════════════════
     @Test
-    @DisplayName("시나리오 1: vol 0.2x여도 양봉/RSI/EMA20 통과 시 매수 (KRW-FLOCK 사고 fix)")
-    public void scenario1_lowVolStillBuysWhenOtherFiltersPass() throws Exception {
+    @DisplayName("시나리오 1: vol3Ratio 0.7x → 매수 차단 (3분봉 볼륨 필터)")
+    public void scenario1_lowVol3RatioBlocks() throws Exception {
         String market = "KRW-FLOCK";
-        // 1분봉 캐시: vol 0.2x 시뮬레이션 (캐시 가격 99 근방 → EMA20 ~99)
-        // - 19개 1분봉: vol = 1000 (평균 = 1000)
-        // - 마지막 1분봉: vol = 200 (0.2배), 양봉, EMA20 위, RSI < 83
+        // 1분봉 캐시: 마지막 1분봉 vol 0.2x → vol3Ratio ~0.73 < 1.5x → 차단
         getOneMinCandleCache().put(market, lowVolPassingCandles());
 
-        // wsPrice 100.5 (캐시 EMA20 ~99 위), rangeHigh 99 (실제 KRW-FLOCK은 80.7/79.9였지만
-        // 테스트 캐시 가격 패턴에 맞춰 조정. vol 0.2x 차단 fix 검증이 목적)
         invokeTry(market, 100.5, 99.0, 1.5);
 
-        // ★ vol 0.2x여도 매수 진행 → executeBuy 호출 → position save
-        verify(positionRepo, times(1)).save(any(PositionEntity.class));
+        // ★ vol3Ratio < 1.5x → 매수 차단
+        verify(positionRepo, never()).save(any(PositionEntity.class));
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -229,10 +225,10 @@ public class OpeningScannerFixIntegrationTest {
     //  시나리오 6: 정상 happy path — 모든 필터 통과
     // ═══════════════════════════════════════════════════════════
     @Test
-    @DisplayName("시나리오 6: happy path — 양봉 + RSI 50 + EMA20 위 + 돌파 1.5% → 매수")
+    @DisplayName("시나리오 6: happy path — 양봉 + RSI 50 + EMA20 위 + 돌파 1.5% + vol3≥1.5x → 매수")
     public void scenario6_happyPath() throws Exception {
         String market = "KRW-TEST";
-        getOneMinCandleCache().put(market, lowVolPassingCandles());
+        getOneMinCandleCache().put(market, highVolPassingCandles());
 
         invokeTry(market, 100.5, 99.0, 1.5);
 
@@ -268,8 +264,8 @@ public class OpeningScannerFixIntegrationTest {
         assertFalse(breakoutDetector.isAlreadyConfirmed(market),
                 "T1 SKIP 후 release됨");
 
-        // T2: 양봉 캐시로 교체 (가격 더 올라간 시뮬레이션)
-        getOneMinCandleCache().put(market, lowVolPassingCandles());
+        // T2: 양봉 + 높은 볼륨 캐시로 교체 (가격 더 올라간 시뮬레이션)
+        getOneMinCandleCache().put(market, highVolPassingCandles());
         // 다시 confirmed 추가 (실제 환경에서 BreakoutDetector가 새 시그널 생성한 것 시뮬레이션)
         confirmedMarkets.add(market);
 
@@ -297,7 +293,35 @@ public class OpeningScannerFixIntegrationTest {
         return (ConcurrentHashMap<String, List<UpbitCandle>>) f.get(scanner);
     }
 
-    /** 양봉 + vol 0.2x + RSI ~50 + EMA20 ~99.5 — vol 필터 제거 후 통과해야 함 */
+    /** 양봉 + vol 2.0x (3분봉 평균) + RSI ~50 + EMA20 ~99.5 — 모든 필터 통과 */
+    private List<UpbitCandle> highVolPassingCandles() {
+        List<UpbitCandle> candles = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            UpbitCandle c = new UpbitCandle();
+            c.market = "KRW-TEST";
+            c.candle_date_time_utc = String.format("2026-04-09T%02d:%02d:00", i / 60, i % 60);
+            double base = 99.0 + (i % 4 == 0 ? 0.3 : (i % 4 == 1 ? -0.2 : (i % 4 == 2 ? 0.2 : -0.3)));
+            c.opening_price = base;
+            c.trade_price = base + (i % 2 == 0 ? 0.1 : -0.1);
+            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.1;
+            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.1;
+            c.candle_acc_trade_volume = 1000;
+            candles.add(c);
+        }
+        // 마지막 3분봉: vol 2000 (2.0x → vol3Ratio = 2.0 ≥ 1.5 통과)
+        for (int i = 57; i < 60; i++) {
+            candles.get(i).candle_acc_trade_volume = 2000;
+        }
+        // 마지막 1분봉: 양봉 (close > open)
+        UpbitCandle last = candles.get(59);
+        last.opening_price = 99.0;
+        last.trade_price = 100.0;
+        last.high_price = 100.5;
+        last.low_price = 98.9;
+        return candles;
+    }
+
+    /** 양봉 + vol 0.2x + RSI ~50 + EMA20 ~99.5 — vol3Ratio 차단 테스트용 */
     private List<UpbitCandle> lowVolPassingCandles() {
         List<UpbitCandle> candles = new ArrayList<>();
         for (int i = 0; i < 60; i++) {

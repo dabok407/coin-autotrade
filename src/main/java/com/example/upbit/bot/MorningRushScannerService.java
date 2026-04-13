@@ -94,7 +94,7 @@ public class MorningRushScannerService {
     // WebSocket real-time prices
     private final ConcurrentHashMap<String, Double> latestPrices = new ConcurrentHashMap<String, Double>();
     // 실시간 TP/SL 체크용 캐시 (mainLoop에서 업데이트, WebSocket 스레드에서 읽기)
-    // positionCache value: [avgPrice, qty, openedAtEpochMs, _, _]
+    // positionCache value: [avgPrice, qty, openedAtEpochMs, peakPrice, troughPrice]
     private final ConcurrentHashMap<String, double[]> positionCache = new ConcurrentHashMap<String, double[]>();
     // SL 종합안 캐시 (DB 설정값, mainLoop에서 갱신)
     private volatile long cachedGracePeriodMs = 60_000L;       // 매수 후 그레이스 (DB grace_period_sec)
@@ -374,7 +374,24 @@ public class MorningRushScannerService {
             }
         }
 
-        boolean entrySignal = gapCondition || surgeCondition;
+        // 진입 신호: gap OR surge, BUT surge 단독이면 최소 gap 1.5% 필수 (2026-04-13)
+        // FF 사고(-4.12%): surge만으로 진입, gap 1.19% → 모멘텀 부족 → 손절
+        boolean entrySignal;
+        if (gapCondition) {
+            entrySignal = true;  // gap 2.6%+ 단독 OK
+        } else if (surgeCondition) {
+            // surge 단독: rangeHigh 대비 최소 1.5% 갭도 있어야 함
+            double surgeGapPct = (price - rangeHigh) / rangeHigh * 100.0;
+            if (surgeGapPct >= 1.5) {
+                entrySignal = true;
+            } else {
+                entrySignal = false;
+                log.debug("[MorningRush] SURGE but gap too small: {} gap=+{}% < 1.5%",
+                        code, String.format(Locale.ROOT, "%.2f", surgeGapPct));
+            }
+        } else {
+            entrySignal = false;
+        }
         if (!entrySignal) {
             if (confirmCounts.containsKey(code)) confirmCounts.put(code, 0);
             return;
@@ -404,7 +421,8 @@ public class MorningRushScannerService {
         confirmCounts.remove(code);
         // 중복 진입 방지용 placeholder (실제 매수는 실패해도 OK)
         // 매수 성공 시 920행에서 정확한 데이터로 갱신됨
-        positionCache.put(code, new double[]{price, 0, System.currentTimeMillis(), price, 0});
+        // [avgPrice, qty, openedAtMs, peakPrice, troughPrice]
+        positionCache.put(code, new double[]{price, 0, System.currentTimeMillis(), price, price});
 
         final String fCode = code;
         final double fPrice = price;
@@ -503,6 +521,14 @@ public class MorningRushScannerService {
             peakPrice = price;
         }
 
+        // trough(최저가) 업데이트 (항상 — 분석용)
+        // pos[4]: troughPrice (초기값 = avgPrice)
+        double troughPrice = pos.length >= 5 && pos[4] > 0 ? pos[4] : avgPrice;
+        if (price < troughPrice) {
+            pos[4] = price;
+            troughPrice = price;
+        }
+
         double pnlPct = (price - avgPrice) / avgPrice * 100.0;
         long elapsedMs = System.currentTimeMillis() - openedAtMs;
 
@@ -524,10 +550,11 @@ public class MorningRushScannerService {
         if (trailActivated && pnlPct > 0) {
             double dropFromPeakPct = (peakPrice - price) / peakPrice * 100.0;
             if (dropFromPeakPct >= TP_TRAIL_FROM_PEAK_PCT) {
+                double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                 sellType = "TP_TRAIL";
                 reason = String.format(Locale.ROOT,
-                        "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=+%.2f%% (realtime)",
-                        avgPrice, peakPrice, price, dropFromPeakPct, pnlPct);
+                        "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                        avgPrice, peakPrice, price, dropFromPeakPct, pnlPct, troughPrice, troughPnl);
             }
             // trail 활성화 중이지만 아직 drop 미달 → 계속 peak 추적, SL은 아래에서 체크
         }
@@ -542,18 +569,20 @@ public class MorningRushScannerService {
             } else if (elapsedMs < cachedWidePeriodMs) {
                 // 그레이스 후 ~ wide_period: SL_WIDE (흔들기 보호)
                 if (pnlPct <= -cachedWideSlPct) {
+                    double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SL";
                     reason = String.format(Locale.ROOT,
-                            "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
-                            pnlPct, cachedWideSlPct, price, avgPrice);
+                            "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            pnlPct, cachedWideSlPct, price, avgPrice, troughPrice, troughPnl);
                 }
             } else {
                 // wide_period 이후: SL_TIGHT
                 if (pnlPct <= -cachedSlPct) {
+                    double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SL";
                     reason = String.format(Locale.ROOT,
-                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f (realtime)",
-                            pnlPct, cachedSlPct, price, avgPrice);
+                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            pnlPct, cachedSlPct, price, avgPrice, troughPrice, troughPnl);
                 }
             }
         }
@@ -621,8 +650,9 @@ public class MorningRushScannerService {
                             ? pe.getOpenedAt().toEpochMilli()
                             : System.currentTimeMillis();
                     double avg = pe.getAvgPrice().doubleValue();
+                    // [avgPrice, qty, openedAtMs, peakPrice, troughPrice]
                     positionCache.put(pe.getMarket(),
-                            new double[]{avg, pe.getQty().doubleValue(), openedAtMs, avg, 0});
+                            new double[]{avg, pe.getQty().doubleValue(), openedAtMs, avg, avg});
                 }
             }
         } catch (Exception e) {
@@ -991,8 +1021,22 @@ public class MorningRushScannerService {
                 }
             }
 
-            // Hybrid: either gap OR surge triggers entry
-            boolean entrySignal = gapCondition || surgeCondition;
+            // 진입 신호: gap OR surge, BUT surge 단독이면 최소 gap 1.5% 필수 (2026-04-13)
+            boolean entrySignal;
+            if (gapCondition) {
+                entrySignal = true;
+            } else if (surgeCondition) {
+                double surgeGapPct = (price - rangeHigh) / rangeHigh * 100.0;
+                if (surgeGapPct >= 1.5) {
+                    entrySignal = true;
+                } else {
+                    entrySignal = false;
+                    log.debug("[MorningRush] SURGE but gap too small: {} gap=+{}% < 1.5%",
+                            market, String.format(Locale.ROOT, "%.2f", surgeGapPct));
+                }
+            } else {
+                entrySignal = false;
+            }
 
             if (entrySignal) {
                 Integer count = confirmCounts.get(market);
@@ -1039,9 +1083,9 @@ public class MorningRushScannerService {
                         executeBuy(market, price, reason, cfg, orderKrw, isLive);
                         hourlyThrottle.recordBuy(market);
                         rushPosCount++;
-                        // 실시간 TP/SL 캐시에 추가 (SL 종합안: openedAt + peak)
+                        // 실시간 TP/SL 캐시에 추가 [avgPrice, qty, openedAtMs, peakPrice, troughPrice]
                         long openedAtMs = System.currentTimeMillis();
-                        positionCache.put(market, new double[]{price, 0, openedAtMs, price, 0});
+                        positionCache.put(market, new double[]{price, 0, openedAtMs, price, price});
                         cachedTpPct = cfg.getTpPct().doubleValue();
                         cachedSlPct = cfg.getSlPct().doubleValue();
                         addDecision(market, "BUY", "EXECUTED", reason);

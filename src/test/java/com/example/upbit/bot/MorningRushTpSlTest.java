@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * MorningRush SL 종합안 (1분 그레이스 + 5분 타이트닝 + 트레일링) 검증.
  *
- * positionCache 포맷: [avgPrice, qty, openedAtEpochMs, peakPrice, entryVolume]
+ * positionCache 포맷: [avgPrice, qty, openedAtEpochMs, peakPrice, troughPrice]
  *
  * 동작 시나리오:
  *  - 0~60초:  1분 그레이스 — SL 무시 (TP만 작동)
@@ -61,9 +61,9 @@ public class MorningRushTpSlTest {
         setField("running", new AtomicBoolean(true));
     }
 
-    /** position cache 등록 헬퍼 (SL 종합안 5필드 포맷). */
+    /** position cache 등록 헬퍼 (SL 종합안 5필드 포맷: avgPrice, qty, openedAtMs, peakPrice, troughPrice). */
     private void putPosition(String market, double avgPrice, long openedAtMs) throws Exception {
-        getPositionCache().put(market, new double[]{avgPrice, 1000.0, openedAtMs, avgPrice, 0});
+        getPositionCache().put(market, new double[]{avgPrice, 1000.0, openedAtMs, avgPrice, avgPrice});
     }
 
     // ===== Test 1: TP 트레일링 — peak 추적 후 drop 시 매도 (그레이스 무관) =====
