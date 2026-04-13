@@ -94,7 +94,7 @@ public class AllDayScenarioIntegrationTest {
     public void scenario1_wsQuickTpCycle() throws Exception {
         // 포지션 생성 [avgPrice=1000, peakPrice=1000, activated=0]
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{1000.0, 1000.0, 0});
+        cache.put("KRW-TEST", new double[]{1000.0, 1000.0, 0, 1000.0, System.currentTimeMillis()});
 
         // PAPER 모드 설정
         AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
@@ -206,7 +206,7 @@ public class AllDayScenarioIntegrationTest {
 
     private void invokeCheckRealtimeTp(String market, double price) throws Exception {
         Method m = AllDayScannerService.class.getDeclaredMethod(
-                "checkRealtimeTp", String.class, double.class);
+                "checkRealtimeTpSl", String.class, double.class);
         m.setAccessible(true);
         m.invoke(scanner, market, price);
     }

@@ -108,10 +108,34 @@ public class AllDayScannerConfigEntity {
     private int gracePeriodCandles = 0;
 
     @Column(name = "ema_exit_enabled", nullable = false)
-    private boolean emaExitEnabled = true;
+    private boolean emaExitEnabled = false;  // V109: 실시간 티어드 SL로 대체
 
     @Column(name = "macd_exit_enabled", nullable = false)
-    private boolean macdExitEnabled = true;
+    private boolean macdExitEnabled = false;  // V109: 실시간 티어드 SL로 대체
+
+    // ── 실시간 티어드 SL (V109, 모닝러쉬 패턴) ──
+    @Column(name = "grace_period_sec", nullable = false)
+    private int gracePeriodSec = 30;  // Grace: SL 무시 구간 (초)
+
+    @Column(name = "wide_period_min", nullable = false)
+    private int widePeriodMin = 15;  // Wide SL 적용 구간 (분)
+
+    @Column(name = "wide_sl_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal wideSlPct = BigDecimal.valueOf(3.0);  // Wide SL %
+
+    // ── TP_TRAIL DB화 (V109, 하드코딩 제거) ──
+    @Column(name = "tp_trail_activate_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal tpTrailActivatePct = BigDecimal.valueOf(2.0);  // 트레일 활성화 %
+
+    @Column(name = "tp_trail_drop_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal tpTrailDropPct = BigDecimal.valueOf(1.0);  // 피크 대비 하락 %
+
+    // ── 진입 필터 강화 (V109) ──
+    @Column(name = "max_entry_rsi", nullable = false)
+    private int maxEntryRsi = 80;  // RSI 과매수 차단
+
+    @Column(name = "min_volume_mult", nullable = false, precision = 5, scale = 2)
+    private BigDecimal minVolumeMult = BigDecimal.valueOf(5.0);  // 최소 거래량 배수
 
     // ========== Getters & Setters ==========
 
@@ -210,6 +234,28 @@ public class AllDayScannerConfigEntity {
 
     public boolean isMacdExitEnabled() { return macdExitEnabled; }
     public void setMacdExitEnabled(boolean v) { this.macdExitEnabled = v; }
+
+    // ── 실시간 티어드 SL (V109) ──
+    public int getGracePeriodSec() { return gracePeriodSec; }
+    public void setGracePeriodSec(int v) { this.gracePeriodSec = Math.max(0, v); }
+
+    public int getWidePeriodMin() { return widePeriodMin; }
+    public void setWidePeriodMin(int v) { this.widePeriodMin = Math.max(1, v); }
+
+    public BigDecimal getWideSlPct() { return wideSlPct; }
+    public void setWideSlPct(BigDecimal v) { this.wideSlPct = v != null ? v : BigDecimal.valueOf(3.0); }
+
+    public BigDecimal getTpTrailActivatePct() { return tpTrailActivatePct; }
+    public void setTpTrailActivatePct(BigDecimal v) { this.tpTrailActivatePct = v != null ? v : BigDecimal.valueOf(2.0); }
+
+    public BigDecimal getTpTrailDropPct() { return tpTrailDropPct; }
+    public void setTpTrailDropPct(BigDecimal v) { this.tpTrailDropPct = v != null ? v : BigDecimal.valueOf(1.0); }
+
+    public int getMaxEntryRsi() { return maxEntryRsi; }
+    public void setMaxEntryRsi(int v) { this.maxEntryRsi = Math.max(50, Math.min(100, v)); }
+
+    public BigDecimal getMinVolumeMult() { return minVolumeMult; }
+    public void setMinVolumeMult(BigDecimal v) { this.minVolumeMult = v != null ? v : BigDecimal.valueOf(5.0); }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public java.util.Set<String> getExcludeMarketsSet() {
