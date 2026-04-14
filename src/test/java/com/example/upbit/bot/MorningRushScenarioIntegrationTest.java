@@ -74,6 +74,7 @@ public class MorningRushScenarioIntegrationTest {
         // 90일 백테스트 검증값: grace 60s, wide 30분, wide_sl 6%, tight_sl 3%, tp 2.3%
         setField("cachedTpPct", 2.3);
         setField("cachedSlPct", 3.0);
+        setField("cachedTpTrailDropPct", 1.0);  // V110: 기존 테스트 기준값
         setField("cachedGracePeriodMs", 60_000L);
         setField("cachedWidePeriodMs", 30 * 60_000L);
         setField("cachedWideSlPct", 6.0);

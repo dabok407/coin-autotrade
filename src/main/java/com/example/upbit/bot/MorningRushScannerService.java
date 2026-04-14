@@ -112,14 +112,15 @@ public class MorningRushScannerService {
     // 동작:
     //   1. 가격이 한 번이라도 +cachedTpPct(2.3%) 도달 → trail 활성화
     //   2. peak 계속 추적 (더 오르면 peak 갱신)
-    //   3. peak에서 -TP_TRAIL_FROM_PEAK_PCT(1.0%) 떨어지면 매도
+    //   3. peak에서 -cachedTpTrailDropPct(1.0%) 떨어지면 매도
     //   4. 단 pnl > 0 인 경우에만 trail 매도 (마이너스면 SL에 위임)
     //
     // 안전장치: SL (Grace/Wide/Tight)는 trail 미발동 시 그대로 동작
     //
     // 백테스트 결과에 따라 값 조정 예정. 현재 1.0% 기본값.
     // ════════════════════════════════════════════════════════════════
-    private static final double TP_TRAIL_FROM_PEAK_PCT = 1.0;
+    // V110: 하드코딩 제거 → DB cached 변수 (tp_trail_drop_pct)
+    private volatile double cachedTpTrailDropPct = 1.5;
     private volatile String cachedMode = "PAPER";
     private volatile double cachedGapPct = 2.0;
     private volatile double cachedSurgePct = 3.0;
@@ -539,7 +540,7 @@ public class MorningRushScannerService {
         // 1. TP TRAIL 체크 (2026-04-09 변경: 즉시 매도 → 트레일링)
         // ════════════════════════════════════════
         // peak이 한 번이라도 +cachedTpPct(2.3%) 도달했으면 trail 활성화.
-        // peak에서 -TP_TRAIL_FROM_PEAK_PCT(1.0%) 떨어지면 매도.
+        // peak에서 -cachedTpTrailDropPct(1.0%) 떨어지면 매도.
         // 단 pnl > 0 인 경우에만 (마이너스면 SL에 위임).
         //
         // 기존: pnlPct >= cachedTpPct → 즉시 매도 (큰 추세 못 먹음)
@@ -549,7 +550,7 @@ public class MorningRushScannerService {
 
         if (trailActivated && pnlPct > 0) {
             double dropFromPeakPct = (peakPrice - price) / peakPrice * 100.0;
-            if (dropFromPeakPct >= TP_TRAIL_FROM_PEAK_PCT) {
+            if (dropFromPeakPct >= cachedTpTrailDropPct) {
                 double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                 sellType = "TP_TRAIL";
                 reason = String.format(Locale.ROOT,
@@ -636,6 +637,7 @@ public class MorningRushScannerService {
         cachedGracePeriodMs = cfg.getGracePeriodSec() * 1000L;
         cachedWidePeriodMs = cfg.getWidePeriodMin() * 60_000L;
         cachedWideSlPct = cfg.getWideSlPct().doubleValue();
+        cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
         cachedMode = cfg.getMode();
 
         positionCache.clear();
@@ -703,6 +705,7 @@ public class MorningRushScannerService {
         cachedGracePeriodMs = cfg.getGracePeriodSec() * 1000L;
         cachedWidePeriodMs = cfg.getWidePeriodMin() * 60_000L;
         cachedWideSlPct = cfg.getWideSlPct().doubleValue();
+        cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
         cachedGapPct = cfg.getGapThresholdPct().doubleValue();
         cachedSurgePct = cfg.getSurgeThresholdPct().doubleValue();
         cachedSurgeWindowSec = cfg.getSurgeWindowSec();
@@ -1088,6 +1091,7 @@ public class MorningRushScannerService {
                         positionCache.put(market, new double[]{price, 0, openedAtMs, price, price});
                         cachedTpPct = cfg.getTpPct().doubleValue();
                         cachedSlPct = cfg.getSlPct().doubleValue();
+                        cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
                         addDecision(market, "BUY", "EXECUTED", reason);
                     } catch (Exception e) {
                         log.error("[MorningRush] buy execution failed for {}", market, e);

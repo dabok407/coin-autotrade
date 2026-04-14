@@ -270,8 +270,12 @@ public class OpeningScannerService {
         // 변경 후: activate=1.5%, trail=0.5% → 총PnL +190% (1위, 14일 109건 시뮬레이션)
         // 이유: activate 2.3%가 너무 높아 24건 SL → 1.5%로 낮추면 15건으로 감소
         //       trail 0.5%로 peak 근처 매도 → 오프닝 돌파의 짧은 peak 패턴에 적합
-        breakoutDetector.setTpActivatePct(1.5);      // +1.5% 도달 시 트레일링 활성화
-        breakoutDetector.setTrailFromPeakPct(0.5);   // 피크에서 -0.5% 떨어지면 매도
+        // V110: 하드코딩 제거 → DB값 사용 (tp_trail_activate_pct, tp_trail_drop_pct)
+        OpeningScannerConfigEntity tpCfg = configRepo.findById(1).orElse(null);
+        double tpActivate = tpCfg != null ? tpCfg.getTpTrailActivatePct().doubleValue() : 1.5;
+        double tpDrop = tpCfg != null ? tpCfg.getTpTrailDropPct().doubleValue() : 1.0;
+        breakoutDetector.setTpActivatePct(tpActivate);
+        breakoutDetector.setTrailFromPeakPct(tpDrop);
         breakoutDetector.setListener(new OpeningBreakoutDetector.BreakoutListener() {
             @Override
             public void onBreakoutConfirmed(String market, double price, double rangeHigh, double breakoutPctActual) {
@@ -460,6 +464,9 @@ public class OpeningScannerService {
                 cfg.getWideSlOtherPct().doubleValue(),
                 cfg.getTightSlPct().doubleValue()
         );
+        // V110: TP_TRAIL DB값 갱신
+        breakoutDetector.setTpActivatePct(cfg.getTpTrailActivatePct().doubleValue());
+        breakoutDetector.setTrailFromPeakPct(cfg.getTpTrailDropPct().doubleValue());
 
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);

@@ -131,6 +131,14 @@ public class OpeningScannerConfigEntity {
     @Column(name = "tight_sl_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal tightSlPct = BigDecimal.valueOf(3.0);
 
+    /** V110: TP_TRAIL 활성화 기준 (%). 하드코딩 제거. */
+    @Column(name = "tp_trail_activate_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal tpTrailActivatePct = BigDecimal.valueOf(1.5);
+
+    /** V110: TP_TRAIL 피크 대비 하락 매도 기준 (%). 하드코딩 제거. */
+    @Column(name = "tp_trail_drop_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal tpTrailDropPct = BigDecimal.valueOf(1.0);
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -244,6 +252,12 @@ public class OpeningScannerConfigEntity {
 
     public BigDecimal getTightSlPct() { return tightSlPct; }
     public void setTightSlPct(BigDecimal v) { this.tightSlPct = v != null ? v : BigDecimal.valueOf(3.0); }
+
+    public BigDecimal getTpTrailActivatePct() { return tpTrailActivatePct; }
+    public void setTpTrailActivatePct(BigDecimal v) { this.tpTrailActivatePct = v != null ? v : BigDecimal.valueOf(1.5); }
+
+    public BigDecimal getTpTrailDropPct() { return tpTrailDropPct; }
+    public void setTpTrailDropPct(BigDecimal v) { this.tpTrailDropPct = v != null ? v : BigDecimal.valueOf(1.0); }
 
     /**
      * 거래대금 순위에 따라 SL_WIDE 값 반환.

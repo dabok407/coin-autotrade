@@ -107,6 +107,10 @@ public class MorningRushConfigEntity {
     @Column(name = "wide_sl_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal wideSlPct = BigDecimal.valueOf(6.0);
 
+    /** V110: TP_TRAIL 피크 대비 하락 매도 기준 (%). 하드코딩 제거. */
+    @Column(name = "tp_trail_drop_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal tpTrailDropPct = BigDecimal.valueOf(1.5);
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -191,6 +195,9 @@ public class MorningRushConfigEntity {
 
     public BigDecimal getWideSlPct() { return wideSlPct; }
     public void setWideSlPct(BigDecimal v) { this.wideSlPct = v != null ? v : BigDecimal.valueOf(6.0); }
+
+    public BigDecimal getTpTrailDropPct() { return tpTrailDropPct; }
+    public void setTpTrailDropPct(BigDecimal v) { this.tpTrailDropPct = v != null ? v : BigDecimal.valueOf(1.5); }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public Set<String> getExcludeMarketsSet() {

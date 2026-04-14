@@ -59,6 +59,8 @@ public class MorningRushTpSlTest {
                 sharedPriceService, new SharedTradeThrottle()
         );
         setField("running", new AtomicBoolean(true));
+        // V110: 기존 테스트는 drop 1.0% 기준으로 작성됨
+        setField("cachedTpTrailDropPct", 1.0);
     }
 
     /** position cache 등록 헬퍼 (SL 종합안 5필드 포맷: avgPrice, qty, openedAtMs, peakPrice, troughPrice). */
