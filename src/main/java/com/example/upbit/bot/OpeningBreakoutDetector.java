@@ -87,6 +87,13 @@ public class OpeningBreakoutDetector {
     private volatile double tpActivatePct = 2.0;
     private volatile double trailFromPeakPct = 1.0;
 
+    // V111: Split-Exit 분할 익절
+    private final ConcurrentHashMap<String, Integer> splitPhaseMap = new ConcurrentHashMap<String, Integer>();
+    private volatile boolean splitExitEnabled = false;
+    private volatile double splitTpPct = 1.5;
+    private volatile double splitRatio = 0.60;
+    private volatile double trailDropAfterSplit = 1.0;
+
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
     }
@@ -106,6 +113,17 @@ public class OpeningBreakoutDetector {
     /** Test-only: override confirm interval (default 500ms) */
     void setConfirmMinIntervalMs(long ms) { this.confirmMinIntervalMs = ms; }
     public void setTrailFromPeakPct(double pct) { this.trailFromPeakPct = pct; }
+
+    // V111: Split-Exit 설정
+    public void setSplitExitEnabled(boolean enabled) { this.splitExitEnabled = enabled; }
+    public void setSplitTpPct(double pct) { this.splitTpPct = pct; }
+    public void setSplitRatio(double ratio) { this.splitRatio = ratio; }
+    public void setTrailDropAfterSplit(double pct) { this.trailDropAfterSplit = pct; }
+    public int getSplitPhase(String market) {
+        Integer phase = splitPhaseMap.get(market);
+        return phase != null ? phase : 0;
+    }
+    public void setSplitPhase(String market, int phase) { splitPhaseMap.put(market, phase); }
 
     /**
      * Entry window 시각 설정 (KST 기준 분 단위, hour*60+min).
@@ -170,6 +188,7 @@ public class OpeningBreakoutDetector {
         peakPrices.put(market, avgPrice);
         troughPrices.put(market, avgPrice);
         tpActivated.put(market, false);
+        splitPhaseMap.put(market, 0);
     }
 
     /**
@@ -200,6 +219,7 @@ public class OpeningBreakoutDetector {
         peakPrices.remove(market);
         troughPrices.remove(market);
         tpActivated.remove(market);
+        splitPhaseMap.remove(market);
     }
 
     public void updatePositionCache(Map<String, Double> positions) {
@@ -208,6 +228,12 @@ public class OpeningBreakoutDetector {
 
     /** openedAt 맵 포함 — 복구 시 정확한 그레이스 적용 */
     public void updatePositionCache(Map<String, Double> positions, Map<String, Long> openedAtMap) {
+        updatePositionCache(positions, openedAtMap, null);
+    }
+
+    /** V111: splitPhaseMap 포함 — 재시작 복구 시 splitPhase 복원 */
+    public void updatePositionCache(Map<String, Double> positions, Map<String, Long> openedAtMap,
+                                     Map<String, Integer> splitPhases) {
         for (Map.Entry<String, Double> e : positions.entrySet()) {
             if (!positionCache.containsKey(e.getKey())) {
                 long openedAt = (openedAtMap != null && openedAtMap.get(e.getKey()) != null)
@@ -217,6 +243,12 @@ public class OpeningBreakoutDetector {
                 peakPrices.put(e.getKey(), e.getValue());
                 troughPrices.put(e.getKey(), e.getValue());
                 tpActivated.put(e.getKey(), false);
+            }
+            // V111: splitPhase 복원 (DB 기준)
+            if (splitPhases != null && splitPhases.containsKey(e.getKey())) {
+                splitPhaseMap.put(e.getKey(), splitPhases.get(e.getKey()));
+            } else if (!splitPhaseMap.containsKey(e.getKey())) {
+                splitPhaseMap.put(e.getKey(), 0);
             }
         }
         for (String market : new ArrayList<String>(positionCache.keySet())) {
@@ -435,8 +467,41 @@ public class OpeningBreakoutDetector {
             }
         }
 
-        // 2. TP 트레일링 체크 (SL 미발동 시)
-        if (sellType == null) {
+        // 2. V111: Split-Exit 체크 (SL 미발동 시)
+        int splitPhase = splitPhaseMap.containsKey(market) ? splitPhaseMap.get(market) : 0;
+
+        if (sellType == null && splitExitEnabled && splitPhase == 0 && pnlPct >= splitTpPct) {
+            // ★ Split 1차 매도: +splitTpPct 도달
+            double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+            sellType = "SPLIT_1ST";
+            reason = String.format(java.util.Locale.ROOT,
+                    "SPLIT_1ST pnl=+%.2f%% >= %.2f%% avg=%.2f now=%.2f ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                    pnlPct, splitTpPct, avgPrice, price, splitRatio * 100, trough, troughPnl);
+        }
+        // V111: Split 2차 관리 (splitPhase=1)
+        else if (sellType == null && splitExitEnabled && splitPhase == 1) {
+            // Breakeven SL
+            if (pnlPct <= 0) {
+                double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                sellType = "SPLIT_2ND_BEV";
+                reason = String.format(java.util.Locale.ROOT,
+                        "SPLIT_2ND_BEV pnl=%.2f%% <= 0%% (breakeven) avg=%.2f now=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                        pnlPct, avgPrice, price, trough, troughPnl);
+            }
+            // TP_TRAIL drop (trailDropAfterSplit)
+            else if (peak > avgPrice) {
+                double dropFromPeak = (peak - price) / peak * 100.0;
+                if (dropFromPeak >= trailDropAfterSplit) {
+                    double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                    sellType = "SPLIT_2ND_TRAIL";
+                    reason = String.format(java.util.Locale.ROOT,
+                            "SPLIT_2ND_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                            avgPrice, peak, price, dropFromPeak, trailDropAfterSplit, pnlPct, trough, troughPnl);
+                }
+            }
+        }
+        // 3. 기존 TP 트레일링 체크 (SL/Split 미발동 시)
+        else if (sellType == null) {
             Boolean activated = tpActivated.get(market);
             if (activated == null) activated = false;
 
@@ -463,7 +528,16 @@ public class OpeningBreakoutDetector {
         if (sellType == null) return;
 
         log.info("[BreakoutDetector] {} triggered: {} | {}", sellType, market, reason);
-        removePosition(market);
+
+        // V111: 1차 매도는 position 유지 (캐시 제거 안 함), 2차/기타는 제거
+        if ("SPLIT_1ST".equals(sellType)) {
+            // 1차 매도 후: splitPhase=1, peak 리셋, trail 재초기화
+            splitPhaseMap.put(market, 1);
+            peakPrices.put(market, price);
+            tpActivated.put(market, false);
+        } else {
+            removePosition(market);
+        }
 
         if (listener != null) {
             try {
@@ -486,5 +560,6 @@ public class OpeningBreakoutDetector {
         tpActivated.clear();
         confirmFirstPrice.clear();
         confirmLastTime.clear();
+        splitPhaseMap.clear();
     }
 }

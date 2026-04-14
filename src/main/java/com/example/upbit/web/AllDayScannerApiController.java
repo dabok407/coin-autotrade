@@ -101,6 +101,12 @@ public class AllDayScannerApiController {
         if (body.containsKey("quickTpPct")) cfg.setQuickTpPct(toBD(body.get("quickTpPct")));
         if (body.containsKey("quickTpIntervalSec")) cfg.setQuickTpIntervalSec(toInt(body.get("quickTpIntervalSec"), 5));
 
+        // Split-Exit
+        if (body.containsKey("splitExitEnabled")) cfg.setSplitExitEnabled(Boolean.TRUE.equals(body.get("splitExitEnabled")));
+        if (body.containsKey("splitTpPct")) cfg.setSplitTpPct(toBD(body.get("splitTpPct")));
+        if (body.containsKey("splitRatio")) cfg.setSplitRatio(toBD(body.get("splitRatio")));
+        if (body.containsKey("trailDropAfterSplit")) cfg.setTrailDropAfterSplit(toBD(body.get("trailDropAfterSplit")));
+
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
     }
@@ -164,6 +170,11 @@ public class AllDayScannerApiController {
         m.put("quickTpEnabled", cfg.isQuickTpEnabled());
         m.put("quickTpPct", cfg.getQuickTpPctBD());
         m.put("quickTpIntervalSec", cfg.getQuickTpIntervalSec());
+        // Split-Exit
+        m.put("splitExitEnabled", cfg.isSplitExitEnabled());
+        m.put("splitTpPct", cfg.getSplitTpPct());
+        m.put("splitRatio", cfg.getSplitRatio());
+        m.put("trailDropAfterSplit", cfg.getTrailDropAfterSplit());
         return m;
     }
 

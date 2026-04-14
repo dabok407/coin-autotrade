@@ -262,8 +262,7 @@ public class OpeningScannerService {
         });
 
         // WebSocket 돌파 감지기 + 실시간 TP 트레일링 콜백 설정
-        breakoutDetector.setBreakoutPct(1.5);  // 2026-04-13: 1.0→1.5% (약한 돌파 필터링)
-        // 2026-04-11: 3→4회 + 500ms 간격 + 방향 확인 (고점 매수 방지)
+        breakoutDetector.setBreakoutPct(1.5);  // 2026-04-13: 1.0→1.5%
         breakoutDetector.setRequiredConfirm(4);
         // TP_TRAIL 설정 (2026-04-10 백테스트 최적화: A9→A1)
         // 변경 전: activate=2.3%, trail=1.0% → 총PnL +144% (12위)
@@ -312,6 +311,7 @@ public class OpeningScannerService {
                     final String fMarket = market;
                     final double fPrice = price;
                     final String fReason = reason;
+                    final String fSellType = sellType;
                     scheduler.schedule(new Runnable() {
                         @Override
                         public void run() {
@@ -319,7 +319,13 @@ public class OpeningScannerService {
                                 PositionEntity pe = positionRepo.findById(fMarket).orElse(null);
                                 if (pe == null || pe.getQty() == null
                                         || pe.getQty().compareTo(java.math.BigDecimal.ZERO) <= 0) return;
-                                executeSellForTp(pe, fPrice, fReason);
+                                // V111: Split-Exit 분기
+                                if ("SPLIT_1ST".equals(fSellType)) {
+                                    executeSplitFirstSellForTp(pe, fPrice, fReason);
+                                } else {
+                                    String note = fSellType.startsWith("SPLIT_2ND") ? "SPLIT_2ND" : null;
+                                    executeSellForTp(pe, fPrice, fReason, note);
+                                }
                             } catch (Exception e) {
                                 log.error("[OpeningScanner] realtime TP sell failed for {}", fMarket, e);
                             }
@@ -467,6 +473,11 @@ public class OpeningScannerService {
         // V110: TP_TRAIL DB값 갱신
         breakoutDetector.setTpActivatePct(cfg.getTpTrailActivatePct().doubleValue());
         breakoutDetector.setTrailFromPeakPct(cfg.getTpTrailDropPct().doubleValue());
+        // V111: Split-Exit DB값 갱신
+        breakoutDetector.setSplitExitEnabled(cfg.isSplitExitEnabled());
+        breakoutDetector.setSplitTpPct(cfg.getSplitTpPct().doubleValue());
+        breakoutDetector.setSplitRatio(cfg.getSplitRatio().doubleValue());
+        breakoutDetector.setTrailDropAfterSplit(cfg.getTrailDropAfterSplit().doubleValue());
 
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
@@ -645,15 +656,17 @@ public class OpeningScannerService {
         if (!scannerPositions.isEmpty() && breakoutDetectorConnected) {
             Map<String, Double> posMap = new LinkedHashMap<String, Double>();
             Map<String, Long> openedAtMap = new LinkedHashMap<String, Long>();
+            Map<String, Integer> splitPhaseMap = new LinkedHashMap<String, Integer>();
             for (PositionEntity pe : scannerPositions) {
                 if (pe.getAvgPrice() != null) {
                     posMap.put(pe.getMarket(), pe.getAvgPrice().doubleValue());
                     if (pe.getOpenedAt() != null) {
                         openedAtMap.put(pe.getMarket(), pe.getOpenedAt().toEpochMilli());
                     }
+                    splitPhaseMap.put(pe.getMarket(), pe.getSplitPhase());
                 }
             }
-            breakoutDetector.updatePositionCache(posMap, openedAtMap);
+            breakoutDetector.updatePositionCache(posMap, openedAtMap, splitPhaseMap);
         }
 
         if (!scannerPositions.isEmpty()) {
@@ -1190,7 +1203,11 @@ public class OpeningScannerService {
         for (PositionEntity pe : all) {
             if (pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0
                     && pe.getAvgPrice() != null) {
-                sum += pe.getQty().doubleValue() * pe.getAvgPrice().doubleValue();
+                // V111: splitPhase=1이면 splitOriginalQty 기준 (자본 슬롯 유지)
+                double qty = (pe.getSplitPhase() == 1 && pe.getSplitOriginalQty() != null)
+                        ? pe.getSplitOriginalQty().doubleValue()
+                        : pe.getQty().doubleValue();
+                sum += qty * pe.getAvgPrice().doubleValue();
             }
         }
         return sum;
@@ -1357,19 +1374,22 @@ public class OpeningScannerService {
      * WebSocket 콜백에서 scheduler를 통해 호출됨.
      */
     private void executeSellForTp(PositionEntity pe, double price, String reason) {
-        // ★ race 방어: 동시 매도 차단
+        executeSellForTp(pe, price, reason, null);
+    }
+
+    private void executeSellForTp(PositionEntity pe, double price, String reason, String note) {
         if (!sellingMarkets.add(pe.getMarket())) {
             log.debug("[OpeningScanner] TP SELL in progress, skip duplicate: {}", pe.getMarket());
             return;
         }
         try {
-            executeSellForTpInner(pe, price, reason);
+            executeSellForTpInner(pe, price, reason, note);
         } finally {
             sellingMarkets.remove(pe.getMarket());
         }
     }
 
-    private void executeSellForTpInner(PositionEntity pe, double price, String reason) {
+    private void executeSellForTpInner(PositionEntity pe, double price, String reason, final String note) {
         String market = pe.getMarket();
         double qty = pe.getQty().doubleValue();
         double avgPrice = pe.getAvgPrice().doubleValue();
@@ -1425,21 +1445,145 @@ public class OpeningScannerService {
                 tl.setPatternType("SCALP_OPENING_BREAK");
                 tl.setPatternReason(fReason);
                 tl.setAvgBuyPrice(peAvgPrice);
-                tl.setNote("TP_TRAIL_REALTIME");
+                tl.setNote(note != null ? note : "TP_TRAIL_REALTIME");
                 tl.setCandleUnitMin(5);
                 tradeLogRepo.save(tl);
                 positionRepo.deleteById(market);
             }
         });
 
-        // 매도 후 재매수 쿨다운 기록
         sellCooldownMap.put(market, System.currentTimeMillis());
-
-        // BREAKOUT 재감지 허용 (DRIFT 사고 방지) — 즉시 재매수는 sellCooldownMap이 차단
         breakoutDetector.releaseMarket(market);
 
-        log.info("[OpeningScanner] REALTIME TP {} price={} pnl={} roi={}% reason={}",
-                market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct), reason);
+        String logLabel = note != null ? note : "REALTIME TP";
+        log.info("[OpeningScanner] {} {} price={} pnl={} roi={}% reason={}",
+                logLabel, market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct), reason);
+    }
+
+    // ━━━ V111: Split-Exit 1차 분할 매도 ━━━
+
+    private void executeSplitFirstSellForTp(PositionEntity pe, double price, String reason) {
+        if (!sellingMarkets.add(pe.getMarket())) {
+            log.debug("[OpeningScanner] SPLIT_1ST in progress, skip duplicate: {}", pe.getMarket());
+            return;
+        }
+        try {
+            executeSplitFirstSellForTpInner(pe, price, reason);
+        } finally {
+            sellingMarkets.remove(pe.getMarket());
+        }
+    }
+
+    private void executeSplitFirstSellForTpInner(PositionEntity pe, double price, String reason) {
+        String market = pe.getMarket();
+        if (pe.getSplitPhase() != 0) {
+            log.debug("[OpeningScanner] SPLIT_1ST: already split for {} phase={}", market, pe.getSplitPhase());
+            return;
+        }
+
+        OpeningScannerConfigEntity cfg = configRepo.loadOrCreate();
+        double totalQty = pe.getQty().doubleValue();
+        double avgPrice = pe.getAvgPrice().doubleValue();
+        double sellRatio = cfg.getSplitRatio().doubleValue();
+        double sellQty = totalQty * sellRatio;
+        double remainQty = totalQty - sellQty;
+
+        // dust 체크: 잔량 * 현재가 < 5000원이면 전량 매도
+        boolean isDust = remainQty * price < 5000;
+        double actualSellQty = isDust ? totalQty : sellQty;
+
+        boolean isPaper = "PAPER".equalsIgnoreCase(cfg.getMode());
+        double fillPrice;
+
+        if (isPaper) {
+            fillPrice = price * 0.999;
+        } else {
+            if (!liveOrders.isConfigured()) {
+                log.error("[OpeningScanner] SPLIT_1ST: API 키 미설정 market={}", market);
+                return;
+            }
+            try {
+                LiveOrderService.OrderResult r = liveOrders.placeAskMarketOrder(market, actualSellQty);
+                if (!r.isFilled() && r.executedVolume <= 0) {
+                    log.warn("[OpeningScanner] SPLIT_1ST: sell not filled for {}", market);
+                    return;
+                }
+                fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
+                // P3-16: LIVE 부분 체결 시 executedVolume 반영
+                if (r.executedVolume > 0 && r.executedVolume != actualSellQty) {
+                    actualSellQty = r.executedVolume;
+                    remainQty = totalQty - actualSellQty;
+                    isDust = remainQty * fillPrice < 5000;
+                }
+            } catch (Exception e) {
+                log.error("[OpeningScanner] SPLIT_1ST: sell failed for {}", market, e);
+                return;
+            }
+        }
+
+        double pnlKrw = (fillPrice - avgPrice) * actualSellQty;
+        double fee = fillPrice * actualSellQty * 0.0005;
+        pnlKrw -= fee;
+        double roiPct = avgPrice > 0 ? ((fillPrice - avgPrice) / avgPrice) * 100.0 : 0;
+
+        final double fFillPrice = fillPrice;
+        final double fPnlKrw = pnlKrw;
+        final double fRoiPct = roiPct;
+        final String fReason = reason;
+        final String fMode = cfg.getMode();
+        final BigDecimal peAvgPrice = pe.getAvgPrice();
+        final boolean fIsDust = isDust;
+        final double fActualSellQty = actualSellQty;
+        final double fRemainQty = remainQty;
+
+        try {
+            txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
+                @Override
+                protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
+                    TradeEntity tl = new TradeEntity();
+                    tl.setTsEpochMs(System.currentTimeMillis());
+                    tl.setMarket(market);
+                    tl.setAction("SELL");
+                    tl.setPrice(BigDecimal.valueOf(fFillPrice));
+                    tl.setQty(BigDecimal.valueOf(fActualSellQty));
+                    tl.setPnlKrw(BigDecimal.valueOf(fPnlKrw));
+                    tl.setRoiPercent(BigDecimal.valueOf(fRoiPct));
+                    tl.setMode(fMode);
+                    tl.setPatternType("SCALP_OPENING_BREAK");
+                    tl.setPatternReason(fReason);
+                    tl.setAvgBuyPrice(peAvgPrice);
+                    tl.setNote(fIsDust ? "SPLIT_1ST_DUST" : "SPLIT_1ST");
+                    tl.setCandleUnitMin(5);
+                    tradeLogRepo.save(tl);
+
+                    if (fIsDust) {
+                        positionRepo.deleteById(market);
+                    } else {
+                        pe.setQty(BigDecimal.valueOf(fRemainQty));
+                        pe.setSplitPhase(1);
+                        pe.setSplitOriginalQty(BigDecimal.valueOf(totalQty));
+                        positionRepo.save(pe);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            // P1-4: DB 실패 시 detector cache 롤백
+            log.error("[OpeningScanner] SPLIT_1ST DB commit failed for {} — detector rollback", market, e);
+            breakoutDetector.setSplitPhase(market, 0);
+            return;
+        }
+
+        if (isDust) {
+            sellCooldownMap.put(market, System.currentTimeMillis());
+            breakoutDetector.releaseMarket(market);
+            log.info("[OpeningScanner] SPLIT_1ST_DUST {} (전량, 잔량<5000원) price={} pnl={} roi={}%",
+                    market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
+        } else {
+            // 1차 매도: 쿨다운 미등록, detector 유지 (splitPhase는 detector에서 이미 1로 설정됨)
+            log.info("[OpeningScanner] SPLIT_1ST {} qty={}/{} price={} pnl={} roi={}%",
+                    market, String.format("%.8f", actualSellQty), String.format("%.8f", totalQty),
+                    fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
+        }
     }
 
     // ════════════════════════════════════════════════════════════
@@ -1598,7 +1742,7 @@ public class OpeningScannerService {
                 return;
             }
 
-            // 2. RSI 과매수 차단 (RSI 75 이상, 2026-04-13: 83→75 강화)
+            // 2. RSI 과매수 차단
             double rsi = Indicators.rsi(candles, 14);
             if (rsi >= 75) {
                 addDecision(market, "BUY", "SKIPPED", "RSI_OVERBOUGHT",
@@ -1607,7 +1751,7 @@ public class OpeningScannerService {
                 return;
             }
 
-            // 3. EMA20 위 (최근 20개 1분봉 평균 대비 위)
+            // 3. EMA20 위
             double ema20 = Indicators.ema(candles, 20);
             if (!Double.isNaN(ema20) && wsPrice < ema20) {
                 addDecision(market, "BUY", "SKIPPED", "BELOW_EMA20",
@@ -1616,7 +1760,7 @@ public class OpeningScannerService {
                 return;
             }
 
-            // 4. 최소 돌파 강도 (2026-04-13: 1.0→1.5% 강화)
+            // 4. 최소 돌파 강도
             if (breakoutPctActual < 1.5) {
                 addDecision(market, "BUY", "SKIPPED", "BREAKOUT_WEAK",
                         String.format("bo=%.2f%% < 1.5%%", breakoutPctActual));

@@ -249,6 +249,8 @@ public class BotStatus {
         private double lastPrice;
         private double realizedPnlKrw;
         private String entryStrategy;
+        /** V111: Split-Exit 분할 매도 상태. 0=미분할, 1=1차완료(잔량대기) */
+        private int splitPhase;
 
         public String getMarket() { return market; }
         public void setMarket(String market) { this.market = market; }
@@ -282,5 +284,8 @@ public class BotStatus {
 
         public String getEntryStrategy() { return entryStrategy; }
         public void setEntryStrategy(String entryStrategy) { this.entryStrategy = entryStrategy; }
+
+        public int getSplitPhase() { return splitPhase; }
+        public void setSplitPhase(int splitPhase) { this.splitPhase = splitPhase; }
     }
 }

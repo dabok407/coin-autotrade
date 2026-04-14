@@ -61,14 +61,14 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
     private double volumeMult = 2.0;    // v3: 1.5→4.0 (1주일 실거래 분석 기반)
     private double minBodyRatio = 0.45; // v2 합의: 0.40→0.45 (강화)
     private static final double MIN_ATR_PCT = 0.001;
-    private static final double MIN_BREAKOUT_PCT = 1.0; // v3: 0.2→1.0% (1주일 실거래 분석 기반 상향)
+    private static final double MIN_BREAKOUT_PCT = 1.0;
 
     // ===== EMA 트렌드 필터 =====
     private static final int EMA_PERIOD = 20;
 
     // ===== RSI 과매수 필터 =====
     private static final int RSI_PERIOD = 14;
-    private static final double RSI_OVERBOUGHT = 83.0; // v4: 75→83 (10일 분석: RSI 70-83 Good율 30-40%)
+    private static final double RSI_OVERBOUGHT = 83.0;
 
     // ===== 시간 감쇠 파라미터 =====
     private static final int TIME_DECAY_CANDLES = 6; // 6캔들(=30분 @5min) 경과 시

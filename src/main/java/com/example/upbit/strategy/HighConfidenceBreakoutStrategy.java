@@ -155,7 +155,6 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
         // (횡보/약한 하락은 허용, 명확한 하락만 차단)
         if (candles.size() >= 60) {
             double ema50now = Indicators.ema(candles, 50);
-            // 10캔들 전 EMA50: 마지막 10개 제거한 서브리스트로 계산
             List<UpbitCandle> prevCandles = candles.subList(0, candles.size() - 10);
             double ema50prev = Indicators.ema(prevCandles, 50);
             if (ema50now > 0 && ema50prev > 0) {

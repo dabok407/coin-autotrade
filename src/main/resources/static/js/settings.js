@@ -886,6 +886,11 @@
       if (el('scBodyRatio')) el('scBodyRatio').value = cfg.minBodyRatio || 0.40;
       if (el('scMinPrice')) el('scMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('scExcludeMarkets')) el('scExcludeMarkets').value = cfg.excludeMarkets || '';
+      // Split-Exit
+      if (el('scSplitEnabled')) el('scSplitEnabled').value = String(cfg.splitExitEnabled === true);
+      if (el('scSplitTpPct')) el('scSplitTpPct').value = cfg.splitTpPct || 1.5;
+      if (el('scSplitRatio')) el('scSplitRatio').value = cfg.splitRatio || 0.60;
+      if (el('scTrailDropAfterSplit')) el('scTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.0;
     } catch(e) {
       console.warn('Scanner config load failed:', e);
     }
@@ -929,7 +934,12 @@
       volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
       minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40,
       minPriceKrw: parseInt(el('scMinPrice') ? el('scMinPrice').value : '20') || 0,
-      excludeMarkets: el('scExcludeMarkets') ? el('scExcludeMarkets').value.trim() : ''
+      excludeMarkets: el('scExcludeMarkets') ? el('scExcludeMarkets').value.trim() : '',
+      // Split-Exit
+      splitExitEnabled: (el('scSplitEnabled') ? el('scSplitEnabled').value : 'false') === 'true',
+      splitTpPct: parseFloat(el('scSplitTpPct') ? el('scSplitTpPct').value : '1.5') || 1.5,
+      splitRatio: parseFloat(el('scSplitRatio') ? el('scSplitRatio').value : '0.60') || 0.60,
+      trailDropAfterSplit: parseFloat(el('scTrailDropAfterSplit') ? el('scTrailDropAfterSplit').value : '1.0') || 1.0
     };
 
     await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
@@ -991,6 +1001,11 @@
       if (el('adQuickTpEnabled')) el('adQuickTpEnabled').value = String(cfg.quickTpEnabled !== false);
       if (el('adQuickTpPct')) el('adQuickTpPct').value = cfg.quickTpPct || 0.7;
       if (el('adQuickTpInterval')) el('adQuickTpInterval').value = cfg.quickTpIntervalSec || 5;
+      // Split-Exit
+      if (el('adSplitEnabled')) el('adSplitEnabled').value = String(cfg.splitExitEnabled === true);
+      if (el('adSplitTpPct')) el('adSplitTpPct').value = cfg.splitTpPct || 1.5;
+      if (el('adSplitRatio')) el('adSplitRatio').value = cfg.splitRatio || 0.60;
+      if (el('adTrailDropAfterSplit')) el('adTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.0;
     } catch(e) {
       console.warn('AllDay Scanner config load failed:', e);
     }
@@ -1026,7 +1041,12 @@
       // Quick TP
       quickTpEnabled: (el('adQuickTpEnabled') ? el('adQuickTpEnabled').value : 'true') === 'true',
       quickTpPct: parseFloat(el('adQuickTpPct') ? el('adQuickTpPct').value : '0.7') || 0.7,
-      quickTpIntervalSec: parseInt(el('adQuickTpInterval') ? el('adQuickTpInterval').value : '5') || 5
+      quickTpIntervalSec: parseInt(el('adQuickTpInterval') ? el('adQuickTpInterval').value : '5') || 5,
+      // Split-Exit
+      splitExitEnabled: (el('adSplitEnabled') ? el('adSplitEnabled').value : 'false') === 'true',
+      splitTpPct: parseFloat(el('adSplitTpPct') ? el('adSplitTpPct').value : '1.5') || 1.5,
+      splitRatio: parseFloat(el('adSplitRatio') ? el('adSplitRatio').value : '0.60') || 0.60,
+      trailDropAfterSplit: parseFloat(el('adTrailDropAfterSplit') ? el('adTrailDropAfterSplit').value : '1.0') || 1.0
     };
 
     await req('/api/allday-scanner/config', { method: 'POST', body: JSON.stringify(body) });
@@ -1083,6 +1103,11 @@
       if (el('mrMinTradeAmount')) el('mrMinTradeAmount').value = cfg.minTradeAmountBillion || 10;
       if (el('mrMinPrice')) el('mrMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('mrExcludeMarkets')) el('mrExcludeMarkets').value = cfg.excludeMarkets || '';
+      // Split-Exit
+      if (el('mrSplitEnabled')) el('mrSplitEnabled').value = String(cfg.splitExitEnabled === true);
+      if (el('mrSplitTpPct')) el('mrSplitTpPct').value = cfg.splitTpPct || 1.5;
+      if (el('mrSplitRatio')) el('mrSplitRatio').value = cfg.splitRatio || 0.60;
+      if (el('mrTrailDropAfterSplit')) el('mrTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.0;
     } catch(e) {
       console.warn('Morning Rush config load failed:', e);
     }
@@ -1111,7 +1136,12 @@
       maxPositions: parseInt(el('mrMaxPos') ? el('mrMaxPos').value : '2') || 2,
       minTradeAmountBillion: parseInt(el('mrMinTradeAmount') ? el('mrMinTradeAmount').value : '10') || 10,
       minPriceKrw: parseInt(el('mrMinPrice') ? el('mrMinPrice').value : '20') || 0,
-      excludeMarkets: el('mrExcludeMarkets') ? el('mrExcludeMarkets').value.trim() : ''
+      excludeMarkets: el('mrExcludeMarkets') ? el('mrExcludeMarkets').value.trim() : '',
+      // Split-Exit
+      splitExitEnabled: (el('mrSplitEnabled') ? el('mrSplitEnabled').value : 'false') === 'true',
+      splitTpPct: parseFloat(el('mrSplitTpPct') ? el('mrSplitTpPct').value : '1.5') || 1.5,
+      splitRatio: parseFloat(el('mrSplitRatio') ? el('mrSplitRatio').value : '0.60') || 0.60,
+      trailDropAfterSplit: parseFloat(el('mrTrailDropAfterSplit') ? el('mrTrailDropAfterSplit').value : '1.0') || 1.0
     };
 
     await req('/api/morning-rush/config', { method: 'POST', body: JSON.stringify(body) });

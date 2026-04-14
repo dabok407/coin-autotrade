@@ -531,6 +531,7 @@
             sourceBadge +
             '<span style="font-size:10px;color:var(--text-muted);background:var(--glass);padding:2px 8px;border-radius:4px">' + stratDisplay + '</span>' +
             (addBuys > 0 ? '<span style="font-size:10px;color:var(--primary);background:rgba(43,118,255,0.1);padding:2px 6px;border-radius:4px">+' + addBuys + ' 추매</span>' : '') +
+            (p.splitPhase === 1 ? '<span style="font-size:9px;color:#e91e63;background:rgba(233,30,99,0.12);padding:2px 6px;border-radius:4px;font-weight:600">SPLIT 2차대기</span>' : '') +
           '</div>' +
           '<div style="text-align:right;background:' + pnlBg + ';border:1px solid ' + pnlBorder + ';border-radius:8px;padding:4px 10px">' +
             '<div style="color:' + pnlColor + ';font-weight:700;font-size:15px;font-family:var(--font-mono)">' +

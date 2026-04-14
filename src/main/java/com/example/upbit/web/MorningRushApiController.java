@@ -104,6 +104,12 @@ public class MorningRushApiController {
         if (body.containsKey("excludeMarkets")) cfg.setExcludeMarkets(String.valueOf(body.get("excludeMarkets")));
         if (body.containsKey("minPriceKrw")) cfg.setMinPriceKrw(toInt(body.get("minPriceKrw"), 20));
 
+        // Split-Exit
+        if (body.containsKey("splitExitEnabled")) cfg.setSplitExitEnabled(Boolean.TRUE.equals(body.get("splitExitEnabled")));
+        if (body.containsKey("splitTpPct")) cfg.setSplitTpPct(toBD(body.get("splitTpPct")));
+        if (body.containsKey("splitRatio")) cfg.setSplitRatio(toBD(body.get("splitRatio")));
+        if (body.containsKey("trailDropAfterSplit")) cfg.setTrailDropAfterSplit(toBD(body.get("trailDropAfterSplit")));
+
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
     }
@@ -176,6 +182,11 @@ public class MorningRushApiController {
         m.put("minTradeAmount", cfg.getMinTradeAmount());
         m.put("excludeMarkets", cfg.getExcludeMarkets());
         m.put("minPriceKrw", cfg.getMinPriceKrw());
+        // Split-Exit
+        m.put("splitExitEnabled", cfg.isSplitExitEnabled());
+        m.put("splitTpPct", cfg.getSplitTpPct());
+        m.put("splitRatio", cfg.getSplitRatio());
+        m.put("trailDropAfterSplit", cfg.getTrailDropAfterSplit());
 
         return m;
     }

@@ -268,6 +268,26 @@
             <input class="input" type="text" id="scExcludeMarkets" value="" placeholder="KRW-BTC,KRW-XRP,KRW-DOGE" style="width:100%"/>
           </div>
         </div>
+        <!-- Split-Exit -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Split-Exit (분할 익절)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Enabled</label>
+            <select class="select" id="scSplitEnabled"><option value="false" selected>OFF</option><option value="true">ON</option></select>
+          </div>
+          <div class="config-field">
+            <label>1차 TP (%)</label>
+            <input class="input" type="number" id="scSplitTpPct" value="1.5" step="0.1" min="0.5" max="10"/>
+          </div>
+          <div class="config-field">
+            <label>1차 비율</label>
+            <input class="input" type="number" id="scSplitRatio" value="0.60" step="0.05" min="0.1" max="0.9"/>
+          </div>
+          <div class="config-field">
+            <label>2차 Trail Drop (%)</label>
+            <input class="input" type="number" id="scTrailDropAfterSplit" value="1.0" step="0.1" min="0.3" max="5"/>
+          </div>
+        </div>
       </div>
     </div>
     </div><!-- /settingsTabOpening -->
@@ -377,6 +397,27 @@
           <div class="config-field">
             <label>Check Interval (sec) <span class="help-icon" data-tooltip="티커 조회 간격 (초)&#10;최소 3초, 최대 60초" aria-label="Quick TP interval help"></span></label>
             <input class="input" type="number" id="adQuickTpInterval" value="5" min="3" max="60"/>
+          </div>
+        </div>
+
+        <!-- Row 4.6: Split-Exit -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Split-Exit (분할 익절)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Enabled <span class="help-icon" data-tooltip="분할 익절 활성화&#10;ON: 1차 60% 매도 후 잔량 trail&#10;OFF: 기존 전량 매도" aria-label="Split exit help"></span></label>
+            <select class="select" id="adSplitEnabled"><option value="false" selected>OFF</option><option value="true">ON</option></select>
+          </div>
+          <div class="config-field">
+            <label>1차 TP (%) <span class="help-icon" data-tooltip="1차 매도 목표 수익률 (%)&#10;이 수익률 도달 시 60% 매도" aria-label="Split TP help"></span></label>
+            <input class="input" type="number" id="adSplitTpPct" value="1.5" step="0.1" min="0.5" max="10"/>
+          </div>
+          <div class="config-field">
+            <label>1차 비율 <span class="help-icon" data-tooltip="1차 매도 비율 (0~1)&#10;0.60 = 60% 매도, 40% 잔량" aria-label="Split ratio help"></span></label>
+            <input class="input" type="number" id="adSplitRatio" value="0.60" step="0.05" min="0.1" max="0.9"/>
+          </div>
+          <div class="config-field">
+            <label>2차 Trail Drop (%) <span class="help-icon" data-tooltip="2차 매도 trail drop (%)&#10;1차 후 피크 대비 이 비율 하락 시 잔량 매도" aria-label="Trail drop after split help"></span></label>
+            <input class="input" type="number" id="adTrailDropAfterSplit" value="1.0" step="0.1" min="0.3" max="5"/>
           </div>
         </div>
 
@@ -538,6 +579,26 @@
           <div class="config-field">
             <label>제외 마켓 <span class="help-icon" data-tooltip="스캐너가 절대 매수하지 않을 마켓 목록&#10;콤마(,)로 구분. 예: KRW-BTC,KRW-XRP,KRW-DOGE" aria-label="Exclude markets help"></span></label>
             <input class="input" type="text" id="mrExcludeMarkets" value="" placeholder="KRW-BTC,KRW-XRP,KRW-DOGE" style="width:100%"/>
+          </div>
+        </div>
+        <!-- Split-Exit -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Split-Exit (분할 익절)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Enabled</label>
+            <select class="select" id="mrSplitEnabled"><option value="false" selected>OFF</option><option value="true">ON</option></select>
+          </div>
+          <div class="config-field">
+            <label>1차 TP (%)</label>
+            <input class="input" type="number" id="mrSplitTpPct" value="1.5" step="0.1" min="0.5" max="10"/>
+          </div>
+          <div class="config-field">
+            <label>1차 비율</label>
+            <input class="input" type="number" id="mrSplitRatio" value="0.60" step="0.05" min="0.1" max="0.9"/>
+          </div>
+          <div class="config-field">
+            <label>2차 Trail Drop (%)</label>
+            <input class="input" type="number" id="mrTrailDropAfterSplit" value="1.0" step="0.1" min="0.3" max="5"/>
           </div>
         </div>
       </div>

@@ -609,6 +609,7 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
             m.setDownStreak(st.downStreak);
             m.setAddBuys(open ? pe.getAddBuys() : 0);
             m.setEntryStrategy(open ? pe.getEntryStrategy() : null);
+            m.setSplitPhase(open ? pe.getSplitPhase() : 0);
             m.setLastPrice(st.lastPrice);
             m.setRealizedPnlKrw(calcMarketRealizedPnl(mc.getMarket(), bc.getMode()));
 
@@ -638,6 +639,7 @@ private java.util.List<StrategyType> parseActiveStrategyTypes(BotConfigEntity bc
             m.setQty(bd(pe.getQty()));
             m.setAddBuys(pe.getAddBuys());
             m.setEntryStrategy(pe.getEntryStrategy());
+            m.setSplitPhase(pe.getSplitPhase());
             Double lp = scannerPrices.get(pe.getMarket());
             if (lp != null && lp > 0) m.setLastPrice(lp);
             m.setRealizedPnlKrw(calcMarketRealizedPnl(pe.getMarket(), bc.getMode()));
