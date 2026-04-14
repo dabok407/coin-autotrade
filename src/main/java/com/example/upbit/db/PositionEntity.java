@@ -36,6 +36,14 @@ public class PositionEntity {
     @Column(name = "entry_strategy", length = 100)
     private String entryStrategy;
 
+    /** V111: Split-Exit 분할 매도 상태. 0=초기, 1=1차 완료(40% 잔량), -1=분할 불가 */
+    @Column(name = "split_phase", nullable = false)
+    private int splitPhase = 0;
+
+    /** V111: Split-Exit 1차 매도 전 원래 수량 (자본 계산용) */
+    @Column(name = "split_original_qty", precision = 28, scale = 18)
+    private BigDecimal splitOriginalQty;
+
     public String getMarket() { return market; }
     public void setMarket(String market) { this.market = market; }
 
@@ -55,4 +63,10 @@ public class PositionEntity {
 
     public String getEntryStrategy() { return entryStrategy; }
     public void setEntryStrategy(String entryStrategy) { this.entryStrategy = entryStrategy; }
+
+    public int getSplitPhase() { return splitPhase; }
+    public void setSplitPhase(int splitPhase) { this.splitPhase = splitPhase; }
+
+    public BigDecimal getSplitOriginalQty() { return splitOriginalQty; }
+    public void setSplitOriginalQty(BigDecimal splitOriginalQty) { this.splitOriginalQty = splitOriginalQty; }
 }

@@ -111,6 +111,19 @@ public class MorningRushConfigEntity {
     @Column(name = "tp_trail_drop_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal tpTrailDropPct = BigDecimal.valueOf(1.5);
 
+    // ── V111: Split-Exit 분할 매도 설정 ──
+    @Column(name = "split_exit_enabled", nullable = false)
+    private boolean splitExitEnabled = false;
+
+    @Column(name = "split_tp_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal splitTpPct = BigDecimal.valueOf(1.5);
+
+    @Column(name = "split_ratio", nullable = false, precision = 4, scale = 2)
+    private BigDecimal splitRatio = BigDecimal.valueOf(0.60);
+
+    @Column(name = "trail_drop_after_split", nullable = false, precision = 5, scale = 2)
+    private BigDecimal trailDropAfterSplit = BigDecimal.valueOf(1.0);
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -198,6 +211,18 @@ public class MorningRushConfigEntity {
 
     public BigDecimal getTpTrailDropPct() { return tpTrailDropPct; }
     public void setTpTrailDropPct(BigDecimal v) { this.tpTrailDropPct = v != null ? v : BigDecimal.valueOf(1.5); }
+
+    public boolean isSplitExitEnabled() { return splitExitEnabled; }
+    public void setSplitExitEnabled(boolean v) { this.splitExitEnabled = v; }
+
+    public BigDecimal getSplitTpPct() { return splitTpPct; }
+    public void setSplitTpPct(BigDecimal v) { this.splitTpPct = v != null ? v : BigDecimal.valueOf(1.5); }
+
+    public BigDecimal getSplitRatio() { return splitRatio; }
+    public void setSplitRatio(BigDecimal v) { this.splitRatio = v != null ? v : BigDecimal.valueOf(0.60); }
+
+    public BigDecimal getTrailDropAfterSplit() { return trailDropAfterSplit; }
+    public void setTrailDropAfterSplit(BigDecimal v) { this.trailDropAfterSplit = v != null ? v : BigDecimal.valueOf(1.0); }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public Set<String> getExcludeMarketsSet() {
