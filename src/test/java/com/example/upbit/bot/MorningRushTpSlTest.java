@@ -208,6 +208,67 @@ public class MorningRushTpSlTest {
         // 에러 없으면 성공
     }
 
+    // ===== V110: TP_TRAIL drop 1.5% 기준 테스트 =====
+
+    @Test
+    public void testTpTrailDrop15Pct_notTriggeredAt1Pct() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedTpTrailDropPct", 1.5);  // V110 신규 값
+
+        long openedAt = System.currentTimeMillis() - 120_000L;
+        putPosition("KRW-V110", 100.0, openedAt);
+
+        // +3% → trail 활성화 (peak=103)
+        invokeCheckRealtimeTpSl("KRW-V110", 103.0);
+        assertTrue(getPositionCache().containsKey("KRW-V110"), "trail 활성화, 매도 안 함");
+
+        // peak에서 -1.0% drop (101.97) → 1.5% 미달 → 매도 안 함
+        invokeCheckRealtimeTpSl("KRW-V110", 101.97);
+        assertTrue(getPositionCache().containsKey("KRW-V110"),
+                "drop 1.0% < 기준 1.5% → 매도 안 함 (기존 1.0%였으면 매도됐을 것)");
+    }
+
+    @Test
+    public void testTpTrailDrop15Pct_triggeredAt15Pct() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedTpTrailDropPct", 1.5);  // V110 신규 값
+
+        long openedAt = System.currentTimeMillis() - 120_000L;
+        putPosition("KRW-V110B", 100.0, openedAt);
+
+        // +3% → trail 활성화 (peak=103)
+        invokeCheckRealtimeTpSl("KRW-V110B", 103.0);
+        assertTrue(getPositionCache().containsKey("KRW-V110B"), "trail 활성화");
+
+        // peak에서 -1.6% drop (101.35) → 1.5% 초과 → 매도
+        invokeCheckRealtimeTpSl("KRW-V110B", 101.35);
+        assertFalse(getPositionCache().containsKey("KRW-V110B"),
+                "drop 1.6% > 기준 1.5% → TP_TRAIL 매도");
+    }
+
+    @Test
+    public void testTpTrailDrop15Pct_biggerProfitCaptured() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedTpTrailDropPct", 1.5);  // V110 신규 값
+
+        long openedAt = System.currentTimeMillis() - 120_000L;
+        putPosition("KRW-V110C", 100.0, openedAt);
+
+        // +2.5% → trail 활성화
+        invokeCheckRealtimeTpSl("KRW-V110C", 102.5);
+        // +5% → peak 갱신
+        invokeCheckRealtimeTpSl("KRW-V110C", 105.0);
+        // +4% → peak 105에서 -0.95% drop → 아직 미달
+        invokeCheckRealtimeTpSl("KRW-V110C", 104.0);
+        assertTrue(getPositionCache().containsKey("KRW-V110C"),
+                "peak 105에서 -0.95% drop → 1.5% 미달 → 유지 (큰 수익 보존)");
+
+        // +3.3% → peak 105에서 -1.62% drop → 매도
+        invokeCheckRealtimeTpSl("KRW-V110C", 103.3);
+        assertFalse(getPositionCache().containsKey("KRW-V110C"),
+                "peak 105에서 -1.62% drop → 매도, roi=+3.3% (기존 1.0%면 +4%에서 매도)");
+    }
+
     // ===== Helpers =====
 
     private void setField(String name, Object value) throws Exception {
