@@ -889,7 +889,7 @@
       // Split-Exit
       if (el('scSplitEnabled')) el('scSplitEnabled').value = String(cfg.splitExitEnabled === true);
       if (el('scSplitTpPct')) el('scSplitTpPct').value = cfg.splitTpPct || 1.5;
-      if (el('scSplitRatio')) el('scSplitRatio').value = cfg.splitRatio || 0.60;
+      if (el('scSplitRatio')) el('scSplitRatio').value = cfg.splitRatio || 0.50;
       if (el('scTrailDropAfterSplit')) el('scTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.0;
     } catch(e) {
       console.warn('Scanner config load failed:', e);
@@ -938,7 +938,7 @@
       // Split-Exit
       splitExitEnabled: (el('scSplitEnabled') ? el('scSplitEnabled').value : 'false') === 'true',
       splitTpPct: parseFloat(el('scSplitTpPct') ? el('scSplitTpPct').value : '1.5') || 1.5,
-      splitRatio: parseFloat(el('scSplitRatio') ? el('scSplitRatio').value : '0.60') || 0.60,
+      splitRatio: parseFloat(el('scSplitRatio') ? el('scSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('scTrailDropAfterSplit') ? el('scTrailDropAfterSplit').value : '1.0') || 1.0
     };
 
@@ -994,7 +994,7 @@
       if (el('adMaxPos')) el('adMaxPos').value = cfg.maxPositions || 2;
       if (el('adBtcFilter')) el('adBtcFilter').value = String(cfg.btcFilterEnabled !== false);
       if (el('adVolSurge')) el('adVolSurge').value = cfg.volumeSurgeMult || 3.0;
-      if (el('adBodyRatio')) el('adBodyRatio').value = cfg.minBodyRatio || 0.60;
+      if (el('adBodyRatio')) el('adBodyRatio').value = cfg.minBodyRatio || 0.50;
       if (el('adMinPrice')) el('adMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('adExcludeMarkets')) el('adExcludeMarkets').value = cfg.excludeMarkets || '';
       // Quick TP
@@ -1004,7 +1004,7 @@
       // Split-Exit
       if (el('adSplitEnabled')) el('adSplitEnabled').value = String(cfg.splitExitEnabled === true);
       if (el('adSplitTpPct')) el('adSplitTpPct').value = cfg.splitTpPct || 1.5;
-      if (el('adSplitRatio')) el('adSplitRatio').value = cfg.splitRatio || 0.60;
+      if (el('adSplitRatio')) el('adSplitRatio').value = cfg.splitRatio || 0.50;
       if (el('adTrailDropAfterSplit')) el('adTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.0;
     } catch(e) {
       console.warn('AllDay Scanner config load failed:', e);
@@ -1035,7 +1035,7 @@
       maxPositions: parseInt(el('adMaxPos') ? el('adMaxPos').value : '2') || 2,
       btcFilterEnabled: (el('adBtcFilter') ? el('adBtcFilter').value : 'true') === 'true',
       volumeSurgeMult: parseFloat(el('adVolSurge') ? el('adVolSurge').value : '3.0') || 3.0,
-      minBodyRatio: parseFloat(el('adBodyRatio') ? el('adBodyRatio').value : '0.60') || 0.60,
+      minBodyRatio: parseFloat(el('adBodyRatio') ? el('adBodyRatio').value : '0.50') || 0.50,
       minPriceKrw: parseInt(el('adMinPrice') ? el('adMinPrice').value : '20') || 0,
       excludeMarkets: el('adExcludeMarkets') ? el('adExcludeMarkets').value.trim() : '',
       // Quick TP
@@ -1045,7 +1045,7 @@
       // Split-Exit
       splitExitEnabled: (el('adSplitEnabled') ? el('adSplitEnabled').value : 'false') === 'true',
       splitTpPct: parseFloat(el('adSplitTpPct') ? el('adSplitTpPct').value : '1.5') || 1.5,
-      splitRatio: parseFloat(el('adSplitRatio') ? el('adSplitRatio').value : '0.60') || 0.60,
+      splitRatio: parseFloat(el('adSplitRatio') ? el('adSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('adTrailDropAfterSplit') ? el('adTrailDropAfterSplit').value : '1.0') || 1.0
     };
 
@@ -1106,7 +1106,7 @@
       // Split-Exit
       if (el('mrSplitEnabled')) el('mrSplitEnabled').value = String(cfg.splitExitEnabled === true);
       if (el('mrSplitTpPct')) el('mrSplitTpPct').value = cfg.splitTpPct || 1.5;
-      if (el('mrSplitRatio')) el('mrSplitRatio').value = cfg.splitRatio || 0.60;
+      if (el('mrSplitRatio')) el('mrSplitRatio').value = cfg.splitRatio || 0.50;
       if (el('mrTrailDropAfterSplit')) el('mrTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.0;
     } catch(e) {
       console.warn('Morning Rush config load failed:', e);
@@ -1140,7 +1140,7 @@
       // Split-Exit
       splitExitEnabled: (el('mrSplitEnabled') ? el('mrSplitEnabled').value : 'false') === 'true',
       splitTpPct: parseFloat(el('mrSplitTpPct') ? el('mrSplitTpPct').value : '1.5') || 1.5,
-      splitRatio: parseFloat(el('mrSplitRatio') ? el('mrSplitRatio').value : '0.60') || 0.60,
+      splitRatio: parseFloat(el('mrSplitRatio') ? el('mrSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('mrTrailDropAfterSplit') ? el('mrTrailDropAfterSplit').value : '1.0') || 1.0
     };
 

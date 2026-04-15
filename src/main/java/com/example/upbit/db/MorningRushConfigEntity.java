@@ -119,7 +119,7 @@ public class MorningRushConfigEntity {
     private BigDecimal splitTpPct = BigDecimal.valueOf(1.5);
 
     @Column(name = "split_ratio", nullable = false, precision = 4, scale = 2)
-    private BigDecimal splitRatio = BigDecimal.valueOf(0.60);
+    private BigDecimal splitRatio = BigDecimal.valueOf(0.50);
 
     @Column(name = "trail_drop_after_split", nullable = false, precision = 5, scale = 2)
     private BigDecimal trailDropAfterSplit = BigDecimal.valueOf(1.0);
