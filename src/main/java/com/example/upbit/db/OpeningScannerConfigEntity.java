@@ -113,23 +113,23 @@ public class OpeningScannerConfigEntity {
 
     /** TOP-N 차등 SL_WIDE: 거래대금 1~10위 (대형). 기본 5.0 (단일값 통일) */
     @Column(name = "wide_sl_top10_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal wideSlTop10Pct = BigDecimal.valueOf(6.0);
+    private BigDecimal wideSlTop10Pct = BigDecimal.valueOf(3.5);
 
     /** TOP-N 차등 SL_WIDE: 거래대금 11~20위. 기본 5.0 */
     @Column(name = "wide_sl_top20_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal wideSlTop20Pct = BigDecimal.valueOf(6.0);
+    private BigDecimal wideSlTop20Pct = BigDecimal.valueOf(3.5);
 
     /** TOP-N 차등 SL_WIDE: 거래대금 21~50위. 기본 5.0 */
     @Column(name = "wide_sl_top50_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal wideSlTop50Pct = BigDecimal.valueOf(6.0);
+    private BigDecimal wideSlTop50Pct = BigDecimal.valueOf(3.5);
 
     /** TOP-N 차등 SL_WIDE: 거래대금 51위 이상 (소형). 기본 5.0 */
     @Column(name = "wide_sl_other_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal wideSlOtherPct = BigDecimal.valueOf(6.0);
+    private BigDecimal wideSlOtherPct = BigDecimal.valueOf(3.5);
 
     /** SL 종합안: SL_TIGHT 값 (15분 이후, 모든 코인 동일) */
     @Column(name = "tight_sl_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal tightSlPct = BigDecimal.valueOf(3.0);
+    private BigDecimal tightSlPct = BigDecimal.valueOf(2.5);
 
     /** V110: TP_TRAIL 활성화 기준 (%). 하드코딩 제거. */
     @Column(name = "tp_trail_activate_pct", nullable = false, precision = 5, scale = 2)

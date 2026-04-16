@@ -105,7 +105,7 @@ public class MorningRushConfigEntity {
 
     /** SL 종합안: 흔들기 보호용 SL 값 (%). 90일 백테스트 평균 깊이 -5.94% → -6.0% 적용. */
     @Column(name = "wide_sl_pct", nullable = false, precision = 5, scale = 2)
-    private BigDecimal wideSlPct = BigDecimal.valueOf(6.0);
+    private BigDecimal wideSlPct = BigDecimal.valueOf(3.5);
 
     /** V110: TP_TRAIL 피크 대비 하락 매도 기준 (%). 하드코딩 제거. */
     @Column(name = "tp_trail_drop_pct", nullable = false, precision = 5, scale = 2)
