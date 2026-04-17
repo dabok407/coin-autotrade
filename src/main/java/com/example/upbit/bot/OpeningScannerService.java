@@ -658,6 +658,9 @@ public class OpeningScannerService {
             Map<String, Double> posMap = new LinkedHashMap<String, Double>();
             Map<String, Long> openedAtMap = new LinkedHashMap<String, Long>();
             Map<String, Integer> splitPhaseMap = new LinkedHashMap<String, Integer>();
+            // V118: DB peak/armed 맵 전달 (재시작 복구 시 실제 peak/armed 유지)
+            Map<String, Double> dbPeakMap = new LinkedHashMap<String, Double>();
+            Map<String, Boolean> dbArmedMap = new LinkedHashMap<String, Boolean>();
             for (PositionEntity pe : scannerPositions) {
                 if (pe.getAvgPrice() != null) {
                     posMap.put(pe.getMarket(), pe.getAvgPrice().doubleValue());
@@ -665,9 +668,44 @@ public class OpeningScannerService {
                         openedAtMap.put(pe.getMarket(), pe.getOpenedAt().toEpochMilli());
                     }
                     splitPhaseMap.put(pe.getMarket(), pe.getSplitPhase());
+                    if (pe.getPeakPrice() != null) {
+                        dbPeakMap.put(pe.getMarket(), pe.getPeakPrice().doubleValue());
+                    }
+                    dbArmedMap.put(pe.getMarket(), pe.getArmedAt() != null);
                 }
             }
-            breakoutDetector.updatePositionCache(posMap, openedAtMap, splitPhaseMap);
+            breakoutDetector.updatePositionCache(posMap, openedAtMap, splitPhaseMap, dbPeakMap, dbArmedMap);
+
+            // V118: detector 메모리 peak/armed → DB 영속화 (0.3% 이상 상승 또는 armed 전환 시)
+            for (PositionEntity pe : scannerPositions) {
+                String market = pe.getMarket();
+                if (pe.getAvgPrice() == null) continue;
+                double avgPrice = pe.getAvgPrice().doubleValue();
+                if (avgPrice <= 0) continue;
+
+                Double memPeak = breakoutDetector.getPeak(market);
+                if (memPeak == null) continue;
+                boolean memArmed = breakoutDetector.isArmed(market);
+
+                BigDecimal dbPeak = pe.getPeakPrice();
+                boolean peakDirty;
+                if (dbPeak == null) {
+                    peakDirty = (memPeak - avgPrice) / avgPrice * 100.0 >= 0.3;
+                } else {
+                    peakDirty = (memPeak - dbPeak.doubleValue()) / avgPrice * 100.0 >= 0.3;
+                }
+                boolean armedDirty = memArmed && pe.getArmedAt() == null;
+
+                if (peakDirty || armedDirty) {
+                    if (peakDirty) pe.setPeakPrice(BigDecimal.valueOf(memPeak));
+                    if (armedDirty) pe.setArmedAt(Instant.now());
+                    try {
+                        positionRepo.save(pe);
+                    } catch (Exception ex) {
+                        log.warn("[OpeningScanner] V118 peak/armed save failed for {}", market, ex);
+                    }
+                }
+            }
         }
 
         if (!scannerPositions.isEmpty()) {
@@ -1563,6 +1601,9 @@ public class OpeningScannerService {
                         pe.setQty(BigDecimal.valueOf(fRemainQty));
                         pe.setSplitPhase(1);
                         pe.setSplitOriginalQty(BigDecimal.valueOf(totalQty));
+                        // V118: 1차 매도 후 peak/armed 리셋 — 2차 TRAIL은 매도가를 새 기준점으로 추적
+                        pe.setPeakPrice(BigDecimal.valueOf(fFillPrice));
+                        pe.setArmedAt(null);
                         positionRepo.save(pe);
                     }
                 }

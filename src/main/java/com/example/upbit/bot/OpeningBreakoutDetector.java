@@ -130,6 +130,17 @@ public class OpeningBreakoutDetector {
     }
     public void setSplitPhase(String market, int phase) { splitPhaseMap.put(market, phase); }
 
+    /** V118: 현재 in-memory peak 가격 조회 (DB 영속화 동기화용). 미등록 시 null */
+    public Double getPeak(String market) {
+        return peakPrices.get(market);
+    }
+
+    /** V118: 1차 TRAIL armed 상태 조회 (DB 영속화 동기화용) */
+    public boolean isArmed(String market) {
+        Boolean armed = split1stTrailArmed.get(market);
+        return armed != null && armed;
+    }
+
     /**
      * Entry window 시각 설정 (KST 기준 분 단위, hour*60+min).
      * checkBreakout()이 이 시각 안에서만 confirm 카운트를 누적한다.
@@ -241,41 +252,67 @@ public class OpeningBreakoutDetector {
     /** V111: splitPhaseMap 포함 — 재시작 복구 시 splitPhase 복원 */
     public void updatePositionCache(Map<String, Double> positions, Map<String, Long> openedAtMap,
                                      Map<String, Integer> splitPhases) {
+        updatePositionCache(positions, openedAtMap, splitPhases, null, null);
+    }
+
+    /**
+     * V118: DB 영속 peak/armed 맵 포함 — 재시작 시 실제 peak/armed 그대로 복원.
+     * dbPeaks/dbArmedAt이 null이면 V115 fallback(현재가 재판정)으로 동작.
+     */
+    public void updatePositionCache(Map<String, Double> positions, Map<String, Long> openedAtMap,
+                                     Map<String, Integer> splitPhases,
+                                     Map<String, Double> dbPeaks,
+                                     Map<String, Boolean> dbArmedAt) {
         for (Map.Entry<String, Double> e : positions.entrySet()) {
-            if (!positionCache.containsKey(e.getKey())) {
-                long openedAt = (openedAtMap != null && openedAtMap.get(e.getKey()) != null)
-                        ? openedAtMap.get(e.getKey())
+            String market = e.getKey();
+            if (!positionCache.containsKey(market)) {
+                long openedAt = (openedAtMap != null && openedAtMap.get(market) != null)
+                        ? openedAtMap.get(market)
                         : System.currentTimeMillis();
-                positionCache.put(e.getKey(), new double[]{e.getValue(), openedAt});
-                // V115: 재시작 복구 — 현재가 기준 armed/peak 재판정
+                positionCache.put(market, new double[]{e.getValue(), openedAt});
                 int recPhase = 0;
-                if (splitPhases != null && splitPhases.containsKey(e.getKey())) {
-                    recPhase = splitPhases.get(e.getKey());
+                if (splitPhases != null && splitPhases.containsKey(market)) {
+                    recPhase = splitPhases.get(market);
                 }
                 double avgP = e.getValue();
-                Double curPrice = sharedPriceService.getPrice(e.getKey());
-                double recPeak = avgP;
-                boolean recArmed = false;
-                if (curPrice != null && curPrice > 0 && recPhase == 0) {
-                    double recPnl = (curPrice - avgP) / avgP * 100.0;
-                    recPeak = Math.max(avgP, curPrice);
-                    if (recPnl >= splitTpPct) {
-                        recArmed = true;
-                        log.info("[BreakoutDetector] 재시작 복구: {} armed=1 pnl=+{}% peak={}",
-                                e.getKey(), String.format(java.util.Locale.ROOT, "%.2f", recPnl),
-                                String.format(java.util.Locale.ROOT, "%.2f", recPeak));
+
+                // V118: DB peak/armed 우선 복원
+                Double dbPeak = (dbPeaks != null) ? dbPeaks.get(market) : null;
+                Boolean dbArmed = (dbArmedAt != null) ? dbArmedAt.get(market) : null;
+                double recPeak;
+                boolean recArmed;
+                if (dbPeak != null && dbPeak > 0) {
+                    recPeak = dbPeak;
+                    recArmed = (dbArmed != null && dbArmed);
+                    log.info("[BreakoutDetector] V118 재시작 복구(DB): {} peak={} armed={} phase={}",
+                            market, String.format(java.util.Locale.ROOT, "%.2f", recPeak),
+                            recArmed, recPhase);
+                } else {
+                    // V115 fallback: 현재가 기준 armed/peak 재판정
+                    Double curPrice = sharedPriceService.getPrice(market);
+                    recPeak = avgP;
+                    recArmed = false;
+                    if (curPrice != null && curPrice > 0 && recPhase == 0) {
+                        double recPnl = (curPrice - avgP) / avgP * 100.0;
+                        recPeak = Math.max(avgP, curPrice);
+                        if (recPnl >= splitTpPct) {
+                            recArmed = true;
+                            log.info("[BreakoutDetector] V115 fallback 복구: {} armed=1 pnl=+{}% peak={}",
+                                    market, String.format(java.util.Locale.ROOT, "%.2f", recPnl),
+                                    String.format(java.util.Locale.ROOT, "%.2f", recPeak));
+                        }
                     }
                 }
-                peakPrices.put(e.getKey(), recPeak);
-                troughPrices.put(e.getKey(), avgP);
-                tpActivated.put(e.getKey(), false);
-                split1stTrailArmed.put(e.getKey(), recArmed);
+                peakPrices.put(market, recPeak);
+                troughPrices.put(market, avgP);
+                tpActivated.put(market, false);
+                split1stTrailArmed.put(market, recArmed);
             }
             // V111: splitPhase 복원 (DB 기준)
-            if (splitPhases != null && splitPhases.containsKey(e.getKey())) {
-                splitPhaseMap.put(e.getKey(), splitPhases.get(e.getKey()));
-            } else if (!splitPhaseMap.containsKey(e.getKey())) {
-                splitPhaseMap.put(e.getKey(), 0);
+            if (splitPhases != null && splitPhases.containsKey(market)) {
+                splitPhaseMap.put(market, splitPhases.get(market));
+            } else if (!splitPhaseMap.containsKey(market)) {
+                splitPhaseMap.put(market, 0);
             }
         }
         for (String market : new ArrayList<String>(positionCache.keySet())) {

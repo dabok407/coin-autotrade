@@ -2101,6 +2101,9 @@ public class AllDayScannerService {
                         pe.setQty(BigDecimal.valueOf(fRemainQty));
                         pe.setSplitPhase(1);
                         pe.setSplitOriginalQty(BigDecimal.valueOf(totalQty));
+                        // V118: 1차 매도 후 peak/armed 리셋 — 2차 TRAIL은 매도가를 새 기준점으로 추적
+                        pe.setPeakPrice(BigDecimal.valueOf(fFillPrice));
+                        pe.setArmedAt(null);
                         positionRepo.save(pe);
                     }
                 }
@@ -2147,7 +2150,7 @@ public class AllDayScannerService {
      * tick()에서 호출: 포지션 캐시 동기화 + SharedPriceService 구독 관리.
      */
     private void syncTpWebSocket(List<PositionEntity> scannerPositions) {
-        // 포지션 캐시 동기화 (TP_TRAIL: [avgPrice, peakPrice, activated, troughPrice, openedAtMs, splitPhase])
+        // 포지션 캐시 동기화 (TP_TRAIL: [avgPrice, peakPrice, activated, troughPrice, openedAtMs, splitPhase, armed])
         Set<String> currentMarkets = new HashSet<String>();
         for (PositionEntity pe : scannerPositions) {
             String market = pe.getMarket();
@@ -2155,20 +2158,32 @@ public class AllDayScannerService {
             if (!tpPositionCache.containsKey(market)) {
                 double avg = pe.getAvgPrice().doubleValue();
                 long openedAtMs = pe.getOpenedAt() != null ? pe.getOpenedAt().toEpochMilli() : System.currentTimeMillis();
-                // V115: 재시작 복구 — 현재가 기준 armed/peak 재판정
                 Integer pePhase = pe.getSplitPhase();
                 int splitPhase = pePhase != null ? pePhase : 0;
-                double recPrice = sharedPriceService.getPrice(market);
-                double recPeak = avg;
-                double recArmed = 0;
-                if (recPrice > 0 && splitPhase == 0) {
-                    double recPnl = (recPrice - avg) / avg * 100.0;
-                    recPeak = Math.max(avg, recPrice);
-                    if (recPnl >= cachedSplitTpPct) {
-                        recArmed = 1.0;
-                        log.info("[AllDayScanner] 재시작 복구: {} armed=1 pnl=+{}% peak={}",
-                                market, String.format(Locale.ROOT, "%.2f", recPnl),
-                                String.format(Locale.ROOT, "%.2f", recPeak));
+
+                // V118: DB에 저장된 실제 peak/armed 우선 복원
+                BigDecimal dbPeak = pe.getPeakPrice();
+                double recPeak;
+                double recArmed;
+                if (dbPeak != null && dbPeak.signum() > 0) {
+                    recPeak = dbPeak.doubleValue();
+                    recArmed = (pe.getArmedAt() != null) ? 1.0 : 0.0;
+                    log.info("[AllDayScanner] V118 재시작 복구(DB): {} peak={} armed={} phase={}",
+                            market, String.format(Locale.ROOT, "%.2f", recPeak), recArmed > 0, splitPhase);
+                } else {
+                    // V115 fallback: 현재가 기준 armed/peak 재판정 (구 데이터 or 신규 진입)
+                    double recPrice = sharedPriceService.getPrice(market);
+                    recPeak = avg;
+                    recArmed = 0;
+                    if (recPrice > 0 && splitPhase == 0) {
+                        double recPnl = (recPrice - avg) / avg * 100.0;
+                        recPeak = Math.max(avg, recPrice);
+                        if (recPnl >= cachedSplitTpPct) {
+                            recArmed = 1.0;
+                            log.info("[AllDayScanner] V115 fallback 복구: {} armed=1 pnl=+{}% peak={}",
+                                    market, String.format(Locale.ROOT, "%.2f", recPnl),
+                                    String.format(Locale.ROOT, "%.2f", recPeak));
+                        }
                     }
                 }
                 tpPositionCache.put(market, new double[]{avg, recPeak, 0, avg, openedAtMs, splitPhase, recArmed});
@@ -2178,6 +2193,38 @@ public class AllDayScannerService {
         for (String market : new ArrayList<String>(tpPositionCache.keySet())) {
             if (!currentMarkets.contains(market)) {
                 tpPositionCache.remove(market);
+            }
+        }
+
+        // V118: 메모리 peak/armed → DB 영속화 (Option B: peak 0.3% 이상 상승 또는 armed 전환 시)
+        for (PositionEntity pe : scannerPositions) {
+            String market = pe.getMarket();
+            double[] pos = tpPositionCache.get(market);
+            if (pos == null || pos.length < 7) continue;
+            double avgPrice = pos[0];
+            if (avgPrice <= 0) continue;
+            double currentPeak = pos[1];
+            boolean currentArmed = pos[6] > 0;
+
+            BigDecimal dbPeak = pe.getPeakPrice();
+            boolean peakDirty;
+            if (dbPeak == null) {
+                // 최초 저장: avgPrice 대비 0.3% 이상 peak 상승 시
+                peakDirty = (currentPeak - avgPrice) / avgPrice * 100.0 >= 0.3;
+            } else {
+                // 증분 저장: 기존 DB peak 대비 0.3% 이상 추가 상승 시
+                peakDirty = (currentPeak - dbPeak.doubleValue()) / avgPrice * 100.0 >= 0.3;
+            }
+            boolean armedDirty = currentArmed && pe.getArmedAt() == null;
+
+            if (peakDirty || armedDirty) {
+                if (peakDirty) pe.setPeakPrice(BigDecimal.valueOf(currentPeak));
+                if (armedDirty) pe.setArmedAt(Instant.now());
+                try {
+                    positionRepo.save(pe);
+                } catch (Exception e) {
+                    log.warn("[AllDayScanner] V118 peak/armed save failed for {}", market, e);
+                }
             }
         }
 

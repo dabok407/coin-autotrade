@@ -690,37 +690,94 @@ public class MorningRushScannerService {
         cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
         cachedMode = cfg.getMode();
 
-        positionCache.clear();
+        // V118: positionCache.clear() 제거 — WebSocket 스레드가 pos[3](peak)/pos[6](armed)을
+        //   실시간 갱신하므로 tick마다 clear하면 peak이 매 tick 초기화되는 버그가 있었다.
+        //   대신 "신규 추가 + 제거된 포지션만 삭제" 방식으로 전환. 재시작/신규 진입 시만 DB에서 복원.
         try {
             List<PositionEntity> allPos = positionRepo.findAll();
+            Set<String> currentMarkets = new HashSet<String>();
             for (PositionEntity pe : allPos) {
                 if (ENTRY_STRATEGY.equals(pe.getEntryStrategy())
                         && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0
                         && pe.getAvgPrice() != null) {
-                    // 복구 시 openedAt 사용 (없으면 현재 시각 - 그레이스 효과는 없음)
-                    long openedAtMs = pe.getOpenedAt() != null
-                            ? pe.getOpenedAt().toEpochMilli()
-                            : System.currentTimeMillis();
-                    double avg = pe.getAvgPrice().doubleValue();
-                    // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
-                    // V115: 재시작 복구 — 현재가 기준 armed/peak 재판정
-                    Integer pePhase = pe.getSplitPhase();
-                    int splitPhase = pePhase != null ? pePhase : 0;
-                    double recPrice = sharedPriceService.getPrice(pe.getMarket());
-                    double recPeak = avg;
-                    double recArmed = 0;
-                    if (recPrice > 0 && splitPhase == 0) {
-                        double recPnl = (recPrice - avg) / avg * 100.0;
-                        recPeak = Math.max(avg, recPrice);
-                        if (recPnl >= cachedSplitTpPct) {
-                            recArmed = 1.0;
-                            log.info("[MorningRush] 재시작 복구: {} armed=1 pnl=+{}% peak={}",
-                                    pe.getMarket(), String.format(Locale.ROOT, "%.2f", recPnl),
-                                    String.format(Locale.ROOT, "%.2f", recPeak));
+                    String market = pe.getMarket();
+                    currentMarkets.add(market);
+                    if (!positionCache.containsKey(market)) {
+                        // 복구 시 openedAt 사용 (없으면 현재 시각 - 그레이스 효과는 없음)
+                        long openedAtMs = pe.getOpenedAt() != null
+                                ? pe.getOpenedAt().toEpochMilli()
+                                : System.currentTimeMillis();
+                        double avg = pe.getAvgPrice().doubleValue();
+                        // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
+                        Integer pePhase = pe.getSplitPhase();
+                        int splitPhase = pePhase != null ? pePhase : 0;
+
+                        // V118: DB에 저장된 실제 peak/armed 우선 복원
+                        BigDecimal dbPeak = pe.getPeakPrice();
+                        double recPeak;
+                        double recArmed;
+                        if (dbPeak != null && dbPeak.signum() > 0) {
+                            recPeak = dbPeak.doubleValue();
+                            recArmed = (pe.getArmedAt() != null) ? 1.0 : 0.0;
+                            log.info("[MorningRush] V118 재시작 복구(DB): {} peak={} armed={} phase={}",
+                                    market, String.format(Locale.ROOT, "%.2f", recPeak),
+                                    recArmed > 0, splitPhase);
+                        } else {
+                            // V115 fallback: 현재가 기준 armed/peak 재판정
+                            double recPrice = sharedPriceService.getPrice(market);
+                            recPeak = avg;
+                            recArmed = 0;
+                            if (recPrice > 0 && splitPhase == 0) {
+                                double recPnl = (recPrice - avg) / avg * 100.0;
+                                recPeak = Math.max(avg, recPrice);
+                                if (recPnl >= cachedSplitTpPct) {
+                                    recArmed = 1.0;
+                                    log.info("[MorningRush] V115 fallback 복구: {} armed=1 pnl=+{}% peak={}",
+                                            market, String.format(Locale.ROOT, "%.2f", recPnl),
+                                            String.format(Locale.ROOT, "%.2f", recPeak));
+                                }
+                            }
                         }
+                        positionCache.put(market,
+                                new double[]{avg, pe.getQty().doubleValue(), openedAtMs, recPeak, avg, splitPhase, recArmed});
                     }
-                    positionCache.put(pe.getMarket(),
-                            new double[]{avg, pe.getQty().doubleValue(), openedAtMs, recPeak, avg, splitPhase, recArmed});
+                }
+            }
+            // V118: 제거된 포지션(청산 완료)은 캐시에서 제거
+            for (String market : new ArrayList<String>(positionCache.keySet())) {
+                if (!currentMarkets.contains(market)) {
+                    positionCache.remove(market);
+                }
+            }
+
+            // V118: 메모리 peak/armed → DB 영속화 (peak 0.3% 이상 상승 또는 armed 전환 시)
+            for (PositionEntity pe : allPos) {
+                if (!ENTRY_STRATEGY.equals(pe.getEntryStrategy())) continue;
+                String market = pe.getMarket();
+                double[] pos = positionCache.get(market);
+                if (pos == null || pos.length < 7) continue;
+                double avgPrice = pos[0];
+                if (avgPrice <= 0) continue;
+                double currentPeak = pos[3];
+                boolean currentArmed = pos[6] > 0;
+
+                BigDecimal dbPeak = pe.getPeakPrice();
+                boolean peakDirty;
+                if (dbPeak == null) {
+                    peakDirty = (currentPeak - avgPrice) / avgPrice * 100.0 >= 0.3;
+                } else {
+                    peakDirty = (currentPeak - dbPeak.doubleValue()) / avgPrice * 100.0 >= 0.3;
+                }
+                boolean armedDirty = currentArmed && pe.getArmedAt() == null;
+
+                if (peakDirty || armedDirty) {
+                    if (peakDirty) pe.setPeakPrice(BigDecimal.valueOf(currentPeak));
+                    if (armedDirty) pe.setArmedAt(Instant.now());
+                    try {
+                        positionRepo.save(pe);
+                    } catch (Exception ex) {
+                        log.warn("[MorningRush] V118 peak/armed save failed for {}", market, ex);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -1619,6 +1676,9 @@ public class MorningRushScannerService {
                         pe.setQty(BigDecimal.valueOf(fRemainQty));
                         pe.setSplitPhase(1);
                         pe.setSplitOriginalQty(BigDecimal.valueOf(totalQty));
+                        // V118: 1차 매도 후 peak/armed 리셋 — 2차 TRAIL은 매도가를 새 기준점으로 추적
+                        pe.setPeakPrice(BigDecimal.valueOf(fFillPrice));
+                        pe.setArmedAt(null);
                         positionRepo.save(pe);
                     }
                 }

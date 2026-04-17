@@ -452,6 +452,162 @@ public class OpeningDetectorSplitExitTest {
     }
 
     // ═══════════════════════════════════════════════════
+    //  V118-1: DB peak 우선 복원 (현재가 무시)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V118-1: DB peak=103.0, armed=true → getPeak()=103.0, isArmed()=true (DB 경로는 sps 미호출)")
+    void v118_dbPeakTakesPriority() {
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        // DB peak가 있으면 sps.getPrice 미호출이라 stub 불필요
+
+        OpeningBreakoutDetector det = new OpeningBreakoutDetector(sps);
+        det.setSplitExitEnabled(true);
+        det.setSplitTpPct(1.5);
+        det.setSplit1stTrailDropPct(0.5);
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-V118A", 100.0);
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-V118A", System.currentTimeMillis() - 300_000);
+        Map<String, Integer> splitPhases = new HashMap<String, Integer>();
+        splitPhases.put("KRW-V118A", 0);
+
+        // DB에 이전 peak=103.0 (+3%), armed=true 저장됨
+        Map<String, Double> dbPeaks = new HashMap<String, Double>();
+        dbPeaks.put("KRW-V118A", 103.0);
+        Map<String, Boolean> dbArmed = new HashMap<String, Boolean>();
+        dbArmed.put("KRW-V118A", true);
+
+        det.updatePositionCache(positions, openedAt, splitPhases, dbPeaks, dbArmed);
+
+        assertEquals(103.0, det.getPeak("KRW-V118A"), 0.0001, "DB peak 103.0 복원");
+        assertTrue(det.isArmed("KRW-V118A"), "DB armed=true 복원");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V118-2: DB peak=null → V115 fallback (현재가 재판정)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V118-2: dbPeaks=null + 현재가 +2% → V115 fallback로 armed=true, peak=현재가")
+    void v118_fallbackToV115WhenNoDbPeak() {
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        when(sps.getPrice("KRW-V118B")).thenReturn(102.0);  // +2% (splitTpPct 1.5 초과)
+
+        OpeningBreakoutDetector det = new OpeningBreakoutDetector(sps);
+        det.setSplitExitEnabled(true);
+        det.setSplitTpPct(1.5);
+        det.setSplit1stTrailDropPct(0.5);
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-V118B", 100.0);
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-V118B", System.currentTimeMillis() - 300_000);
+        Map<String, Integer> splitPhases = new HashMap<String, Integer>();
+        splitPhases.put("KRW-V118B", 0);
+
+        // DB peak/armed 없음 → V115 fallback
+        det.updatePositionCache(positions, openedAt, splitPhases, null, null);
+
+        assertEquals(102.0, det.getPeak("KRW-V118B"), 0.0001, "V115 fallback: 현재가 102로 peak 설정");
+        assertTrue(det.isArmed("KRW-V118B"), "V115 fallback: pnl +2% >= 1.5% → armed=true");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V118-3: DB peak 존재 + armed=false → getPeak=DB, isArmed=false
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V118-3: DB peak=101.0(+1%), armed=false (아직 splitTpPct 미도달) → armed=false 유지")
+    void v118_dbPeakBelowTpPctKeepsArmedFalse() {
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        // DB 경로는 sps 미호출
+
+        OpeningBreakoutDetector det = new OpeningBreakoutDetector(sps);
+        det.setSplitExitEnabled(true);
+        det.setSplitTpPct(1.5);
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-V118C", 100.0);
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-V118C", System.currentTimeMillis() - 300_000);
+        Map<String, Integer> splitPhases = new HashMap<String, Integer>();
+        splitPhases.put("KRW-V118C", 0);
+
+        Map<String, Double> dbPeaks = new HashMap<String, Double>();
+        dbPeaks.put("KRW-V118C", 101.0);  // +1% (splitTpPct 1.5 미달)
+        Map<String, Boolean> dbArmed = new HashMap<String, Boolean>();
+        dbArmed.put("KRW-V118C", false);
+
+        det.updatePositionCache(positions, openedAt, splitPhases, dbPeaks, dbArmed);
+
+        assertEquals(101.0, det.getPeak("KRW-V118C"), 0.0001, "DB peak 그대로 복원");
+        assertFalse(det.isArmed("KRW-V118C"), "DB armed=false 복원");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V118-4: DB peak=0 (invalid) → V115 fallback
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V118-4: DB peak=0 (invalid) → V115 fallback 로직 적용")
+    void v118_invalidDbPeakFallsBackToV115() {
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        when(sps.getPrice("KRW-V118D")).thenReturn(102.0);
+
+        OpeningBreakoutDetector det = new OpeningBreakoutDetector(sps);
+        det.setSplitExitEnabled(true);
+        det.setSplitTpPct(1.5);
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-V118D", 100.0);
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-V118D", System.currentTimeMillis() - 300_000);
+        Map<String, Integer> splitPhases = new HashMap<String, Integer>();
+        splitPhases.put("KRW-V118D", 0);
+
+        Map<String, Double> dbPeaks = new HashMap<String, Double>();
+        dbPeaks.put("KRW-V118D", 0.0);  // invalid → fallback
+        Map<String, Boolean> dbArmed = new HashMap<String, Boolean>();
+        dbArmed.put("KRW-V118D", false);
+
+        det.updatePositionCache(positions, openedAt, splitPhases, dbPeaks, dbArmed);
+
+        // V115 fallback → 현재가 102로 peak, armed=true (+2%)
+        assertEquals(102.0, det.getPeak("KRW-V118D"), 0.0001, "invalid DB → V115 fallback 현재가 사용");
+        assertTrue(det.isArmed("KRW-V118D"), "V115 fallback 재판정 armed=true");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V118-5: splitPhase=1 상태 + DB peak → peak 복원 유지 (2차 TRAIL 계속)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V118-5: 이미 1차 매도 완료(phase=1) + DB peak → peak 복원 (2차 TRAIL 연속성)")
+    void v118_phase1WithDbPeakPreserved() {
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        // DB 경로는 sps 미호출
+
+        OpeningBreakoutDetector det = new OpeningBreakoutDetector(sps);
+        det.setSplitExitEnabled(true);
+        det.setSplitTpPct(1.5);
+        det.setTrailDropAfterSplit(1.0);
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-V118E", 100.0);
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-V118E", System.currentTimeMillis() - 600_000);
+        Map<String, Integer> splitPhases = new HashMap<String, Integer>();
+        splitPhases.put("KRW-V118E", 1);  // 1차 완료 상태
+
+        Map<String, Double> dbPeaks = new HashMap<String, Double>();
+        dbPeaks.put("KRW-V118E", 105.0);  // 1차 매도 후 peak 계속 갱신된 상태
+        Map<String, Boolean> dbArmed = new HashMap<String, Boolean>();
+        dbArmed.put("KRW-V118E", false);  // 1차 후 armed 리셋됨
+
+        det.updatePositionCache(positions, openedAt, splitPhases, dbPeaks, dbArmed);
+
+        assertEquals(1, det.getSplitPhase("KRW-V118E"), "phase=1 유지");
+        assertEquals(105.0, det.getPeak("KRW-V118E"), 0.0001, "phase=1에서도 DB peak 복원");
+    }
+
+    // ═══════════════════════════════════════════════════
     //  Helper
     // ═══════════════════════════════════════════════════
     private void checkRealtimeTp(String market, double price) throws Exception {
