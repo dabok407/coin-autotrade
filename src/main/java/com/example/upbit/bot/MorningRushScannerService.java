@@ -125,7 +125,9 @@ public class MorningRushScannerService {
     private volatile boolean cachedSplitExitEnabled = false;
     private volatile double cachedSplitTpPct = 1.5;
     private volatile double cachedSplitRatio = 0.60;
-    private volatile double cachedTrailDropAfterSplit = 1.0;
+    private volatile double cachedTrailDropAfterSplit = 1.2;
+    // V115: 1차 매도 TRAIL drop % (split_tp_pct 도달 후 peak 대비 drop 시 1차 매도)
+    private volatile double cachedSplit1stTrailDrop = 0.5;
     private volatile String cachedMode = "PAPER";
     private volatile double cachedGapPct = 2.0;
     private volatile double cachedSurgePct = 3.0;
@@ -427,8 +429,8 @@ public class MorningRushScannerService {
         confirmCounts.remove(code);
         // 중복 진입 방지용 placeholder (실제 매수는 실패해도 OK)
         // 매수 성공 시 920행에서 정확한 데이터로 갱신됨
-        // [avgPrice, qty, openedAtMs, peakPrice, troughPrice]
-        positionCache.put(code, new double[]{price, 0, System.currentTimeMillis(), price, price, 0});
+        // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
+        positionCache.put(code, new double[]{price, 0, System.currentTimeMillis(), price, price, 0, 0});
 
         final String fCode = code;
         final double fPrice = price;
@@ -541,14 +543,28 @@ public class MorningRushScannerService {
         String reason = null;
         boolean isSplitFirst = false;
 
-        // ━━━ V111: Split-Exit 1차 매도 (splitPhase=0, +splitTpPct 도달) ━━━
-        if (cachedSplitExitEnabled && splitPhase == 0 && pnlPct >= cachedSplitTpPct) {
-            double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
-            sellType = "SPLIT_1ST";
-            isSplitFirst = true;
-            reason = String.format(Locale.ROOT,
-                    "SPLIT_1ST pnl=+%.2f%% >= %.2f%% avg=%.2f now=%.2f ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                    pnlPct, cachedSplitTpPct, avgPrice, price, cachedSplitRatio * 100, troughPrice, troughPnl);
+        // ━━━ V115: Split-Exit 1차 매도 TRAIL 방식 (splitPhase=0) ━━━
+        // (1) +splitTpPct 도달 → armed (매도 안 함, peak 추적 시작)
+        // (2) armed 상태에서 peak 대비 drop >= split_1st_trail_drop → SPLIT_1ST 매도
+        if (cachedSplitExitEnabled && splitPhase == 0 && pos.length >= 7) {
+            boolean armed = pos[6] > 0;
+            if (!armed && pnlPct >= cachedSplitTpPct) {
+                pos[6] = 1.0;  // 1차 trail armed
+                log.info("[MorningRush] SPLIT_1ST trail armed: {} pnl=+{}% peak={}",
+                        market, String.format(Locale.ROOT, "%.2f", pnlPct),
+                        String.format(Locale.ROOT, "%.2f", peakPrice));
+            } else if (armed && peakPrice > avgPrice) {
+                double dropFromPeakPct = (peakPrice - price) / peakPrice * 100.0;
+                if (dropFromPeakPct >= cachedSplit1stTrailDrop) {
+                    double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
+                    sellType = "SPLIT_1ST";
+                    isSplitFirst = true;
+                    reason = String.format(Locale.ROOT,
+                            "SPLIT_1ST_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=+%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                            avgPrice, peakPrice, price, dropFromPeakPct, cachedSplit1stTrailDrop,
+                            pnlPct, cachedSplitRatio * 100, troughPrice, troughPnl);
+                }
+            }
         }
         // ━━━ V111: Split 2차 관리 (splitPhase=1) ━━━
         else if (cachedSplitExitEnabled && splitPhase == 1) {
@@ -569,8 +585,12 @@ public class MorningRushScannerService {
                 }
             }
         }
-        // ━━━ 기존: splitExit 비활성 또는 splitPhase=-1 ━━━
-        else {
+        // ━━━ 기존 TP_TRAIL + SL 종합안 ━━━
+        // V115: splitPhase=1(2차 관리 중)이 아니면 항상 동작
+        // - splitExit 비활성 시 항상 동작
+        // - splitPhase=-1 (분할 불가) 시 동작
+        // - splitPhase=0에서 Split 1차 매도 미발동 시에도 SL 안전망으로 동작
+        if (sellType == null && splitPhase != 1) {
             // TP TRAIL 체크
             double peakPnlPct = (peakPrice - avgPrice) / avgPrice * 100.0;
             boolean trailActivated = peakPnlPct >= cachedTpPct;
@@ -620,7 +640,8 @@ public class MorningRushScannerService {
         if (isSplitFirst) {
             // ★ V111: 1차 매도 — 캐시 유지, splitPhase=1로 갱신
             pos[5] = 1.0;    // splitPhase=1
-            pos[3] = price;  // peak 리셋
+            pos[3] = price;  // peak 리셋 (2차 TRAIL 기준점)
+            if (pos.length >= 7) pos[6] = 0.0;  // V115: 1차 trail armed 리셋 (D)
         } else {
             positionCache.remove(market);
         }
@@ -681,9 +702,25 @@ public class MorningRushScannerService {
                             ? pe.getOpenedAt().toEpochMilli()
                             : System.currentTimeMillis();
                     double avg = pe.getAvgPrice().doubleValue();
-                    // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase]
+                    // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
+                    // V115: 재시작 복구 — 현재가 기준 armed/peak 재판정
+                    Integer pePhase = pe.getSplitPhase();
+                    int splitPhase = pePhase != null ? pePhase : 0;
+                    double recPrice = sharedPriceService.getPrice(pe.getMarket());
+                    double recPeak = avg;
+                    double recArmed = 0;
+                    if (recPrice > 0 && splitPhase == 0) {
+                        double recPnl = (recPrice - avg) / avg * 100.0;
+                        recPeak = Math.max(avg, recPrice);
+                        if (recPnl >= cachedSplitTpPct) {
+                            recArmed = 1.0;
+                            log.info("[MorningRush] 재시작 복구: {} armed=1 pnl=+{}% peak={}",
+                                    pe.getMarket(), String.format(Locale.ROOT, "%.2f", recPnl),
+                                    String.format(Locale.ROOT, "%.2f", recPeak));
+                        }
+                    }
                     positionCache.put(pe.getMarket(),
-                            new double[]{avg, pe.getQty().doubleValue(), openedAtMs, avg, avg, pe.getSplitPhase()});
+                            new double[]{avg, pe.getQty().doubleValue(), openedAtMs, recPeak, avg, splitPhase, recArmed});
                 }
             }
         } catch (Exception e) {
@@ -740,6 +777,7 @@ public class MorningRushScannerService {
         cachedSplitTpPct = cfg.getSplitTpPct().doubleValue();
         cachedSplitRatio = cfg.getSplitRatio().doubleValue();
         cachedTrailDropAfterSplit = cfg.getTrailDropAfterSplit().doubleValue();
+        cachedSplit1stTrailDrop = cfg.getSplit1stTrailDrop().doubleValue();  // V115
         cachedGapPct = cfg.getGapThresholdPct().doubleValue();
         cachedSurgePct = cfg.getSurgeThresholdPct().doubleValue();
         cachedSurgeWindowSec = cfg.getSurgeWindowSec();
@@ -1120,9 +1158,9 @@ public class MorningRushScannerService {
                         executeBuy(market, price, reason, cfg, orderKrw, isLive);
                         hourlyThrottle.recordBuy(market);
                         rushPosCount++;
-                        // 실시간 TP/SL 캐시에 추가 [avgPrice, qty, openedAtMs, peakPrice, troughPrice]
+                        // 실시간 TP/SL 캐시에 추가 [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
                         long openedAtMs = System.currentTimeMillis();
-                        positionCache.put(market, new double[]{price, 0, openedAtMs, price, price, 0});
+                        positionCache.put(market, new double[]{price, 0, openedAtMs, price, price, 0, 0});
                         cachedTpPct = cfg.getTpPct().doubleValue();
                         cachedSlPct = cfg.getSlPct().doubleValue();
                         cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
@@ -1196,7 +1234,11 @@ public class MorningRushScannerService {
             String sellType = null;
 
             // 1. TP 우선
-            if (pnlPct >= tpPct) {
+            // V118: splitExitEnabled=true면 고정 TP 전면 skip (splitPhase 무관)
+            //  - 고정 TP 즉시매도가 TRAIL armed를 선점해 Split-Exit 무효화하는 버그 차단
+            //  - 1차/2차 매도 모두 realtime checkRealtimeTpSl의 TRAIL(armed → peak → drop)에 위임
+            //  - tpPct는 이제 WS realtime에서 "TRAIL arm 임계값" 의미로만 사용
+            if (!cfg.isSplitExitEnabled() && pnlPct >= tpPct) {
                 sellReason = String.format(Locale.ROOT,
                         "TP pnl=%.2f%% >= target=%.2f%% price=%.2f avg=%.2f",
                         pnlPct, tpPct, currentPrice, avgPrice);

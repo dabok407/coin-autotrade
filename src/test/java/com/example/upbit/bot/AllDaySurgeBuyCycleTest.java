@@ -224,8 +224,9 @@ public class AllDaySurgeBuyCycleTest {
 
         assertTrue(cache.containsKey("KRW-SYNC0"), "캐시 복원됨");
         double[] pos = cache.get("KRW-SYNC0");
-        assertEquals(6, pos.length, "6요소 배열");
+        assertEquals(7, pos.length, "V115: 7요소 배열");
         assertEquals(0, (int) pos[5], "splitPhase=0 복원");
+        assertEquals(0, (int) pos[6], "V115: split1stTrailArmed=0 초기");
         assertEquals(100.0, pos[0], 0.01, "avgPrice=100");
     }
 
@@ -247,7 +248,7 @@ public class AllDaySurgeBuyCycleTest {
     @DisplayName("S08: syncTpWebSocket — 없어진 포지션 캐시 제거")
     public void s08_syncRemovesGonePositions() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpCache();
-        cache.put("KRW-GONE", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis(), 0});
+        cache.put("KRW-GONE", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis(), 0, 0});
 
         // 빈 포지션 목록으로 sync → KRW-GONE 제거
         invokeSync(Collections.<PositionEntity>emptyList());

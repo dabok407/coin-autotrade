@@ -150,7 +150,11 @@ public class OpeningScannerConfigEntity {
     private BigDecimal splitRatio = BigDecimal.valueOf(0.50);
 
     @Column(name = "trail_drop_after_split", nullable = false, precision = 5, scale = 2)
-    private BigDecimal trailDropAfterSplit = BigDecimal.valueOf(1.0);
+    private BigDecimal trailDropAfterSplit = BigDecimal.valueOf(1.2);
+
+    /** V115: Split-Exit 1차 매도 TRAIL drop %. split_tp_pct 도달 후 peak 대비 drop 시 1차 매도. */
+    @Column(name = "split_1st_trail_drop", nullable = false, precision = 5, scale = 2)
+    private BigDecimal split1stTrailDrop = BigDecimal.valueOf(0.5);
 
     // ========== Getters & Setters ==========
 
@@ -282,7 +286,10 @@ public class OpeningScannerConfigEntity {
     public void setSplitRatio(BigDecimal v) { this.splitRatio = v != null ? v : BigDecimal.valueOf(0.60); }
 
     public BigDecimal getTrailDropAfterSplit() { return trailDropAfterSplit; }
-    public void setTrailDropAfterSplit(BigDecimal v) { this.trailDropAfterSplit = v != null ? v : BigDecimal.valueOf(1.0); }
+    public void setTrailDropAfterSplit(BigDecimal v) { this.trailDropAfterSplit = v != null ? v : BigDecimal.valueOf(1.2); }
+
+    public BigDecimal getSplit1stTrailDrop() { return split1stTrailDrop; }
+    public void setSplit1stTrailDrop(BigDecimal v) { this.split1stTrailDrop = v != null ? v : BigDecimal.valueOf(0.5); }
 
     /**
      * 거래대금 순위에 따라 SL_WIDE 값 반환.

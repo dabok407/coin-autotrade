@@ -86,7 +86,7 @@ public class MorningRushScenarioIntegrationTest {
     private boolean runScenario(double avgPrice, long openedSecAgo, PriceTick[] ticks) throws Exception {
         long now = System.currentTimeMillis();
         long openedAt = now - openedSecAgo * 1000L;
-        getPositionCache().put("KRW-TEST", new double[]{avgPrice, 1.0, openedAt, avgPrice, 0});
+        getPositionCache().put("KRW-TEST", new double[]{avgPrice, 1.0, openedAt, avgPrice, avgPrice, 0, 0});
 
         for (PriceTick tick : ticks) {
             // 시간 조작: openedAt을 elapsedSec 만큼 과거로 옮김
@@ -264,7 +264,7 @@ public class MorningRushScenarioIntegrationTest {
         // (별도 시나리오로)
         getPositionCache().clear();
         long now = System.currentTimeMillis();
-        getPositionCache().put("KRW-TEST", new double[]{100.0, 1.0, now - 1860_000L, 100.0, 0});
+        getPositionCache().put("KRW-TEST", new double[]{100.0, 1.0, now - 1860_000L, 100.0, 100.0, 0, 0});
         invokeCheckRealtimeTpSl("KRW-TEST", 96.5);
         assertFalse(getPositionCache().containsKey("KRW-TEST"),
                 "31분 -3.5%는 SL_TIGHT 3% 발동");

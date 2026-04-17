@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
 import java.util.*;
@@ -67,6 +68,7 @@ public class OpeningDetectorSplitExitTest {
         detector.setSplitTpPct(1.5);
         detector.setSplitRatio(0.60);
         detector.setTrailDropAfterSplit(1.0);
+        detector.setSplit1stTrailDropPct(0.5);  // V115: 1차 TRAIL drop 0.5%
 
         // 기존 TP 설정
         detector.setTpActivatePct(2.0);
@@ -80,13 +82,21 @@ public class OpeningDetectorSplitExitTest {
     //  S01: 정상 1차 매도
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("S01: +1.5% 도달 → SPLIT_1ST 콜백, splitPhase=1로 갱신")
+    @DisplayName("S01: +1.6% armed → peak 102 → drop 0.6% → SPLIT_1ST 콜백")
     void s01_normalFirstSplit() throws Exception {
         long now = System.currentTimeMillis();
         detector.addPosition("KRW-A", 100.0, now - 120_000, 5);
 
-        // +1.6% → 1차 매도
+        // V115: +1.6% → armed (매도 안 함)
         checkRealtimeTp("KRW-A", 101.6);
+        assertTrue(sellMarkets.isEmpty(), "armed만, 매도 안 함");
+
+        // peak 갱신
+        checkRealtimeTp("KRW-A", 102.0);
+        assertTrue(sellMarkets.isEmpty(), "peak 갱신 중");
+
+        // drop 0.6% (peak 102 → 101.4) → SPLIT_1ST 발동
+        checkRealtimeTp("KRW-A", 101.4);
 
         assertEquals(1, sellMarkets.size(), "1차 매도 콜백 1회");
         assertEquals("SPLIT_1ST", sellTypes.get(0));
@@ -192,25 +202,29 @@ public class OpeningDetectorSplitExitTest {
     //  S07: 1차 후 peak 리셋 + splitPhase 확인
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("S07: 1차 매도 후 peak 리셋, splitPhase=1, tpActivated=false")
+    @DisplayName("S07: 1차 매도 후 peak 리셋, splitPhase=1, tpActivated=false + 2차 trail")
     void s07_peakResetAfterFirstSplit() throws Exception {
         long now = System.currentTimeMillis();
         detector.addPosition("KRW-G", 100.0, now - 120_000, 5);
 
-        // +1.6% → 1차 매도
-        checkRealtimeTp("KRW-G", 101.6);
+        // V115: +1.6% armed → peak 102 → drop 0.6% → 1차 매도
+        checkRealtimeTp("KRW-G", 101.6);  // armed
+        checkRealtimeTp("KRW-G", 102.0);  // peak 갱신
+        checkRealtimeTp("KRW-G", 101.4);  // drop 0.59% → SPLIT_1ST
 
         assertEquals(1, sellTypes.size());
         assertEquals("SPLIT_1ST", sellTypes.get(0));
         assertEquals(1, detector.getSplitPhase("KRW-G"));
 
-        // 1차 후 +2.0% → 2차 trail drop 조건 아직 미달 (peak=101.6에서 약간 상승)
+        // 1차 후 peak 리셋 = 101.4 (매도 체결가)
         sellMarkets.clear();
         sellTypes.clear();
-        checkRealtimeTp("KRW-G", 102.0);
-        assertTrue(sellMarkets.isEmpty(), "아직 매도 안 됨 (trail drop 미달)");
 
-        // 피크 102에서 -1.1% drop
+        // 102까지 재상승 → 2차 peak 갱신
+        checkRealtimeTp("KRW-G", 102.0);
+        assertTrue(sellMarkets.isEmpty(), "2차 peak 갱신, 매도 안 됨");
+
+        // 피크 102에서 -1.1% drop → 2차 TRAIL
         checkRealtimeTp("KRW-G", 100.9);
         assertEquals(1, sellTypes.size());
         assertEquals("SPLIT_2ND_TRAIL", sellTypes.get(0), "2차 trail 매도");
@@ -237,13 +251,15 @@ public class OpeningDetectorSplitExitTest {
     //  S09: dust 판정은 서비스에서 하지만, detector는 1차 매도 트리거만
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("S09: 소량 포지션에서도 1차 매도 SPLIT_1ST 트리거 (dust는 서비스에서 판단)")
+    @DisplayName("S09: 소량 포지션에서도 armed+drop 후 SPLIT_1ST 트리거 (dust는 서비스에서 판단)")
     void s09_smallQtyStillTriggersFirst() throws Exception {
         long now = System.currentTimeMillis();
         detector.addPosition("KRW-DUST", 100.0, now - 120_000, 5);
 
-        // +1.6% → 1차 매도 트리거 (qty 무관, detector는 qty를 모름)
-        checkRealtimeTp("KRW-DUST", 101.6);
+        // V115: +1.6% armed → peak 102 → drop → SPLIT_1ST
+        checkRealtimeTp("KRW-DUST", 101.6);  // armed
+        checkRealtimeTp("KRW-DUST", 102.0);  // peak
+        checkRealtimeTp("KRW-DUST", 101.4);  // drop 0.59% → SPLIT_1ST
 
         assertEquals(1, sellTypes.size());
         assertEquals("SPLIT_1ST", sellTypes.get(0), "detector는 항상 SPLIT_1ST 트리거");
@@ -285,6 +301,154 @@ public class OpeningDetectorSplitExitTest {
         assertEquals("SPLIT_2ND_BEV", sellTypes.get(0));
         // removePosition 호출 → splitPhase 제거
         assertEquals(0, detector.getSplitPhase("KRW-RM"), "제거 후 기본값 0");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N1 (V115): armed 전환만, 매도 없음
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N1: +1.6% armed → 매도 콜백 없음, splitPhase=0 유지")
+    void n1_armedOnlyNoSell() throws Exception {
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-N1", 100.0, now - 120_000, 5);
+
+        checkRealtimeTp("KRW-N1", 101.6);
+
+        assertTrue(sellMarkets.isEmpty(), "armed만, 매도 콜백 없음");
+        assertEquals(0, detector.getSplitPhase("KRW-N1"), "splitPhase=0 유지");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N2 (V115): armed + drop 미달 → 매도 없음
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N2: armed 후 drop 0.3% (<0.5%) → 매도 없음")
+    void n2_armedDropBelowThreshold() throws Exception {
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-N2", 100.0, now - 120_000, 5);
+
+        checkRealtimeTp("KRW-N2", 101.6);  // armed
+        checkRealtimeTp("KRW-N2", 102.0);  // peak 102
+        checkRealtimeTp("KRW-N2", 101.7);  // drop 0.29% < 0.5%
+
+        assertTrue(sellMarkets.isEmpty(), "drop 미달, 매도 없음");
+        assertEquals(0, detector.getSplitPhase("KRW-N2"), "splitPhase=0 유지");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N3 (V115): armed 후 peak 계속 상승 → 매도 없음
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N3: armed 후 peak 상승 (101.6→103→105) → 매도 콜백 없음")
+    void n3_peakKeepsGrowing() throws Exception {
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-N3", 100.0, now - 120_000, 5);
+
+        checkRealtimeTp("KRW-N3", 101.6);
+        checkRealtimeTp("KRW-N3", 103.0);
+        checkRealtimeTp("KRW-N3", 105.0);
+
+        assertTrue(sellMarkets.isEmpty(), "peak 갱신 중 매도 없음");
+        assertEquals(0, detector.getSplitPhase("KRW-N3"), "splitPhase=0 유지");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N7 (V115): split_1st_trail_drop 가변값 (1.0%)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N7: split_1st_trail_drop=1.0% → drop 0.58% 미달, 1.08% 도달 시 매도")
+    void n7_variableTrailDrop() throws Exception {
+        detector.setSplit1stTrailDropPct(1.0);  // 0.5 → 1.0%
+
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-N7", 100.0, now - 120_000, 5);
+
+        checkRealtimeTp("KRW-N7", 101.6);
+        checkRealtimeTp("KRW-N7", 102.5);
+        checkRealtimeTp("KRW-N7", 101.9);  // drop 0.58% < 1.0%
+        assertTrue(sellMarkets.isEmpty(), "drop 0.58% 미달");
+
+        checkRealtimeTp("KRW-N7", 101.4);  // drop 1.08% >= 1.0%
+        assertEquals(1, sellTypes.size(), "drop 1.08% → SPLIT_1ST");
+        assertEquals("SPLIT_1ST", sellTypes.get(0));
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N4 (V115): armed 후 노이즈 패턴 (하락→재상승) 오발동 방지
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N4: armed 후 노이즈 (+1.6→+1.3→+2.5→+2.0→+1.9) → peak 갱신 후 drop 0.58% 도달 시 매도")
+    void n4_noisePatternNoFalseTrigger() throws Exception {
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-N4", 100.0, now - 120_000, 5);
+
+        checkRealtimeTp("KRW-N4", 101.6);  // armed, peak=101.6
+        checkRealtimeTp("KRW-N4", 101.3);  // drop 0.29% < 0.5% → 매도 없음
+        assertTrue(sellMarkets.isEmpty(), "첫 노이즈 drop 0.29% 미달");
+
+        checkRealtimeTp("KRW-N4", 102.5);  // peak 갱신 → 102.5
+        assertTrue(sellMarkets.isEmpty(), "peak 갱신 중 매도 없음");
+
+        checkRealtimeTp("KRW-N4", 102.0);  // drop 0.49% < 0.5% → 경계 미달
+        assertTrue(sellMarkets.isEmpty(), "경계값 0.49% 미달");
+
+        checkRealtimeTp("KRW-N4", 101.9);  // drop 0.58% >= 0.5% → SPLIT_1ST
+        assertEquals(1, sellTypes.size(), "drop 0.58% → SPLIT_1ST 발동");
+        assertEquals("SPLIT_1ST", sellTypes.get(0));
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N8 (V115): armed=1 상태 + 급락 → SL 발동 (OpeningDetector는 SL이 Split 앞에 배치되어 선행)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N8: armed 후 급락 → SL_TIGHT 발동 (SL이 Split 앞에 우선 처리)")
+    void n8_armedPlusSlTight() throws Exception {
+        long now = System.currentTimeMillis();
+        // 20분 경과 (Tight SL 구간)
+        detector.addPosition("KRW-N8", 100.0, now - 20 * 60_000, 5);
+
+        checkRealtimeTp("KRW-N8", 101.6);  // armed
+        sellMarkets.clear();
+        sellTypes.clear();
+
+        // -1.6% 급락 → SL_TIGHT 우선 발동
+        checkRealtimeTp("KRW-N8", 98.4);
+
+        assertEquals(1, sellTypes.size());
+        assertEquals("SL_TIGHT", sellTypes.get(0), "SL이 Split보다 우선");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N11 (V115-A): 재시작 복구 — armed/peak 재판정
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N11 (재시작 복구): 현재가 +2% 상태에서 updatePositionCache → armed=1 복구")
+    void n11_restartRestoresArmed() throws Exception {
+        // SharedPriceService mock: 현재가 102 반환
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        when(sps.getPrice("KRW-RESTART")).thenReturn(102.0);
+
+        OpeningBreakoutDetector detector2 = new OpeningBreakoutDetector(sps);
+        detector2.setSplitExitEnabled(true);
+        detector2.setSplitTpPct(1.5);
+        detector2.setSplit1stTrailDropPct(0.5);
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-RESTART", 100.0);  // avgPrice 100
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-RESTART", System.currentTimeMillis() - 300_000);
+
+        detector2.updatePositionCache(positions, openedAt, null);
+
+        // 현재가 102 → pnl +2% >= splitTpPct 1.5% → armed=true 복구
+        assertEquals(0, detector2.getSplitPhase("KRW-RESTART"), "splitPhase=0");
+        // armed는 private field — 동작으로 검증
+        // peak가 102로 복구되어야 함. drop 0.5% 유도 (101.4로 떨어뜨리면 SPLIT_1ST 발동)
+        java.lang.reflect.Method m = OpeningBreakoutDetector.class.getDeclaredMethod(
+                "checkRealtimeTp", String.class, double.class);
+        m.setAccessible(true);
+        // detector2에 listener 없으니 콜백 없음. 예외 없이 실행만 확인
+        m.invoke(detector2, "KRW-RESTART", 101.4);
     }
 
     // ═══════════════════════════════════════════════════

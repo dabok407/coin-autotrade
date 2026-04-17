@@ -478,6 +478,7 @@ public class OpeningScannerService {
         breakoutDetector.setSplitTpPct(cfg.getSplitTpPct().doubleValue());
         breakoutDetector.setSplitRatio(cfg.getSplitRatio().doubleValue());
         breakoutDetector.setTrailDropAfterSplit(cfg.getTrailDropAfterSplit().doubleValue());
+        breakoutDetector.setSplit1stTrailDropPct(cfg.getSplit1stTrailDrop().doubleValue());  // V115
 
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);

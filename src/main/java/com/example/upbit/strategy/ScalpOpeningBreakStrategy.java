@@ -370,12 +370,17 @@ public class ScalpOpeningBreakStrategy implements TradingStrategy {
         //   - 재활성화 전 반드시 사용자 동의 필수
         // ════════════════════════════════════════════════════════════════
         if (OPEN_TP_ENABLED) {
-        double tpPrice = avgPrice + tpAtrMult * atr;
-        if (last.high_price >= tpPrice) {
-            double tpPnl = ((tpPrice - avgPrice) / avgPrice) * 100.0;
-            String reason = String.format(Locale.ROOT,
-                    "OPEN_TP avg=%.2f tp=%.2f pnl=%.2f%%", avgPrice, tpPrice, tpPnl);
-            return Signal.of(SignalAction.SELL, type(), reason);
+        // V115: splitPhase=1(1차 매도 완료)이면 OPEN_TP skip — 2차 매도는 realtime TRAIL/BEV에 위임
+        Integer pePhase = ctx.position != null ? ctx.position.getSplitPhase() : null;
+        int splitPhase = pePhase != null ? pePhase : 0;
+        if (splitPhase != 1) {
+            double tpPrice = avgPrice + tpAtrMult * atr;
+            if (last.high_price >= tpPrice) {
+                double tpPnl = ((tpPrice - avgPrice) / avgPrice) * 100.0;
+                String reason = String.format(Locale.ROOT,
+                        "OPEN_TP avg=%.2f tp=%.2f pnl=%.2f%%", avgPrice, tpPrice, tpPnl);
+                return Signal.of(SignalAction.SELL, type(), reason);
+            }
         }
         }
 

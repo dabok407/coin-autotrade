@@ -123,6 +123,7 @@ public class OpeningScannerApiController {
         if (body.containsKey("splitTpPct")) cfg.setSplitTpPct(toBD(body.get("splitTpPct")));
         if (body.containsKey("splitRatio")) cfg.setSplitRatio(toBD(body.get("splitRatio")));
         if (body.containsKey("trailDropAfterSplit")) cfg.setTrailDropAfterSplit(toBD(body.get("trailDropAfterSplit")));
+        if (body.containsKey("split1stTrailDrop")) cfg.setSplit1stTrailDrop(toBD(body.get("split1stTrailDrop")));
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
@@ -276,6 +277,7 @@ public class OpeningScannerApiController {
         m.put("splitTpPct", cfg.getSplitTpPct());
         m.put("splitRatio", cfg.getSplitRatio());
         m.put("trailDropAfterSplit", cfg.getTrailDropAfterSplit());
+        m.put("split1stTrailDrop", cfg.getSplit1stTrailDrop());
         return m;
     }
 

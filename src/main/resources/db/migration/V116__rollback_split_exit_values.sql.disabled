@@ -1,0 +1,11 @@
+-- [DISABLED] Rollback SQL for V114/V115
+-- 파일명에 .disabled 접미사가 붙어있어 Flyway가 실행하지 않음.
+-- 롤백 필요시: 접미사 제거 → V117__rollback_split_exit_values.sql로 변경 → 배포
+-- 효과:
+--   - split_ratio 0.40 → 0.50 (V112 이전 50:50 복구)
+--   - trail_drop_after_split 1.2 → 1.0 (V111 이전 기본값 복구)
+--   - split_1st_trail_drop 0.5 → 0.0 (기본값 0%는 armed 즉시 매도 = 기존 고정 트리거와 동등)
+
+UPDATE morning_rush_config    SET split_ratio = 0.50, trail_drop_after_split = 1.0, split_1st_trail_drop = 0.0 WHERE id = 1;
+UPDATE opening_scanner_config SET split_ratio = 0.50, trail_drop_after_split = 1.0, split_1st_trail_drop = 0.0 WHERE id = 1;
+UPDATE allday_scanner_config  SET split_ratio = 0.50, trail_drop_after_split = 1.0, split_1st_trail_drop = 0.0 WHERE id = 1;

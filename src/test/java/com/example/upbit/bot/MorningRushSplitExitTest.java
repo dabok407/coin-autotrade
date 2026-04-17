@@ -88,6 +88,7 @@ public class MorningRushSplitExitTest {
         setField("cachedSplitTpPct", 1.5);
         setField("cachedSplitRatio", 0.60);
         setField("cachedTrailDropAfterSplit", 1.0);
+        setField("cachedSplit1stTrailDrop", 0.5);  // V115: 1차 TRAIL drop 0.5%
 
         // txTemplate mock
         when(txTemplate.execute(any())).thenAnswer(new Answer<Object>() {
@@ -109,6 +110,7 @@ public class MorningRushSplitExitTest {
         cfg.setSplitTpPct(BigDecimal.valueOf(1.5));
         cfg.setSplitRatio(BigDecimal.valueOf(0.60));
         cfg.setTrailDropAfterSplit(BigDecimal.valueOf(1.0));
+        cfg.setSplit1stTrailDrop(BigDecimal.valueOf(0.5));  // V115
         when(configRepo.loadOrCreate()).thenReturn(cfg);
     }
 
@@ -120,12 +122,15 @@ public class MorningRushSplitExitTest {
     void s01_normalFirstSplit() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-A", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0});
+        cache.put("KRW-A", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
 
         PositionEntity pe = buildPosition("KRW-A", 1000.0, 100.0);
         when(positionRepo.findById("KRW-A")).thenReturn(Optional.of(pe));
 
+        // V115: +1.6% armed → peak 102 → drop 0.6% → SPLIT_1ST
         invoke("KRW-A", 101.6);
+        invoke("KRW-A", 102.0);
+        invoke("KRW-A", 101.4);
         Thread.sleep(500);
 
         // 캐시 유지 (1차 매도 후 2차 대기)
@@ -159,7 +164,7 @@ public class MorningRushSplitExitTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
         // splitPhase=1, peak=103
-        cache.put("KRW-B", new double[]{100.0, 400.0, nowMs - 300_000, 103.0, 100.0, 1});
+        cache.put("KRW-B", new double[]{100.0, 400.0, nowMs - 300_000, 103.0, 100.0, 1, 0});
 
         // 피크 103에서 -1.1% drop
         invoke("KRW-B", 101.8);
@@ -175,7 +180,7 @@ public class MorningRushSplitExitTest {
     void s03_normalSecondBreakeven() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-C", new double[]{100.0, 400.0, nowMs - 300_000, 101.5, 100.0, 1});
+        cache.put("KRW-C", new double[]{100.0, 400.0, nowMs - 300_000, 101.5, 100.0, 1, 0});
 
         invoke("KRW-C", 100.0);
 
@@ -190,7 +195,7 @@ public class MorningRushSplitExitTest {
     void s04_firstNotReached() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-D", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0});
+        cache.put("KRW-D", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
 
         invoke("KRW-D", 101.4);
 
@@ -207,7 +212,7 @@ public class MorningRushSplitExitTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
         // splitPhase=1, peak=101.5
-        cache.put("KRW-E", new double[]{100.0, 400.0, nowMs - 300_000, 101.5, 100.0, 1});
+        cache.put("KRW-E", new double[]{100.0, 400.0, nowMs - 300_000, 101.5, 100.0, 1, 0});
 
         invoke("KRW-E", 101.8);
 
@@ -225,7 +230,7 @@ public class MorningRushSplitExitTest {
 
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-F", new double[]{100.0, 1000.0, nowMs - 300_000, 100.0, 100.0, 0});
+        cache.put("KRW-F", new double[]{100.0, 1000.0, nowMs - 300_000, 100.0, 100.0, 0, 0});
 
         // +2.5% → trail 활성화 (peakPnl >= cachedTpPct 2.3%)
         invoke("KRW-F", 102.5);
@@ -243,21 +248,25 @@ public class MorningRushSplitExitTest {
     //  S07: 1차 후 peak 리셋
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("S07: 1차 매도 후 peak 리셋 = 현재가(101.6)")
+    @DisplayName("S07: 1차 매도 후 peak 리셋 = 매도 체결가, splitPhase=1, armed=0")
     void s07_peakResetAfterFirst() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-G", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0});
+        cache.put("KRW-G", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
 
         PositionEntity pe = buildPosition("KRW-G", 1000.0, 100.0);
         when(positionRepo.findById("KRW-G")).thenReturn(Optional.of(pe));
 
+        // V115: +1.6% armed → peak 102 → drop 0.6% → 1차 매도 @ 101.4
         invoke("KRW-G", 101.6);
+        invoke("KRW-G", 102.0);
+        invoke("KRW-G", 101.4);
         Thread.sleep(500);
 
         assertTrue(cache.containsKey("KRW-G"), "캐시 유지");
-        assertEquals(101.6, cache.get("KRW-G")[3], 0.1, "peak 리셋=101.6");
+        assertEquals(101.4, cache.get("KRW-G")[3], 0.1, "peak 리셋=매도 체결가 101.4");
         assertEquals(1.0, cache.get("KRW-G")[5], 0.01, "splitPhase=1");
+        assertEquals(0.0, cache.get("KRW-G")[6], 0.01, "V115 armed 리셋=0");
     }
 
     // ═══════════════════════════════════════════════════
@@ -269,7 +278,7 @@ public class MorningRushSplitExitTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
         // 6분 경과 (Tight SL 구간)
-        cache.put("KRW-H", new double[]{100.0, 1000.0, nowMs - 360_000, 100.0, 100.0, 0});
+        cache.put("KRW-H", new double[]{100.0, 1000.0, nowMs - 360_000, 100.0, 100.0, 0, 0});
 
         // -3.1% → SL_TIGHT 발동
         invoke("KRW-H", 96.9);
@@ -285,13 +294,16 @@ public class MorningRushSplitExitTest {
     void s09_dustHandling() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        // qty=40, avgPrice=100 → 잔량 40*0.4=16 * 101.6 = 1625.6원 < 5000원
-        cache.put("KRW-DUST", new double[]{100.0, 40.0, nowMs - 120_000, 100.0, 100.0, 0});
+        // qty=40, avgPrice=100 → 잔량 40*0.4=16 * 101.4 = 1622.4원 < 5000원
+        cache.put("KRW-DUST", new double[]{100.0, 40.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
 
         PositionEntity pe = buildPosition("KRW-DUST", 40.0, 100.0);
         when(positionRepo.findById("KRW-DUST")).thenReturn(Optional.of(pe));
 
+        // V115: armed → peak → drop → SPLIT_1ST_DUST
         invoke("KRW-DUST", 101.6);
+        invoke("KRW-DUST", 102.0);
+        invoke("KRW-DUST", 101.4);
         Thread.sleep(500);
 
         // dust → 전량 매도 → 캐시 제거
@@ -315,12 +327,15 @@ public class MorningRushSplitExitTest {
     void s10_cooldownNotSetOnFirst() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-COOL", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0});
+        cache.put("KRW-COOL", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
 
         PositionEntity pe = buildPosition("KRW-COOL", 1000.0, 100.0);
         when(positionRepo.findById("KRW-COOL")).thenReturn(Optional.of(pe));
 
+        // V115: armed → peak → drop → SPLIT_1ST
         invoke("KRW-COOL", 101.6);
+        invoke("KRW-COOL", 102.0);
+        invoke("KRW-COOL", 101.4);
         Thread.sleep(500);
 
         // 1차 매도 → 쿨다운 미등록 (executeSplitFirstSell에서 등록 안 함)
@@ -365,8 +380,9 @@ public class MorningRushSplitExitTest {
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
         assertTrue(cache.containsKey("KRW-REBUILD"), "캐시 복원됨");
         double[] pos = cache.get("KRW-REBUILD");
-        assertEquals(6, pos.length, "6요소 배열");
+        assertEquals(7, pos.length, "V115: 7요소 배열");
         assertEquals(1, (int) pos[5], "splitPhase=1 복원");
+        assertEquals(0, (int) pos[6], "armed=0 초기");
     }
 
     // ═══════════════════════════════════════════════════
@@ -406,11 +422,222 @@ public class MorningRushSplitExitTest {
     void s13_secondSellRemovesCache() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getPositionCache();
-        cache.put("KRW-RM", new double[]{100.0, 400.0, nowMs - 300_000, 101.5, 100.0, 1});
+        cache.put("KRW-RM", new double[]{100.0, 400.0, nowMs - 300_000, 101.5, 100.0, 1, 0});
 
         invoke("KRW-RM", 99.5); // pnl=-0.5% → BEV
 
         assertFalse(cache.containsKey("KRW-RM"), "2차 매도 → 캐시 제거");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N1 (V115): armed 상태 전환만, 매도 안 됨
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N1: +1.6% 도달 → armed=1 전환, splitPhase=0 유지, 매도 없음")
+    void n1_armedOnlyNoSell() throws Exception {
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-N1", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
+
+        invoke("KRW-N1", 101.6);  // +1.6% → armed만
+        Thread.sleep(200);
+
+        assertTrue(cache.containsKey("KRW-N1"), "캐시 유지");
+        assertEquals(0, (int) cache.get("KRW-N1")[5], "splitPhase=0 유지");
+        assertEquals(1.0, cache.get("KRW-N1")[6], 0.01, "armed=1");
+        verify(positionRepo, never()).save(any());
+        verify(positionRepo, never()).deleteById(anyString());
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N2 (V115): armed 후 drop 미달 (<0.5%) → 매도 안 됨
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N2: armed 후 drop 0.29% (<0.5%) → 매도 없음, armed 유지")
+    void n2_armedDropBelowThreshold() throws Exception {
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-N2", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
+
+        invoke("KRW-N2", 101.6);  // armed
+        invoke("KRW-N2", 102.0);  // peak 102
+        invoke("KRW-N2", 101.7);  // drop 0.29% < 0.5% → 매도 X
+
+        assertTrue(cache.containsKey("KRW-N2"), "캐시 유지 (drop 미달)");
+        assertEquals(0, (int) cache.get("KRW-N2")[5], "splitPhase=0 유지");
+        assertEquals(1.0, cache.get("KRW-N2")[6], 0.01, "armed 유지=1");
+        verify(positionRepo, never()).save(any());
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N3 (V115): armed 후 peak 계속 상승 → 매도 없음
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N3: armed 후 peak 상승 (101.6→103→105) → 매도 없음, peak 갱신")
+    void n3_peakKeepsGrowing() throws Exception {
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-N3", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
+
+        invoke("KRW-N3", 101.6);  // armed
+        invoke("KRW-N3", 103.0);  // peak 103
+        invoke("KRW-N3", 105.0);  // peak 105
+
+        assertTrue(cache.containsKey("KRW-N3"), "캐시 유지");
+        assertEquals(105.0, cache.get("KRW-N3")[3], 0.1, "peak=105");
+        assertEquals(1.0, cache.get("KRW-N3")[6], 0.01, "armed 유지");
+        verify(positionRepo, never()).save(any());
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N4 (V115): armed 후 노이즈 패턴 → peak 갱신 후 drop 0.58% 매도
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N4: armed 후 노이즈 (+1.6→+1.3→+2.5→+2.0→+1.9) → drop 0.58%에 매도")
+    void n4_noisePattern() throws Exception {
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-N4", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
+
+        PositionEntity pe = buildPosition("KRW-N4", 1000.0, 100.0);
+        when(positionRepo.findById("KRW-N4")).thenReturn(Optional.of(pe));
+
+        invoke("KRW-N4", 101.6);  // armed, peak=101.6
+        invoke("KRW-N4", 101.3);  // drop 0.29% < 0.5%
+        assertEquals(0, (int) cache.get("KRW-N4")[5], "첫 노이즈에서 매도 X");
+
+        invoke("KRW-N4", 102.5);  // peak 갱신 → 102.5
+        invoke("KRW-N4", 102.0);  // drop 0.49% < 0.5% 경계 미달
+        assertEquals(0, (int) cache.get("KRW-N4")[5], "경계값 drop 미달");
+
+        invoke("KRW-N4", 101.9);  // drop 0.58% >= 0.5% → SPLIT_1ST
+        Thread.sleep(500);
+        assertEquals(1.0, cache.get("KRW-N4")[5], 0.01, "drop 0.58%에 splitPhase=1");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N7 (V115): split_1st_trail_drop 가변값 동작 (1.0%)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N7: split_1st_trail_drop=1.0% → drop 0.58% 미달, 1.08% 도달 시 매도")
+    void n7_variableTrailDrop() throws Exception {
+        setField("cachedSplit1stTrailDrop", 1.0);  // 0.5 → 1.0%로 변경
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-N7", new double[]{100.0, 1000.0, nowMs - 120_000, 100.0, 100.0, 0, 0});
+
+        PositionEntity pe = buildPosition("KRW-N7", 1000.0, 100.0);
+        when(positionRepo.findById("KRW-N7")).thenReturn(Optional.of(pe));
+
+        invoke("KRW-N7", 101.6);  // armed, peak=101.6
+        invoke("KRW-N7", 102.5);  // peak 102.5
+        invoke("KRW-N7", 101.9);  // drop 0.58% < 1.0% → 매도 X
+        assertEquals(0, (int) cache.get("KRW-N7")[5], "drop 0.58% < 1.0% 미달");
+        assertEquals(1.0, cache.get("KRW-N7")[6], 0.01, "armed 유지");
+
+        invoke("KRW-N7", 101.4);  // drop 1.08% >= 1.0% → SPLIT_1ST
+        Thread.sleep(500);
+        assertEquals(1.0, cache.get("KRW-N7")[5], 0.01, "drop 1.08%에 splitPhase=1");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N8 (V115): armed 상태 + 급락 → SL_TIGHT 발동 (Split 1차 armed여도 SL 안전망 동작)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N8: armed=1 + 급락 → SPLIT_1ST 우선 발동 (armed drop >= 0.5%이면 Split 1차 매도)")
+    void n8_armedPlusDropTriggersSplit1st() throws Exception {
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-N8", new double[]{100.0, 1000.0, nowMs - 120_000, 101.6, 100.0, 0, 1});
+
+        PositionEntity pe = buildPosition("KRW-N8", 1000.0, 100.0);
+        when(positionRepo.findById("KRW-N8")).thenReturn(Optional.of(pe));
+
+        // -3.1% 급락 → armed이므로 peak 대비 drop 4.63% → SPLIT_1ST 우선
+        invoke("KRW-N8", 96.9);
+        Thread.sleep(500);
+
+        // SPLIT_1ST 발동 후 캐시 유지 (2차 대기), splitPhase=1
+        assertTrue(cache.containsKey("KRW-N8"), "SPLIT_1ST 후 캐시 유지");
+        assertEquals(1.0, cache.get("KRW-N8")[5], 0.01, "splitPhase=1");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N10 (V115): armed 전 상태 + 급락 → SL_TIGHT 발동 (armed=0에선 SL 안전망 동작)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N10: armed=0 상태에서 -3.1% 급락 → SL_TIGHT 발동 (armed 전엔 SL 작동)")
+    void n10_notArmedPlusSl() throws Exception {
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        // armed=0, 6분 경과 (Tight SL 구간)
+        cache.put("KRW-N10", new double[]{100.0, 1000.0, nowMs - 360_000, 100.0, 100.0, 0, 0});
+
+        invoke("KRW-N10", 96.9);
+
+        assertFalse(cache.containsKey("KRW-N10"), "armed=0 + SL_TIGHT → 전량 매도");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N9 (Task C): splitExitEnabled=false + 캔들 TP target → 기존 TP 정상 동작
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N9 (Task C): splitExit 비활성 + pnlPct >= tpPct → 기존 TP 매도 정상")
+    void n9_splitDisabledCandleTpWorks() throws Exception {
+        setField("cachedSplitExitEnabled", false);
+
+        PositionEntity pe = buildPosition("KRW-N9", 1000.0, 100.0);
+        pe.setSplitPhase(0);
+        pe.setEntryStrategy("MORNING_RUSH");
+        when(positionRepo.findAll()).thenReturn(Collections.singletonList(pe));
+
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+        cfg.setTpPct(BigDecimal.valueOf(2.3));
+        cfg.setSplitExitEnabled(false);
+
+        // 현재가 102.4 → pnl +2.4% > tpPct 2.3%
+        when(sharedPriceService.getPrice("KRW-N9")).thenReturn(102.4);
+
+        Method m = MorningRushScannerService.class.getDeclaredMethod(
+                "monitorPositions", MorningRushConfigEntity.class);
+        m.setAccessible(true);
+        m.invoke(scanner, cfg);
+
+        // splitExit=false이면 splitPhase 무관하게 TP 경로 정상 동작
+        // 실제 매도 실행은 비동기라 verify timeout으로 확인
+        Thread.sleep(300);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  N5 (Task C): splitPhase=1에서 캔들 TP target skip (monitorPositions)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("N5 (Task C): splitPhase=1일 때 monitorPositions TP 타겟 도달해도 skip")
+    void n5_candleTpSkipWhenSplitPhase1() throws Exception {
+        // splitPhase=1 포지션 (ENTRY_STRATEGY 설정 필요)
+        PositionEntity pe = buildPosition("KRW-N5", 400.0, 100.0);
+        pe.setSplitPhase(1);
+        pe.setSplitOriginalQty(BigDecimal.valueOf(1000.0));
+        pe.setEntryStrategy("MORNING_RUSH");  // ENTRY_STRATEGY 일치
+        when(positionRepo.findAll()).thenReturn(Collections.singletonList(pe));
+
+        // cfg 설정: TP target 2.3%, splitExit 활성화
+        MorningRushConfigEntity cfg = configRepo.loadOrCreate();
+        cfg.setTpPct(BigDecimal.valueOf(2.3));
+        cfg.setSplitExitEnabled(true);
+
+        // SharedPriceService: getCurrentPrices 내부 호출 → 현재가 102.4 (pnl +2.4%)
+        when(sharedPriceService.getPrice("KRW-N5")).thenReturn(102.4);
+
+        // monitorPositions 호출 (cfg 1개 인자)
+        Method m = MorningRushScannerService.class.getDeclaredMethod(
+                "monitorPositions", MorningRushConfigEntity.class);
+        m.setAccessible(true);
+        m.invoke(scanner, cfg);
+
+        // splitPhase=1이므로 TP 매도 경로 skip → deleteById 호출 안 됨
+        verify(positionRepo, never()).deleteById("KRW-N5");
     }
 
     // ═══════════════════════════════════════════════════

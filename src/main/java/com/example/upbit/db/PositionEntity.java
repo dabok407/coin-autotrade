@@ -44,6 +44,14 @@ public class PositionEntity {
     @Column(name = "split_original_qty", precision = 28, scale = 18)
     private BigDecimal splitOriginalQty;
 
+    /** V118: TRAIL peak 가격 (영속화). null=미관측. 재시작 시 실제 peak 복원용 */
+    @Column(name = "peak_price", precision = 28, scale = 8)
+    private BigDecimal peakPrice;
+
+    /** V118: 1차 TRAIL armed 시점. null=미armed. 재시작 시 armed 상태 복원용 */
+    @Column(name = "armed_at")
+    private Instant armedAt;
+
     public String getMarket() { return market; }
     public void setMarket(String market) { this.market = market; }
 
@@ -69,4 +77,10 @@ public class PositionEntity {
 
     public BigDecimal getSplitOriginalQty() { return splitOriginalQty; }
     public void setSplitOriginalQty(BigDecimal splitOriginalQty) { this.splitOriginalQty = splitOriginalQty; }
+
+    public BigDecimal getPeakPrice() { return peakPrice; }
+    public void setPeakPrice(BigDecimal peakPrice) { this.peakPrice = peakPrice; }
+
+    public Instant getArmedAt() { return armedAt; }
+    public void setArmedAt(Instant armedAt) { this.armedAt = armedAt; }
 }

@@ -107,7 +107,7 @@ public class AllDayTieredSlScenarioTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
         // 매수 직후 (10초 전)
-        cache.put("KRW-A", new double[]{100.0, 100.0, 0, 100.0, nowMs - 10_000});
+        cache.put("KRW-A", new double[]{100.0, 100.0, 0, 100.0, nowMs - 10_000, 0, 0});
 
         // -2% 하락 → Grace 구간이므로 SL 무시
         invoke("KRW-A", 98.0);
@@ -123,7 +123,7 @@ public class AllDayTieredSlScenarioTest {
     public void scenario2_graceEmergencySlFires() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
-        cache.put("KRW-B", new double[]{100.0, 100.0, 0, 100.0, nowMs - 10_000});
+        cache.put("KRW-B", new double[]{100.0, 100.0, 0, 100.0, nowMs - 10_000, 0, 0});
 
         // PAPER 모드 설정
         when(positionRepo.findById("KRW-B")).thenReturn(Optional.of(buildPosition("KRW-B", 100.0)));
@@ -144,7 +144,7 @@ public class AllDayTieredSlScenarioTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
         // 매수 2분 전 (Grace 통과, Wide 구간)
-        cache.put("KRW-C", new double[]{100.0, 100.0, 0, 100.0, nowMs - 120_000});
+        cache.put("KRW-C", new double[]{100.0, 100.0, 0, 100.0, nowMs - 120_000, 0, 0});
 
         when(positionRepo.findById("KRW-C")).thenReturn(Optional.of(buildPosition("KRW-C", 100.0)));
 
@@ -163,7 +163,7 @@ public class AllDayTieredSlScenarioTest {
     public void scenario4_wideSlNotTriggered() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
-        cache.put("KRW-D", new double[]{100.0, 100.0, 0, 100.0, nowMs - 120_000});
+        cache.put("KRW-D", new double[]{100.0, 100.0, 0, 100.0, nowMs - 120_000, 0, 0});
 
         // -2.5% → Wide SL -3% 미달 → 유지
         invoke("KRW-D", 97.5);
@@ -180,7 +180,7 @@ public class AllDayTieredSlScenarioTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
         // 매수 20분 전 (Tight 구간)
-        cache.put("KRW-E", new double[]{100.0, 100.0, 0, 100.0, nowMs - 20 * 60_000});
+        cache.put("KRW-E", new double[]{100.0, 100.0, 0, 100.0, nowMs - 20 * 60_000, 0, 0});
 
         when(positionRepo.findById("KRW-E")).thenReturn(Optional.of(buildPosition("KRW-E", 100.0)));
 
@@ -201,7 +201,7 @@ public class AllDayTieredSlScenarioTest {
         ConcurrentHashMap<String, double[]> cache = getTpCache();
         // 매수 20분 전, +2% 도달해서 trail 활성화됨
         // [avgPrice=100, peakPrice=103, activated=1, troughPrice=100, openedAtMs]
-        cache.put("KRW-F", new double[]{100.0, 103.0, 1.0, 100.0, nowMs - 20 * 60_000});
+        cache.put("KRW-F", new double[]{100.0, 103.0, 1.0, 100.0, nowMs - 20 * 60_000, 0, 0});
 
         // 가격 102.5원 (피크 103 대비 -0.49%, trail drop 1.0% 미달)
         // Tight SL 구간(20분)이지만 TP_TRAIL 활성이므로 SL 비활성
@@ -219,7 +219,7 @@ public class AllDayTieredSlScenarioTest {
     public void scenario7_tpTrailDropSell() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
-        cache.put("KRW-G", new double[]{100.0, 105.0, 1.0, 100.0, nowMs - 60_000});
+        cache.put("KRW-G", new double[]{100.0, 105.0, 1.0, 100.0, nowMs - 60_000, 0, 0});
 
         when(positionRepo.findById("KRW-G")).thenReturn(Optional.of(buildPosition("KRW-G", 100.0)));
 
@@ -239,7 +239,7 @@ public class AllDayTieredSlScenarioTest {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
         // Grace 구간 (5초 전 매수)
-        cache.put("KRW-H", new double[]{100.0, 100.0, 0, 100.0, nowMs - 5_000});
+        cache.put("KRW-H", new double[]{100.0, 100.0, 0, 100.0, nowMs - 5_000, 0, 0});
 
         // Step 1: Grace 중 -2% throwback → 무시
         invoke("KRW-H", 98.0);
@@ -273,7 +273,7 @@ public class AllDayTieredSlScenarioTest {
     public void scenario9_troughTracking() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
-        cache.put("KRW-I", new double[]{100.0, 100.0, 0, 100.0, nowMs - 5_000});
+        cache.put("KRW-I", new double[]{100.0, 100.0, 0, 100.0, nowMs - 5_000, 0, 0});
 
         // 97원까지 하락
         invoke("KRW-I", 97.0);

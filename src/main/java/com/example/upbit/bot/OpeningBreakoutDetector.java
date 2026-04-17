@@ -92,7 +92,10 @@ public class OpeningBreakoutDetector {
     private volatile boolean splitExitEnabled = false;
     private volatile double splitTpPct = 1.5;
     private volatile double splitRatio = 0.60;
-    private volatile double trailDropAfterSplit = 1.0;
+    private volatile double trailDropAfterSplit = 1.2;
+    // V115: 1차 매도 TRAIL 방식
+    private final ConcurrentHashMap<String, Boolean> split1stTrailArmed = new ConcurrentHashMap<String, Boolean>();
+    private volatile double split1stTrailDropPct = 0.5;
 
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
@@ -119,6 +122,8 @@ public class OpeningBreakoutDetector {
     public void setSplitTpPct(double pct) { this.splitTpPct = pct; }
     public void setSplitRatio(double ratio) { this.splitRatio = ratio; }
     public void setTrailDropAfterSplit(double pct) { this.trailDropAfterSplit = pct; }
+    /** V115: 1차 매도 TRAIL drop % */
+    public void setSplit1stTrailDropPct(double pct) { this.split1stTrailDropPct = pct; }
     public int getSplitPhase(String market) {
         Integer phase = splitPhaseMap.get(market);
         return phase != null ? phase : 0;
@@ -189,6 +194,7 @@ public class OpeningBreakoutDetector {
         troughPrices.put(market, avgPrice);
         tpActivated.put(market, false);
         splitPhaseMap.put(market, 0);
+        split1stTrailArmed.put(market, false);  // V115
     }
 
     /**
@@ -220,6 +226,7 @@ public class OpeningBreakoutDetector {
         troughPrices.remove(market);
         tpActivated.remove(market);
         splitPhaseMap.remove(market);
+        split1stTrailArmed.remove(market);  // V115
     }
 
     public void updatePositionCache(Map<String, Double> positions) {
@@ -240,9 +247,29 @@ public class OpeningBreakoutDetector {
                         ? openedAtMap.get(e.getKey())
                         : System.currentTimeMillis();
                 positionCache.put(e.getKey(), new double[]{e.getValue(), openedAt});
-                peakPrices.put(e.getKey(), e.getValue());
-                troughPrices.put(e.getKey(), e.getValue());
+                // V115: 재시작 복구 — 현재가 기준 armed/peak 재판정
+                int recPhase = 0;
+                if (splitPhases != null && splitPhases.containsKey(e.getKey())) {
+                    recPhase = splitPhases.get(e.getKey());
+                }
+                double avgP = e.getValue();
+                Double curPrice = sharedPriceService.getPrice(e.getKey());
+                double recPeak = avgP;
+                boolean recArmed = false;
+                if (curPrice != null && curPrice > 0 && recPhase == 0) {
+                    double recPnl = (curPrice - avgP) / avgP * 100.0;
+                    recPeak = Math.max(avgP, curPrice);
+                    if (recPnl >= splitTpPct) {
+                        recArmed = true;
+                        log.info("[BreakoutDetector] 재시작 복구: {} armed=1 pnl=+{}% peak={}",
+                                e.getKey(), String.format(java.util.Locale.ROOT, "%.2f", recPnl),
+                                String.format(java.util.Locale.ROOT, "%.2f", recPeak));
+                    }
+                }
+                peakPrices.put(e.getKey(), recPeak);
+                troughPrices.put(e.getKey(), avgP);
                 tpActivated.put(e.getKey(), false);
+                split1stTrailArmed.put(e.getKey(), recArmed);
             }
             // V111: splitPhase 복원 (DB 기준)
             if (splitPhases != null && splitPhases.containsKey(e.getKey())) {
@@ -470,13 +497,27 @@ public class OpeningBreakoutDetector {
         // 2. V111: Split-Exit 체크 (SL 미발동 시)
         int splitPhase = splitPhaseMap.containsKey(market) ? splitPhaseMap.get(market) : 0;
 
-        if (sellType == null && splitExitEnabled && splitPhase == 0 && pnlPct >= splitTpPct) {
-            // ★ Split 1차 매도: +splitTpPct 도달
-            double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
-            sellType = "SPLIT_1ST";
-            reason = String.format(java.util.Locale.ROOT,
-                    "SPLIT_1ST pnl=+%.2f%% >= %.2f%% avg=%.2f now=%.2f ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                    pnlPct, splitTpPct, avgPrice, price, splitRatio * 100, trough, troughPnl);
+        // V115: Split-Exit 1차 매도 TRAIL 방식 (splitPhase=0)
+        // (1) +splitTpPct 도달 → armed (매도 안 함, peak 추적 시작)
+        // (2) armed 상태에서 peak 대비 drop >= split_1st_trail_drop → SPLIT_1ST 매도
+        if (sellType == null && splitExitEnabled && splitPhase == 0) {
+            Boolean armedBox = split1stTrailArmed.get(market);
+            boolean armed = armedBox != null && armedBox;
+            if (!armed && pnlPct >= splitTpPct) {
+                split1stTrailArmed.put(market, true);
+                log.info("[BreakoutDetector] SPLIT_1ST trail armed: {} pnl=+{}% peak={}",
+                        market, String.format(java.util.Locale.ROOT, "%.2f", pnlPct),
+                        String.format(java.util.Locale.ROOT, "%.2f", peak));
+            } else if (armed && peak > avgPrice) {
+                double dropFromPeak = (peak - price) / peak * 100.0;
+                if (dropFromPeak >= split1stTrailDropPct) {
+                    double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                    sellType = "SPLIT_1ST";
+                    reason = String.format(java.util.Locale.ROOT,
+                            "SPLIT_1ST_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=+%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                            avgPrice, peak, price, dropFromPeak, split1stTrailDropPct, pnlPct, splitRatio * 100, trough, troughPnl);
+                }
+            }
         }
         // V111: Split 2차 관리 (splitPhase=1)
         else if (sellType == null && splitExitEnabled && splitPhase == 1) {
@@ -535,6 +576,7 @@ public class OpeningBreakoutDetector {
             splitPhaseMap.put(market, 1);
             peakPrices.put(market, price);
             tpActivated.put(market, false);
+            split1stTrailArmed.put(market, false);  // V115: 1차 trail armed 리셋
         } else {
             removePosition(market);
         }
