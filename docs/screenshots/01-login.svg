@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Inter, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1419"/>
+      <stop offset="100%" stop-color="#1a1f2e"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e2532"/>
+      <stop offset="100%" stop-color="#151a24"/>
+    </linearGradient>
+    <linearGradient id="btnGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="12"/>
+      <feOffset dx="0" dy="4"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+
+  <!-- subtle grid -->
+  <g stroke="#ffffff" stroke-opacity="0.03">
+    <path d="M0 120 H1280 M0 240 H1280 M0 360 H1280 M0 480 H1280 M0 600 H1280"/>
+    <path d="M160 0 V720 M320 0 V720 M480 0 V720 M640 0 V720 M800 0 V720 M960 0 V720 M1120 0 V720"/>
+  </g>
+
+  <!-- floating candle glyphs -->
+  <g opacity="0.25">
+    <rect x="100" y="220" width="6" height="120" fill="#22c55e"/>
+    <rect x="90" y="250" width="26" height="60" fill="#22c55e"/>
+    <rect x="200" y="280" width="6" height="90" fill="#ef4444"/>
+    <rect x="190" y="300" width="26" height="50" fill="#ef4444"/>
+    <rect x="1080" y="400" width="6" height="100" fill="#22c55e"/>
+    <rect x="1070" y="420" width="26" height="60" fill="#22c55e"/>
+    <rect x="1160" y="360" width="6" height="140" fill="#22c55e"/>
+    <rect x="1150" y="390" width="26" height="80" fill="#22c55e"/>
+  </g>
+
+  <!-- Login Card -->
+  <g filter="url(#shadow)">
+    <rect x="440" y="140" width="400" height="440" rx="16" fill="url(#cardGrad)" stroke="#2a3142" stroke-width="1"/>
+  </g>
+
+  <!-- Logo -->
+  <g transform="translate(640, 200)">
+    <circle r="28" fill="#3b82f6"/>
+    <text text-anchor="middle" y="8" font-size="26" font-weight="700" fill="#fff">₿</text>
+  </g>
+  <text x="640" y="270" text-anchor="middle" font-size="22" font-weight="700" fill="#e5e7eb">Upbit AutoTrade</text>
+  <text x="640" y="294" text-anchor="middle" font-size="12" fill="#6b7280">RSA 2048 암호화 로그인 · Single Session</text>
+
+  <!-- ID field -->
+  <text x="472" y="340" font-size="11" fill="#9ca3af" font-weight="500">아이디</text>
+  <rect x="472" y="350" width="336" height="42" rx="8" fill="#0f1419" stroke="#2a3142"/>
+  <text x="488" y="377" font-size="14" fill="#e5e7eb">admin</text>
+  <circle cx="788" cy="371" r="5" fill="#22c55e"/>
+
+  <!-- Password field -->
+  <text x="472" y="418" font-size="11" fill="#9ca3af" font-weight="500">비밀번호</text>
+  <rect x="472" y="428" width="336" height="42" rx="8" fill="#0f1419" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="488" y="455" font-size="14" fill="#e5e7eb" letter-spacing="2">••••••••••••</text>
+  <text x="788" y="455" text-anchor="end" font-size="11" fill="#6b7280">🔒 RSA</text>
+
+  <!-- Remember -->
+  <rect x="472" y="488" width="14" height="14" rx="3" fill="#3b82f6"/>
+  <path d="M475 495 L479 499 L484 491" stroke="#fff" stroke-width="2" fill="none"/>
+  <text x="494" y="500" font-size="12" fill="#9ca3af">자동 로그인</text>
+
+  <!-- Login button -->
+  <rect x="472" y="520" width="336" height="44" rx="8" fill="url(#btnGrad)"/>
+  <text x="640" y="548" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">로그인</text>
+
+  <!-- footer hint -->
+  <text x="640" y="605" text-anchor="middle" font-size="11" fill="#4b5563">Spring Security · BCrypt · CSRF · 4h Session Timeout</text>
+
+  <!-- caption -->
+  <text x="640" y="670" text-anchor="middle" font-size="13" fill="#9ca3af" font-style="italic">로그인 페이지 — RSA 비대칭 암호화로 비밀번호 전송, BCrypt 해시 저장, 1사용자 1세션 정책</text>
+</svg>

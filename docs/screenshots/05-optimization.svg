@@ -1,0 +1,231 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" font-family="Inter, -apple-system, Segoe UI, sans-serif">
+  <rect width="1280" height="760" fill="#0b0e14"/>
+  <rect width="1280" height="56" fill="#0a0d12"/>
+  <circle cx="32" cy="28" r="14" fill="#3b82f6"/><text x="32" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">₿</text>
+  <text x="56" y="34" font-size="14" font-weight="700" fill="#e5e7eb">Upbit AutoTrade</text>
+  <rect x="360" y="16" width="88" height="28" rx="6" fill="#1e3a8a"/>
+  <text x="404" y="34" text-anchor="middle" font-size="12" fill="#93c5fd" font-weight="600">🧪 백테스트</text>
+
+  <!-- Sub tabs -->
+  <g transform="translate(24,80)">
+    <rect width="1232" height="40" rx="10" fill="#111827" stroke="#1f2937"/>
+    <text x="24" y="25" font-size="11" fill="#9ca3af">📊 단일 실행</text>
+    <rect x="110" y="8" width="130" height="24" rx="5" fill="#581c87"/>
+    <text x="175" y="25" text-anchor="middle" font-size="11" fill="#e9d5ff" font-weight="600">🎛 2-Phase 최적화</text>
+    <text x="260" y="25" font-size="11" fill="#9ca3af">📋 결과 히스토리</text>
+  </g>
+
+  <!-- Phase progress -->
+  <g transform="translate(24,140)">
+    <rect width="1232" height="80" rx="10" fill="#111827" stroke="#1f2937"/>
+    <text x="20" y="28" font-size="13" font-weight="600" fill="#e5e7eb">🎛 2-Phase Grid Search · KRW-SOL / 5m / 60d</text>
+
+    <g transform="translate(20,44)">
+      <!-- Phase 1 -->
+      <circle cx="12" cy="12" r="12" fill="#22c55e"/>
+      <path d="M7 12 L11 16 L17 8" stroke="#fff" stroke-width="2" fill="none"/>
+      <text x="32" y="16" font-size="12" fill="#e5e7eb" font-weight="600">Phase 1: Broad Grid</text>
+      <text x="32" y="30" font-size="10" fill="#6b7280">48 configs · 완료</text>
+
+      <rect x="220" y="8" width="340" height="8" rx="4" fill="#1f2937"/>
+      <rect x="220" y="8" width="340" height="8" rx="4" fill="#22c55e"/>
+      <text x="570" y="16" font-size="11" fill="#4ade80" font-weight="700">100%</text>
+
+      <!-- Phase 2 -->
+      <g transform="translate(620,0)">
+        <circle cx="12" cy="12" r="12" fill="#3b82f6"/>
+        <text x="12" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">2</text>
+        <text x="32" y="16" font-size="12" fill="#e5e7eb" font-weight="600">Phase 2: Fine Grid (Top-10 이웃)</text>
+        <text x="32" y="30" font-size="10" fill="#93c5fd">96 configs · 진행중 (58 / 96)</text>
+
+        <rect x="286" y="8" width="260" height="8" rx="4" fill="#1f2937"/>
+        <rect x="286" y="8" width="157" height="8" rx="4" fill="#3b82f6"/>
+        <text x="556" y="16" font-size="11" fill="#60a5fa" font-weight="700">60%</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Heatmap -->
+  <g transform="translate(24,236)">
+    <rect width="720" height="400" rx="10" fill="#111827" stroke="#1f2937"/>
+    <text x="20" y="28" font-size="13" font-weight="600" fill="#e5e7eb">🌡 TP × SL Heatmap — Net PnL</text>
+
+    <!-- axis labels -->
+    <text x="20" y="56" font-size="10" fill="#9ca3af">SL →</text>
+    <g font-size="9" fill="#9ca3af">
+      <text x="110" y="80" text-anchor="middle">−1.0</text>
+      <text x="180" y="80" text-anchor="middle">−1.5</text>
+      <text x="250" y="80" text-anchor="middle">−2.0</text>
+      <text x="320" y="80" text-anchor="middle">−2.5</text>
+      <text x="390" y="80" text-anchor="middle">−3.0</text>
+      <text x="460" y="80" text-anchor="middle">−3.5</text>
+      <text x="530" y="80" text-anchor="middle">−4.0</text>
+      <text x="600" y="80" text-anchor="middle">−5.0</text>
+    </g>
+    <text x="20" y="220" font-size="10" fill="#9ca3af" transform="rotate(-90 20 220)">TP ↑</text>
+    <g font-size="9" fill="#9ca3af">
+      <text x="70" y="106" text-anchor="end">+1.5</text>
+      <text x="70" y="144" text-anchor="end">+2.0</text>
+      <text x="70" y="182" text-anchor="end">+2.5</text>
+      <text x="70" y="220" text-anchor="end">+3.0</text>
+      <text x="70" y="258" text-anchor="end">+3.5</text>
+      <text x="70" y="296" text-anchor="end">+4.0</text>
+      <text x="70" y="334" text-anchor="end">+5.0</text>
+    </g>
+
+    <!-- heat cells (7 rows x 8 cols) -->
+    <g stroke="#0b0e14" stroke-width="1">
+      <!-- row 1 (TP +1.5) -->
+      <rect x="80" y="90" width="60" height="30" fill="#7c2d12"/>
+      <rect x="144" y="90" width="60" height="30" fill="#9a3412"/>
+      <rect x="208" y="90" width="60" height="30" fill="#92400e"/>
+      <rect x="272" y="90" width="60" height="30" fill="#854d0e"/>
+      <rect x="336" y="90" width="60" height="30" fill="#713f12"/>
+      <rect x="400" y="90" width="60" height="30" fill="#78350f"/>
+      <rect x="464" y="90" width="60" height="30" fill="#78350f"/>
+      <rect x="528" y="90" width="60" height="30" fill="#7c2d12"/>
+
+      <!-- row 2 (+2.0) -->
+      <rect x="80" y="124" width="60" height="30" fill="#713f12"/>
+      <rect x="144" y="124" width="60" height="30" fill="#a16207"/>
+      <rect x="208" y="124" width="60" height="30" fill="#ca8a04"/>
+      <rect x="272" y="124" width="60" height="30" fill="#65a30d"/>
+      <rect x="336" y="124" width="60" height="30" fill="#4d7c0f"/>
+      <rect x="400" y="124" width="60" height="30" fill="#3f6212"/>
+      <rect x="464" y="124" width="60" height="30" fill="#365314"/>
+      <rect x="528" y="124" width="60" height="30" fill="#713f12"/>
+
+      <!-- row 3 (+2.5) highlight -->
+      <rect x="80" y="162" width="60" height="30" fill="#a16207"/>
+      <rect x="144" y="162" width="60" height="30" fill="#65a30d"/>
+      <rect x="208" y="162" width="60" height="30" fill="#16a34a"/>
+      <rect x="272" y="162" width="60" height="30" fill="#15803d" stroke="#facc15" stroke-width="2.5"/>
+      <rect x="336" y="162" width="60" height="30" fill="#16a34a"/>
+      <rect x="400" y="162" width="60" height="30" fill="#4d7c0f"/>
+      <rect x="464" y="162" width="60" height="30" fill="#3f6212"/>
+      <rect x="528" y="162" width="60" height="30" fill="#365314"/>
+
+      <!-- row 4 (+3.0) -->
+      <rect x="80" y="200" width="60" height="30" fill="#854d0e"/>
+      <rect x="144" y="200" width="60" height="30" fill="#65a30d"/>
+      <rect x="208" y="200" width="60" height="30" fill="#15803d"/>
+      <rect x="272" y="200" width="60" height="30" fill="#166534"/>
+      <rect x="336" y="200" width="60" height="30" fill="#15803d"/>
+      <rect x="400" y="200" width="60" height="30" fill="#4d7c0f"/>
+      <rect x="464" y="200" width="60" height="30" fill="#3f6212"/>
+      <rect x="528" y="200" width="60" height="30" fill="#365314"/>
+
+      <!-- row 5 (+3.5) -->
+      <rect x="80" y="238" width="60" height="30" fill="#713f12"/>
+      <rect x="144" y="238" width="60" height="30" fill="#a16207"/>
+      <rect x="208" y="238" width="60" height="30" fill="#ca8a04"/>
+      <rect x="272" y="238" width="60" height="30" fill="#65a30d"/>
+      <rect x="336" y="238" width="60" height="30" fill="#4d7c0f"/>
+      <rect x="400" y="238" width="60" height="30" fill="#3f6212"/>
+      <rect x="464" y="238" width="60" height="30" fill="#365314"/>
+      <rect x="528" y="238" width="60" height="30" fill="#365314"/>
+
+      <!-- row 6 (+4.0) -->
+      <rect x="80" y="276" width="60" height="30" fill="#7c2d12"/>
+      <rect x="144" y="276" width="60" height="30" fill="#a16207"/>
+      <rect x="208" y="276" width="60" height="30" fill="#854d0e"/>
+      <rect x="272" y="276" width="60" height="30" fill="#713f12"/>
+      <rect x="336" y="276" width="60" height="30" fill="#4d7c0f"/>
+      <rect x="400" y="276" width="60" height="30" fill="#3f6212"/>
+      <rect x="464" y="276" width="60" height="30" fill="#365314"/>
+      <rect x="528" y="276" width="60" height="30" fill="#713f12"/>
+
+      <!-- row 7 (+5.0) -->
+      <rect x="80" y="314" width="60" height="30" fill="#7c2d12"/>
+      <rect x="144" y="314" width="60" height="30" fill="#92400e"/>
+      <rect x="208" y="314" width="60" height="30" fill="#713f12"/>
+      <rect x="272" y="314" width="60" height="30" fill="#78350f"/>
+      <rect x="336" y="314" width="60" height="30" fill="#7c2d12"/>
+      <rect x="400" y="314" width="60" height="30" fill="#78350f"/>
+      <rect x="464" y="314" width="60" height="30" fill="#7c2d12"/>
+      <rect x="528" y="314" width="60" height="30" fill="#9a3412"/>
+    </g>
+
+    <!-- best marker -->
+    <circle cx="302" cy="177" r="6" fill="none" stroke="#facc15" stroke-width="2"/>
+    <text x="302" y="181" text-anchor="middle" font-size="10" fill="#facc15" font-weight="700">★</text>
+
+    <!-- legend -->
+    <g transform="translate(20,362)" font-size="10" fill="#9ca3af">
+      <text>Loss</text>
+      <rect x="40" y="-10" width="240" height="12" fill="url(#heatgrad)"/>
+      <defs>
+        <linearGradient id="heatgrad" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stop-color="#7c2d12"/>
+          <stop offset="50%" stop-color="#ca8a04"/>
+          <stop offset="100%" stop-color="#166534"/>
+        </linearGradient>
+      </defs>
+      <text x="290">Profit</text>
+      <text x="380">★ Best: TP +2.5% / SL −2.5% · Net +28.47%</text>
+    </g>
+  </g>
+
+  <!-- Top-10 table -->
+  <g transform="translate(760,236)">
+    <rect width="496" height="400" rx="10" fill="#111827" stroke="#1f2937"/>
+    <text x="20" y="28" font-size="13" font-weight="600" fill="#e5e7eb">🏆 Top 10 Configs</text>
+
+    <g font-size="10" fill="#6b7280" transform="translate(20,52)">
+      <text>#</text><text x="28">TP</text><text x="72">SL</text><text x="116">Drop</text><text x="172">Trail</text><text x="230">PnL</text><text x="320">Win</text><text x="380">Sharpe</text>
+    </g>
+    <line x1="20" y1="62" x2="480" y2="62" stroke="#1f2937"/>
+
+    <g font-size="11" transform="translate(20,82)">
+      <g fill="#facc15" font-weight="700">
+        <rect x="-4" y="-14" width="480" height="22" rx="4" fill="#713f12" fill-opacity="0.5"/>
+        <text>1</text><text x="28">+2.5</text><text x="72">−2.5</text><text x="116">0.40</text><text x="172">1.00</text>
+        <text x="230">+2,847,020</text><text x="320">62.8%</text><text x="380">1.84</text>
+      </g>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,108)">
+      <text>2</text><text x="28">+2.5</text><text x="72">−2.0</text><text x="116">0.50</text><text x="172">1.00</text>
+      <text x="230" fill="#4ade80">+2,612,440</text><text x="320">60.1%</text><text x="380">1.72</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,130)">
+      <text>3</text><text x="28">+3.0</text><text x="72">−2.5</text><text x="116">0.50</text><text x="172">1.20</text>
+      <text x="230" fill="#4ade80">+2,518,810</text><text x="320">58.4%</text><text x="380">1.68</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,152)">
+      <text>4</text><text x="28">+2.5</text><text x="72">−3.0</text><text x="116">0.40</text><text x="172">1.00</text>
+      <text x="230" fill="#4ade80">+2,412,290</text><text x="320">61.2%</text><text x="380">1.61</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,174)">
+      <text>5</text><text x="28">+3.0</text><text x="72">−2.0</text><text x="116">0.50</text><text x="172">1.20</text>
+      <text x="230" fill="#4ade80">+2,318,540</text><text x="320">57.8%</text><text x="380">1.55</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,196)">
+      <text>6</text><text x="28">+2.0</text><text x="72">−2.0</text><text x="116">0.40</text><text x="172">0.80</text>
+      <text x="230" fill="#4ade80">+2,189,700</text><text x="320">64.2%</text><text x="380">1.48</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,218)">
+      <text>7</text><text x="28">+3.5</text><text x="72">−2.5</text><text x="116">0.60</text><text x="172">1.50</text>
+      <text x="230" fill="#4ade80">+2,084,320</text><text x="320">55.1%</text><text x="380">1.42</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,240)">
+      <text>8</text><text x="28">+2.5</text><text x="72">−3.5</text><text x="116">0.50</text><text x="172">1.00</text>
+      <text x="230" fill="#4ade80">+1,912,180</text><text x="320">60.5%</text><text x="380">1.38</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,262)">
+      <text>9</text><text x="28">+2.0</text><text x="72">−2.5</text><text x="116">0.40</text><text x="172">1.20</text>
+      <text x="230" fill="#4ade80">+1,823,440</text><text x="320">62.9%</text><text x="380">1.31</text>
+    </g>
+    <g font-size="11" fill="#e5e7eb" transform="translate(20,284)">
+      <text>10</text><text x="28">+3.0</text><text x="72">−3.0</text><text x="116">0.60</text><text x="172">1.20</text>
+      <text x="230" fill="#4ade80">+1,728,910</text><text x="320">56.3%</text><text x="380">1.26</text>
+    </g>
+
+    <rect x="20" y="316" width="456" height="56" rx="8" fill="#14532d" stroke="#22c55e"/>
+    <text x="36" y="338" font-size="11" fill="#4ade80" font-weight="700">✓ Best 설정 적용</text>
+    <text x="36" y="358" font-size="10" fill="#6ee7b7">선택한 Top-1 파라미터를 스캐너 설정에 자동 반영 + 변경이력 기록</text>
+    <rect x="368" y="332" width="96" height="28" rx="6" fill="#22c55e"/>
+    <text x="416" y="351" text-anchor="middle" font-size="11" fill="#052e16" font-weight="700">적용하기</text>
+  </g>
+
+  <text x="640" y="696" text-anchor="middle" font-size="13" fill="#9ca3af" font-style="italic">2-Phase 최적화 — 48 broad grid → Top-10 이웃 96 fine grid → TP×SL 히트맵 · 지표 · 1-클릭 적용</text>
+</svg>
