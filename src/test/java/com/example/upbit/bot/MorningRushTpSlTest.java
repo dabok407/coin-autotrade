@@ -269,6 +269,69 @@ public class MorningRushTpSlTest {
                 "peak 105에서 -1.62% drop → 매도, roi=+3.3% (기존 1.0%면 +4%에서 매도)");
     }
 
+    // ===== Ghost placeholder (qty=0) 방어 테스트 (2026-04-18) =====
+    // BUY 신호 직후 placeholder(qty=0) 상태에서 WS 틱이 들어와도
+    // checkRealtimeTpSl이 조기 return 해야 한다. (유령 SPLIT/TP 시그널 방지)
+
+    @Test
+    public void testPlaceholderQtyZeroSkipped() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedSlPct", 3.0);
+        setField("cachedTpTrailDropPct", 1.5);
+
+        // qty=0 placeholder 삽입 (실매매 체결 전 상태 시뮬레이션)
+        getPositionCache().put("KRW-GHOST",
+                new double[]{100.0, 0.0, System.currentTimeMillis() - 360_000L, 100.0, 100.0, 0, 0});
+
+        // 상승 → 하락 시나리오 돌려도 매도 발동 안 해야 함
+        invokeCheckRealtimeTpSl("KRW-GHOST", 105.0);
+        invokeCheckRealtimeTpSl("KRW-GHOST", 90.0);
+
+        assertTrue(getPositionCache().containsKey("KRW-GHOST"),
+                "qty=0 placeholder는 매도 트리거되지 않아야 함");
+    }
+
+    @Test
+    public void testPlaceholderPeakNotUpdated() throws Exception {
+        setField("cachedTpPct", 2.0);
+        setField("cachedSlPct", 3.0);
+        setField("cachedTpTrailDropPct", 1.5);
+
+        // qty=0 placeholder 삽입 (초기 peak=100)
+        double[] placeholder = new double[]{100.0, 0.0, System.currentTimeMillis() - 120_000L, 100.0, 100.0, 0, 0};
+        getPositionCache().put("KRW-GHOST2", placeholder);
+
+        // 가격 105 업데이트 시도
+        invokeCheckRealtimeTpSl("KRW-GHOST2", 105.0);
+
+        // qty=0이면 즉시 return 하므로 peak가 갱신되지 않아야 함
+        double[] after = getPositionCache().get("KRW-GHOST2");
+        assertEquals(100.0, after[3], 0.001,
+                "qty=0 placeholder는 peak 갱신 로직 실행 안 해야 함");
+    }
+
+    @Test
+    public void testNormalPositionNotAffectedByQtyCheck() throws Exception {
+        // qty 체크 추가가 정상 포지션에 영향 없는지 확인
+        setField("cachedTpPct", 2.0);
+        setField("cachedSlPct", 3.0);
+        setField("cachedTpTrailDropPct", 1.5);
+
+        // 정상 포지션 (qty=1000)
+        long openedAt = System.currentTimeMillis() - 360_000L;
+        putPosition("KRW-NORMAL", 100.0, openedAt);
+
+        // +3% → trail 활성화, peak 갱신 정상 동작 확인
+        invokeCheckRealtimeTpSl("KRW-NORMAL", 103.0);
+        double[] pos = getPositionCache().get("KRW-NORMAL");
+        assertEquals(103.0, pos[3], 0.001, "정상 포지션은 peak 갱신되어야 함");
+
+        // peak -1.6% → 매도 정상 발동 확인
+        invokeCheckRealtimeTpSl("KRW-NORMAL", 101.35);
+        assertFalse(getPositionCache().containsKey("KRW-NORMAL"),
+                "정상 포지션은 TP_TRAIL 매도 정상 발동 (qty 체크 영향 없음)");
+    }
+
     // ===== Helpers =====
 
     private void setField(String name, Object value) throws Exception {

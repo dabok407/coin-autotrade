@@ -715,8 +715,14 @@ public class AllDayScannerService {
         if (!canEnter && !inEntryWindow) {
             // 엔트리 윈도우 밖 — 매수 차단, 매도만 처리
         } else if (!canEnter) {
-            addDecision("*", "BUY", "BLOCKED", "MAX_POSITIONS",
-                    String.format("최대 포지션 수(%d) 도달로 신규 진입 차단", cfg.getMaxPositions()));
+            if (!TICK_BUY_ENABLED) {
+                addDecision("*", "BUY", "BLOCKED", "TICK_BUY_DISABLED",
+                        "5분봉 tick 매수 비활성 — 실시간 WS surge 경로만 사용");
+            } else {
+                addDecision("*", "BUY", "BLOCKED", "MAX_POSITIONS",
+                        String.format("최대 포지션 수(%d) 도달로 신규 진입 차단 (현재 %d)",
+                                cfg.getMaxPositions(), scannerPosCount));
+            }
         }
 
         // LIVE 모드에서 가용 KRW 잔고 확인

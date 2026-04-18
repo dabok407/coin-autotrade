@@ -178,8 +178,10 @@ public class HighConfidenceBreakoutStrategyTest {
     }
 
     @Test
-    public void gate_volBelow2x_blocked() {
-        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 1500); // 1.5x
+    public void gate_volBelowMult_blocked() {
+        // 2026-04-18 1안 강화: gate = volumeSurgeMult (×0.5 제거)
+        // DB=3.0 → gate=3.0x. vol=1500 → ratio~1.46x → BLOCKED
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 1500);
 
         HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
                 .withFilters(3.0, 0.0, 1.0);
@@ -190,10 +192,11 @@ public class HighConfidenceBreakoutStrategyTest {
     }
 
     @Test
-    public void gate_volExactly2x_passes() {
-        // SMA includes last candle, so need enough volume for ratio >= 2.0
-        // With 19 candles at 1000 + last at 2200, SMA = (19000+2200)/20 = 1060, ratio = 2200/1060 ~ 2.08x
-        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 2200);
+    public void gate_volAboveMult_passes() {
+        // 2026-04-18 1안 강화: gate = volumeSurgeMult 그대로
+        // SMA includes last candle. 19 candles at 1000 + last at 3500, SMA=(19000+3500)/20=1125, ratio=3500/1125~3.11x
+        // DB=3.0 → gate=3.0x → passes
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 3500);
 
         HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
                 .withFilters(3.0, 0.0, 1.0);
@@ -201,7 +204,7 @@ public class HighConfidenceBreakoutStrategyTest {
         Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
         if (signal.action == SignalAction.NONE) {
             assertFalse(signal.reason.contains("VOL_GATE"),
-                    "~2.1x should pass VOL_GATE, reason=" + signal.reason);
+                    "~3.1x should pass VOL_GATE (gate=3.0), reason=" + signal.reason);
         }
     }
 
@@ -307,8 +310,10 @@ public class HighConfidenceBreakoutStrategyTest {
     // ============================================================
 
     @Test
-    public void scoring_vol2x_passesGate() {
-        List<UpbitCandle> candles = buildEntryReadyCandles(2500);
+    public void scoring_volAboveMult_passesGate() {
+        // 2026-04-18 1안 강화 반영: gate=volumeSurgeMult 그대로 → 3.0x 이상 필요
+        // vol=4000, avg(20)=1150, ratio~3.48x → passes
+        List<UpbitCandle> candles = buildEntryReadyCandles(4000);
         HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
                 .withFilters(3.0, 0.0, 1.0);
         double lastClose = candles.get(79).trade_price;
@@ -948,5 +953,67 @@ public class HighConfidenceBreakoutStrategyTest {
 
         Signal signal = s.evaluate(entryContext(candles));
         assertNotNull(signal);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  VOL_GATE DB 반영 검증 (2026-04-18 1안 강화)
+    //  게이트 공식: volumeSurgeMult 그대로 (×0.5 제거)
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    public void volGate_respectsDbValue_dbHigh_tightensGate() {
+        // DB=6.0 → gate=6.0x. vol=2200 → ratio~2.08x → BLOCKED
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 2200);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(6.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("VOL_GATE"),
+                "DB=6.0 → gate=6.0, vol~2.08x should block. reason=" + signal.reason);
+        assertTrue(signal.reason.contains("6.0x"),
+                "Message should show dynamic gate 6.0x. reason=" + signal.reason);
+    }
+
+    @Test
+    public void volGate_respectsDbValue_dbLow_loosensGate() {
+        // DB=2.0 → gate=2.0x. vol=2500 → ratio~2.33x → PASSES gate
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 2500);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(2.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("VOL_GATE"),
+                    "DB=2.0 → gate=2.0, vol~2.33x should pass VOL_GATE. reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void volGate_defaultDb3_boundaryAt3x() {
+        // DB=3.0 → gate=3.0x. vol=4000 → ratio~3.48x → PASSES gate
+        // (기존 1.5x 경계에서 3.0x로 강화)
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 4000);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
+        if (signal.action == SignalAction.NONE) {
+            assertFalse(signal.reason.contains("VOL_GATE"),
+                    "DB=3.0 → gate=3.0, vol~3.48x should pass. reason=" + signal.reason);
+        }
+    }
+
+    @Test
+    public void volGate_defaultDb3_below3x_blocked() {
+        // 1안 강화 검증: DB=3.0 → gate=3.0x. vol=2200 → ratio~2.08x → BLOCKED (기존엔 통과했음)
+        List<UpbitCandle> candles = buildCandles(80, 50000, 50, 2200);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withFilters(3.0, 0.0, 1.0);
+
+        Signal signal = s.evaluate(entryContextWithDailyOpen(candles, 49000));
+        assertEquals(SignalAction.NONE, signal.action);
+        assertTrue(signal.reason.contains("VOL_GATE"),
+                "1안 강화 후 ratio=2.08x는 gate=3.0에서 차단되어야 함. reason=" + signal.reason);
     }
 }

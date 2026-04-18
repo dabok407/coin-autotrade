@@ -168,12 +168,15 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
         // ── 6-Factor Scoring (내부 max 9.5 → ×1.053 → 10.0 환산) ──
         double rawScore = 0.0;
 
-        // Factor 1 - Volume Surge (max 3.0, Hard Gate: <2x 차단)
+        // Factor 1 - Volume Surge (max 3.0, Hard Gate: DB의 volumeSurgeMult 값)
+        // 2026-04-18 1안 강화: 기존 volumeSurgeMult*0.5 → volumeSurgeMult 직접 사용.
+        // 근거: pattern_reason vol 분석 결과 vol 2~3x 승률 12.5% / 10x+ 68.2%. 저volume 신호 손실 편향.
         double curVol = last.candle_acc_trade_volume;
         double avgVol = Indicators.smaVolume(candles, VOLUME_AVG_PERIOD);
         double volRatio = avgVol > 0 ? curVol / avgVol : 0;
-        if (volRatio < 2.0) return Signal.none(String.format(Locale.ROOT,
-                "VOL_GATE vol=%.1fx < 2.0x", volRatio));
+        double volGate = volumeSurgeMult;
+        if (volRatio < volGate) return Signal.none(String.format(Locale.ROOT,
+                "VOL_GATE vol=%.1fx < %.1fx", volRatio, volGate));
         double f1 = 0;
         if (volRatio >= 10.0) f1 = 3.0;
         else if (volRatio >= 7.0) f1 = 2.2;

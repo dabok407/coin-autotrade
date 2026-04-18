@@ -462,6 +462,7 @@ public class MorningRushScannerService {
                             if (fCode.equals(pe.getMarket()) && pe.getQty() != null
                                     && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                                 log.info("[MorningRush] realtime skip: {} already held", fCode);
+                                positionCache.remove(fCode);
                                 return;
                             }
                         }
@@ -518,7 +519,8 @@ public class MorningRushScannerService {
         if (pos == null) return;
 
         double avgPrice = pos[0];
-        if (avgPrice <= 0) return;
+        double qty = pos[1];
+        if (avgPrice <= 0 || qty <= 0) return;
         long openedAtMs = (long) pos[2];
         int splitPhase = pos.length >= 6 ? (int) pos[5] : 0;
 
