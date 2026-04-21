@@ -140,6 +140,14 @@ public class OpeningBreakoutDetector {
     }
     public void setSplitPhase(String market, int phase) { splitPhaseMap.put(market, phase); }
 
+    /**
+     * V129 #9 fix: SPLIT_1ST DB commit 실패 시 쿨다운 기준점을 되돌리기 위한 보정 경로.
+     * removePosition은 포지션 자체를 지우므로 rollback용으로는 과함 — 쿨다운만 제거한다.
+     */
+    public void clearSplit1stCooldown(String market) {
+        split1stExecutedAtMap.remove(market);
+    }
+
     /** V118: 현재 in-memory peak 가격 조회 (DB 영속화 동기화용). 미등록 시 null */
     public Double getPeak(String market) {
         return peakPrices.get(market);
@@ -208,7 +216,15 @@ public class OpeningBreakoutDetector {
         addPosition(market, avgPrice, openedAtEpochMs, 999);
     }
 
-    /** SL 종합안 + TOP-N 차등용 — rank 포함 */
+    /**
+     * SL 종합안 + TOP-N 차등용 — rank 포함
+     *
+     * positionCache value: double[3]
+     *   [0]=avgPrice, [1]=openedAtEpochMs, [2]=volumeRank
+     *
+     * ⚠️ MR/AllDay의 positionCache/tpPositionCache (7-element)와 구조 완전히 다름!
+     *    Opening은 peak/trough/splitPhase/armed를 별도 Map으로 분리 관리한다.
+     */
     public void addPosition(String market, double avgPrice, long openedAtEpochMs, int volumeRank) {
         positionCache.put(market, new double[]{avgPrice, openedAtEpochMs, volumeRank});
         peakPrices.put(market, avgPrice);

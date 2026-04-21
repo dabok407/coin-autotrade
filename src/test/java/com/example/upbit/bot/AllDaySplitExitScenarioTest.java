@@ -797,6 +797,61 @@ public class AllDaySplitExitScenarioTest {
         assertTrue(cache.containsKey("KRW-V129A"), "V129: BEV 제거로 매수가 터치/하락해도 매도 없음");
     }
 
+    // V129-A2: splitPhase=1 + -0.9% 손실 + 쿨다운 만료 → 매도 없음 (예전 BEV 영역 재확인)
+    @Test
+    @DisplayName("V129-A2: splitPhase=1 + pnl -0.9% + 쿨다운 만료 → BEV 제거로 매도 없음")
+    public void v129a2_bevRemoved_sustainedLossNoSell() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpCache();
+        // AllDay 배열 포맷: [avg, peak, activated, trough, openedAtMs, splitPhase, armed]
+        // peak=avgPrice, Wide 구간(3분 경과 < 15분)
+        cache.put("KRW-V129A2", new double[]{100.0, 100.0, 0, 100.0, nowMs - 180_000, 1, 0});
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>) getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129A2", nowMs - 70_000);  // 쿨다운 만료
+
+        invoke("KRW-V129A2", 99.1);  // -0.9% — 예전 BEV 영역. splitPhase=1은 tiered SL 비활성
+
+        assertTrue(cache.containsKey("KRW-V129A2"), "V129: 쿨다운 만료 후에도 BEV 안 발동 → 유지");
+    }
+
+    // V129-A3: splitPhase=1 + 본전 약간 위 + peak drop 미달 → 매도 없음
+    @Test
+    @DisplayName("V129-A3: splitPhase=1 + pnl +0.3% + peak drop 0.2% → 매도 없음 (TRAIL 미달)")
+    public void v129a3_bevRemoved_smallProfitNoSell() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpCache();
+        // peak=100.5, TRAIL drop 1.0% 미달
+        cache.put("KRW-V129A3", new double[]{100.0, 100.5, 0, 100.0, nowMs - 180_000, 1, 0});
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>) getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129A3", nowMs - 70_000);
+
+        invoke("KRW-V129A3", 100.3);  // peak 100.5에서 0.2% drop → TRAIL 미달
+
+        assertTrue(cache.containsKey("KRW-V129A3"), "V129: 작은 수익 + drop 미달 → 매도 없음");
+    }
+
+    // V129-A4: splitPhase=1 + peak ≤ avg + 2% 하락 → SPLIT_2ND_TRAIL 불가 (peak>avg 가드)
+    @Test
+    @DisplayName("V129-A4: splitPhase=1 + peak≤avg + -2% drop → SPLIT_2ND_TRAIL 차단 (peak>avg 조건)")
+    public void v129a4_splitSecondTrailRequiresPeakAboveAvg() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpCache();
+        cache.put("KRW-V129A4", new double[]{100.0, 100.0, 0, 100.0, nowMs - 180_000, 1, 0});
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>) getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129A4", nowMs - 70_000);
+
+        // -2% (Wide SL -3% 미달, splitPhase=1이라 tiered SL 비활성)
+        invoke("KRW-V129A4", 98.0);
+
+        assertTrue(cache.containsKey("KRW-V129A4"), "V129: peak<=avg에서 BEV 없이 drop 무시");
+    }
+
     // ═══════════════════════════════════════════════════
     //  V129-B: 쿨다운 중 SPLIT_2ND_TRAIL 차단
     // ═══════════════════════════════════════════════════
@@ -1061,6 +1116,53 @@ public class AllDaySplitExitScenarioTest {
 
         // drop 미달 + activated라 SL도 비활성 → 유지
         assertTrue(cache.containsKey("KRW-V129I2"), "V129: activated 상태 drop 미달 → 매도 없음");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-WS: tpPositionCache 누락 회귀 방지 (Opening T1~T4 패턴 포팅)
+    //  2026-04-20 ONT 사고 재현 — WS 매수 후 cache.put 누락 시 실시간 경로 통째 스킵
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-WS1: tpPositionCache 미등록 상태에서 checkRealtimeTpSl → no-op")
+    public void v129ws1_missingCacheIsNoop() throws Exception {
+        ConcurrentHashMap<String, double[]> cache = getTpCache();
+        assertFalse(cache.containsKey("KRW-MISSING"));
+
+        invoke("KRW-MISSING", 100.0);
+        invoke("KRW-MISSING", 105.0);  // +5% (TP 영역)
+        invoke("KRW-MISSING", 90.0);   // -10% (SL 영역)
+
+        assertFalse(cache.containsKey("KRW-MISSING"), "미등록 → no-op");
+    }
+
+    @Test
+    @DisplayName("V129-WS2: WS 경로 cache.put 누락 재현 — 실시간 TP/SL 경로 누락 회귀")
+    public void v129ws2_missingCacheSkipsRealtimeSellPath() throws Exception {
+        ConcurrentHashMap<String, double[]> cache = getTpCache();
+        String market = "KRW-WS-ORPHAN";
+        assertFalse(cache.containsKey(market));
+
+        for (double p : new double[]{100.0, 101.5, 103.0, 102.0, 99.5, 97.0}) {
+            invoke(market, p);
+        }
+        assertFalse(cache.containsKey(market),
+                "V129-WS 회귀 가드: tpPositionCache.put 누락 시 WS 실시간 체크 no-op");
+    }
+
+    @Test
+    @DisplayName("V129-WS3: cache.put 정상 수행 후 실시간 경로 정상 작동 (반대 검증)")
+    public void v129ws3_withCacheRealtimeWorks() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpCache();
+        // AllDay 포맷: [avg, peak, activated, trough, openedAt, splitPhase, armed]
+        cache.put("KRW-WS-OK", new double[]{100.0, 100.0, 0, 100.0, nowMs - 180_000, 0, 0});
+
+        invoke("KRW-WS-OK", 101.6);  // +1.6%
+        invoke("KRW-WS-OK", 102.5);  // peak 갱신
+        double[] pos = cache.get("KRW-WS-OK");
+        assertTrue(pos[6] > 0, "V129-WS3: armed=1 설정됨");
+        assertEquals(102.5, pos[1], 0.01, "V129-WS3: peak 정상 갱신");
     }
 
     // ═══════════════════════════════════════════════════════════════

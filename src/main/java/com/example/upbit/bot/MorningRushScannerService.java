@@ -94,7 +94,23 @@ public class MorningRushScannerService {
     // WebSocket real-time prices
     private final ConcurrentHashMap<String, Double> latestPrices = new ConcurrentHashMap<String, Double>();
     // 실시간 TP/SL 체크용 캐시 (mainLoop에서 업데이트, WebSocket 스레드에서 읽기)
-    // positionCache value: [avgPrice, qty, openedAtEpochMs, peakPrice, troughPrice]
+    // ┌─────────────────────────────────────────────────────────────────────────┐
+    // │ positionCache value: double[7]                                          │
+    // │ [0]=avgPrice, [1]=qty, [2]=openedAtEpochMs, [3]=peakPrice,              │
+    // │ [4]=troughPrice, [5]=splitPhase(0/1/2), [6]=armed(0/1)                  │
+    // │                                                                         │
+    // │ ⚠️ 주의: AllDayScannerService.tpPositionCache와 필드 순서 다름!         │
+    // │   - AllDay: [avg, peak, activated, trough, openedAt, splitPhase, armed] │
+    // │   - OpeningBreakoutDetector.positionCache: 3-element [avg, openedAt, volumeRank] │
+    // │ 리팩토링 시 스캐너별 인덱스 확인 필수. 향후 통일 작업 대기(#3 별건).   │
+    // └─────────────────────────────────────────────────────────────────────────┘
+    private static final int PC_AVG = 0;
+    private static final int PC_QTY = 1;
+    private static final int PC_OPENED_AT = 2;
+    private static final int PC_PEAK = 3;
+    private static final int PC_TROUGH = 4;
+    private static final int PC_SPLIT_PHASE = 5;
+    private static final int PC_ARMED = 6;
     private final ConcurrentHashMap<String, double[]> positionCache = new ConcurrentHashMap<String, double[]>();
     // SL 종합안 캐시 (DB 설정값, mainLoop에서 갱신)
     private volatile long cachedGracePeriodMs = 60_000L;       // 매수 후 그레이스 (DB grace_period_sec)
@@ -1850,11 +1866,15 @@ public class MorningRushScannerService {
             });
         } catch (Exception e) {
             // P1-4: DB 실패 시 cache 롤백
+            // V129 #9 fix: split1stExecutedAtMap도 함께 제거 — 원자성 보장.
+            //   checkRealtimeTp에서 매도 판정 직후 메모리 맵에 put해두는데, DB commit이 실패하면 그 put만 남아
+            //   "쿨다운만 살아있고 splitPhase는 0"인 불일치 상태가 발생한다. 이 catch가 유일한 보정 지점.
             log.error("[MorningRush] SPLIT_1ST DB commit failed for {} — cache rollback", market, e);
             double[] rollback = positionCache.get(market);
             if (rollback != null && rollback.length >= 6) {
                 rollback[5] = 0;
             }
+            split1stExecutedAtMap.remove(market);
             addDecision(market, "SELL", "ERROR", "SPLIT_1ST DB 실패, cache 롤백: " + e.getMessage());
             return;
         }

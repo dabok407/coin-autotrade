@@ -1029,6 +1029,7 @@
       if (el('adSplitRatio')) el('adSplitRatio').value = cfg.splitRatio || 0.50;
       if (el('adTrailDropAfterSplit')) el('adTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.2;
       if (el('adSplit1stTrailDrop')) el('adSplit1stTrailDrop').value = cfg.split1stTrailDrop || 0.5;
+      if (el('adSplit1stCooldownSec')) el('adSplit1stCooldownSec').value = (cfg.split1stCooldownSec != null) ? cfg.split1stCooldownSec : 60;
     } catch(e) {
       console.warn('AllDay Scanner config load failed:', e);
     }
@@ -1078,7 +1079,8 @@
       splitTpPct: parseFloat(el('adSplitTpPct') ? el('adSplitTpPct').value : '1.5') || 1.5,
       splitRatio: parseFloat(el('adSplitRatio') ? el('adSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('adTrailDropAfterSplit') ? el('adTrailDropAfterSplit').value : '1.2') || 1.2,
-      split1stTrailDrop: parseFloat(el('adSplit1stTrailDrop') ? el('adSplit1stTrailDrop').value : '0.5') || 0.5
+      split1stTrailDrop: parseFloat(el('adSplit1stTrailDrop') ? el('adSplit1stTrailDrop').value : '0.5') || 0.5,
+      split1stCooldownSec: parseInt(el('adSplit1stCooldownSec') ? el('adSplit1stCooldownSec').value : '60', 10) || 0
     };
 
     await req('/api/allday-scanner/config', { method: 'POST', body: JSON.stringify(body) });
@@ -1147,6 +1149,7 @@
       if (el('mrSplitRatio')) el('mrSplitRatio').value = cfg.splitRatio || 0.50;
       if (el('mrTrailDropAfterSplit')) el('mrTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.2;
       if (el('mrSplit1stTrailDrop')) el('mrSplit1stTrailDrop').value = cfg.split1stTrailDrop || 0.5;
+      if (el('mrSplit1stCooldownSec')) el('mrSplit1stCooldownSec').value = (cfg.split1stCooldownSec != null) ? cfg.split1stCooldownSec : 60;
     } catch(e) {
       console.warn('Morning Rush config load failed:', e);
     }
@@ -1189,7 +1192,8 @@
       splitTpPct: parseFloat(el('mrSplitTpPct') ? el('mrSplitTpPct').value : '1.5') || 1.5,
       splitRatio: parseFloat(el('mrSplitRatio') ? el('mrSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('mrTrailDropAfterSplit') ? el('mrTrailDropAfterSplit').value : '1.2') || 1.2,
-      split1stTrailDrop: parseFloat(el('mrSplit1stTrailDrop') ? el('mrSplit1stTrailDrop').value : '0.5') || 0.5
+      split1stTrailDrop: parseFloat(el('mrSplit1stTrailDrop') ? el('mrSplit1stTrailDrop').value : '0.5') || 0.5,
+      split1stCooldownSec: parseInt(el('mrSplit1stCooldownSec') ? el('mrSplit1stCooldownSec').value : '60', 10) || 0
     };
 
     await req('/api/morning-rush/config', { method: 'POST', body: JSON.stringify(body) });

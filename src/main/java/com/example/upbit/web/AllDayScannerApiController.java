@@ -120,6 +120,8 @@ public class AllDayScannerApiController {
         if (body.containsKey("splitRatio")) cfg.setSplitRatio(toBD(body.get("splitRatio")));
         if (body.containsKey("trailDropAfterSplit")) cfg.setTrailDropAfterSplit(toBD(body.get("trailDropAfterSplit")));
         if (body.containsKey("split1stTrailDrop")) cfg.setSplit1stTrailDrop(toBD(body.get("split1stTrailDrop")));
+        // V129: SPLIT_1ST → SPLIT_2ND_TRAIL 쿨다운
+        if (body.containsKey("split1stCooldownSec")) cfg.setSplit1stCooldownSec(toInt(body.get("split1stCooldownSec"), 60));
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
@@ -200,6 +202,7 @@ public class AllDayScannerApiController {
         m.put("splitRatio", cfg.getSplitRatio());
         m.put("trailDropAfterSplit", cfg.getTrailDropAfterSplit());
         m.put("split1stTrailDrop", cfg.getSplit1stTrailDrop());
+        m.put("split1stCooldownSec", cfg.getSplit1stCooldownSec());
         return m;
     }
 

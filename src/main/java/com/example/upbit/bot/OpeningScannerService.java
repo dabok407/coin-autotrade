@@ -792,6 +792,10 @@ public class OpeningScannerService {
                     Signal signal = strategy.evaluate(ctx);
 
                     if (signal.action == SignalAction.SELL) {
+                        // ※ OPEN_TIME_EXIT(12:00 강제청산 등) candle-based 경로는
+                        //   OpeningBreakoutDetector.checkRealtimeTp(WebSocket)의 Grace 60s/쿨다운 60s와 물리적으로 분리됨.
+                        //   12:00 청산은 진입(09:05~10:30) 후 최소 90분 경과 → Grace 60s와 겹침 불가.
+                        //   분리 구조를 깨뜨리려면(예: candle exit에도 Grace 적용) 반드시 충돌 테스트 추가할 것.
                         executeSell(pe, candles.get(candles.size() - 1), signal, cfg);
                         addDecision(pe.getMarket(), "SELL", "EXECUTED", "SIGNAL",
                                 signal.reason);
@@ -1739,8 +1743,10 @@ public class OpeningScannerService {
             });
         } catch (Exception e) {
             // P1-4: DB 실패 시 detector cache 롤백
+            // V129 #9 fix: 쿨다운 기준점도 함께 제거해야 메모리-DB 불일치 제거
             log.error("[OpeningScanner] SPLIT_1ST DB commit failed for {} — detector rollback", market, e);
             breakoutDetector.setSplitPhase(market, 0);
+            breakoutDetector.clearSplit1stCooldown(market);
             return;
         }
 

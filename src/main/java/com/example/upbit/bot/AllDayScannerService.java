@@ -67,14 +67,29 @@ public class AllDayScannerService {
             return t;
         }
     });
-    // market → [avgPrice, peakPrice, trailActivated(0/1), troughPrice, openedAtEpochMs]
-    // V109: 5필드 확장 — openedAtEpochMs 추가 (티어드 SL 시간 판단용)
+    // ┌─────────────────────────────────────────────────────────────────────────┐
+    // │ tpPositionCache value: double[7]                                        │
+    // │ [0]=avgPrice, [1]=peakPrice, [2]=trailActivated(0/1), [3]=troughPrice,  │
+    // │ [4]=openedAtEpochMs, [5]=splitPhase(0/1/2), [6]=armed(0/1)              │
+    // │                                                                         │
+    // │ ⚠️ 주의: MorningRushScannerService.positionCache와 필드 순서 완전히 다름!│
+    // │   - MR:  [avg, qty, openedAt, peak, trough, splitPhase, armed]          │
+    // │ 리팩토링 시 스캐너별 인덱스 확인 필수. 향후 통일 작업 대기(#3 별건).   │
+    // └─────────────────────────────────────────────────────────────────────────┘
+    private static final int TPC_AVG = 0;
+    private static final int TPC_PEAK = 1;
+    private static final int TPC_ACTIVATED = 2;
+    private static final int TPC_TROUGH = 3;
+    private static final int TPC_OPENED_AT = 4;
+    private static final int TPC_SPLIT_PHASE = 5;
+    private static final int TPC_ARMED = 6;
     private final ConcurrentHashMap<String, double[]> tpPositionCache = new ConcurrentHashMap<String, double[]>();
     // V109: 하드코딩 제거 → DB cached 변수로 전환
     private volatile double cachedTpTrailActivatePct = 2.0;
     private volatile double cachedTpTrailDropPct = 1.0;
     // V109: 실시간 티어드 SL 캐시 (mainLoop에서 갱신, WebSocket에서 읽기)
-    private volatile long cachedGracePeriodMs = 30_000L;
+    // V129: 기본값 30→60s (Grace 확장). mainLoop DB 갱신 전까지의 첫 tick 안전망.
+    private volatile long cachedGracePeriodMs = 60_000L;
     private volatile long cachedWidePeriodMs = 15 * 60_000L;
     private volatile double cachedWideSlPct = 3.0;
     private volatile double cachedTightSlPct = 1.5;
@@ -671,6 +686,9 @@ public class AllDayScannerService {
 
                     if (signal.action == SignalAction.SELL) {
                         // V111/V129: splitPhase=1이면 TIME_STOP 무시 (1차 수익 확보, 2차는 realtime SPLIT_2ND_TRAIL 또는 SL만)
+                        // ※ TIME_STOP은 candle-based 경로(이 블록)로 처리되며, Grace 60s/쿨다운 60s는 WebSocket checkRealtimeTpSl에만 적용.
+                        //   TIME_STOP 최소 발동(timeStopCandles × candleUnit, 기본 60분) ≫ Grace 60s ⇒ 물리적 겹침 없음.
+                        //   위 splitPhase=1 스킵이 유일한 분기. 이 코멘트를 수정해야 하면 그 시점에 테스트도 함께 추가할 것.
                         if (pe.getSplitPhase() == 1 && signal.reason != null
                                 && signal.reason.contains("TIME_STOP")) {
                             addDecision(pe.getMarket(), "SELL", "BLOCKED", "SPLIT_TIME_STOP_SKIP",
@@ -1446,9 +1464,9 @@ public class AllDayScannerService {
      *   → SL 비활성 (돌파 성공 확인됨)
      *
      * TP_TRAIL 미활성 (수익 +2% 미도달):
-     *   Phase 1 Grace (0~30초):   SL 무시 (단, -5% 비상 SL만 활성)
-     *   Phase 2 Wide  (30초~15분): SL_WIDE -3.0%
-     *   Phase 3 Tight (15분~):     SL_TIGHT -1.5%
+     *   Phase 1 Grace (0~60초, V129): SL/SPLIT/TP 포함 모든 매도 차단 (꼬리 흡수)
+     *   Phase 2 Wide  (60초~15분):    SL_WIDE -3.0%
+     *   Phase 3 Tight (15분~):        SL_TIGHT -1.5%
      *
      * WebSocket 스레드에서 호출 → DB 접근 금지 → wsTpExecutor에서 매도 실행.
      * positionCache: [avgPrice, peakPrice, trailActivated(0/1), troughPrice, openedAtEpochMs]
