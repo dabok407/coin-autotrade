@@ -118,12 +118,20 @@ public class OpeningScannerApiController {
         if (body.containsKey("openFailedEnabled")) cfg.setOpenFailedEnabled(Boolean.TRUE.equals(body.get("openFailedEnabled")));
         if (body.containsKey("minPriceKrw")) cfg.setMinPriceKrw(toInt(body.get("minPriceKrw"), 20));
 
+        // TP_TRAIL
+        if (body.containsKey("tpTrailActivatePct")) cfg.setTpTrailActivatePct(toBD(body.get("tpTrailActivatePct")));
+        if (body.containsKey("tpTrailDropPct")) cfg.setTpTrailDropPct(toBD(body.get("tpTrailDropPct")));
+
         // Split-Exit
         if (body.containsKey("splitExitEnabled")) cfg.setSplitExitEnabled(Boolean.TRUE.equals(body.get("splitExitEnabled")));
         if (body.containsKey("splitTpPct")) cfg.setSplitTpPct(toBD(body.get("splitTpPct")));
         if (body.containsKey("splitRatio")) cfg.setSplitRatio(toBD(body.get("splitRatio")));
         if (body.containsKey("trailDropAfterSplit")) cfg.setTrailDropAfterSplit(toBD(body.get("trailDropAfterSplit")));
         if (body.containsKey("split1stTrailDrop")) cfg.setSplit1stTrailDrop(toBD(body.get("split1stTrailDrop")));
+        // V126: 2차 매도 쿨다운
+        if (body.containsKey("split1stCooldownSec")) cfg.setSplit1stCooldownSec(toInt(body.get("split1stCooldownSec"), 60));
+        // V127: C4 vol3 임계값 DB화
+        if (body.containsKey("vol3RatioThreshold")) cfg.setVol3RatioThreshold(toBD(body.get("vol3RatioThreshold")));
 
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
@@ -272,12 +280,17 @@ public class OpeningScannerApiController {
         m.put("excludeMarkets", cfg.getExcludeMarkets());
         m.put("openFailedEnabled", cfg.isOpenFailedEnabled());
         m.put("minPriceKrw", cfg.getMinPriceKrw());
+        // TP_TRAIL
+        m.put("tpTrailActivatePct", cfg.getTpTrailActivatePct());
+        m.put("tpTrailDropPct", cfg.getTpTrailDropPct());
         // Split-Exit
         m.put("splitExitEnabled", cfg.isSplitExitEnabled());
         m.put("splitTpPct", cfg.getSplitTpPct());
         m.put("splitRatio", cfg.getSplitRatio());
         m.put("trailDropAfterSplit", cfg.getTrailDropAfterSplit());
         m.put("split1stTrailDrop", cfg.getSplit1stTrailDrop());
+        m.put("split1stCooldownSec", cfg.getSplit1stCooldownSec());
+        m.put("vol3RatioThreshold", cfg.getVol3RatioThreshold());
         return m;
     }
 

@@ -395,6 +395,7 @@ public class OpeningScannerFixIntegrationTest {
         cfg.setSessionEndHour(23);
         cfg.setSessionEndMin(59);
         cfg.setExcludeMarkets("");
+        cfg.setVol3RatioThreshold(BigDecimal.valueOf(1.5)); // V127: 기존 테스트 데이터 호환 (시나리오는 필터 아닌 경로 검증)
         return cfg;
     }
 }

@@ -881,8 +881,12 @@
       if (el('scTopN')) el('scTopN').value = cfg.topN || 15;
       if (el('scMaxPos')) el('scMaxPos').value = cfg.maxPositions || 3;
       if (el('scBtcFilter')) el('scBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+      if (el('scBtcEmaPeriod')) el('scBtcEmaPeriod').value = cfg.btcEmaPeriod != null ? cfg.btcEmaPeriod : 20;
       if (el('scOpenFailed')) el('scOpenFailed').value = String(cfg.openFailedEnabled !== false);
       if (el('scVolMult')) el('scVolMult').value = cfg.volumeMult || 1.5;
+      // TP_TRAIL
+      if (el('scTpTrailActivate')) el('scTpTrailActivate').value = cfg.tpTrailActivatePct != null ? cfg.tpTrailActivatePct : 1.5;
+      if (el('scTpTrailDrop')) el('scTpTrailDrop').value = cfg.tpTrailDropPct != null ? cfg.tpTrailDropPct : 1.0;
       if (el('scBodyRatio')) el('scBodyRatio').value = cfg.minBodyRatio || 0.40;
       if (el('scMinPrice')) el('scMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('scExcludeMarkets')) el('scExcludeMarkets').value = cfg.excludeMarkets || '';
@@ -892,6 +896,8 @@
       if (el('scSplitRatio')) el('scSplitRatio').value = cfg.splitRatio || 0.50;
       if (el('scTrailDropAfterSplit')) el('scTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.2;
       if (el('scSplit1stTrailDrop')) el('scSplit1stTrailDrop').value = cfg.split1stTrailDrop || 0.5;
+      if (el('scSplit1stCooldownSec')) el('scSplit1stCooldownSec').value = (cfg.split1stCooldownSec != null) ? cfg.split1stCooldownSec : 60;
+      if (el('scVol3RatioThreshold')) el('scVol3RatioThreshold').value = (cfg.vol3RatioThreshold != null) ? cfg.vol3RatioThreshold : 2.5;
     } catch(e) {
       console.warn('Scanner config load failed:', e);
     }
@@ -931,8 +937,12 @@
       topN: parseInt(el('scTopN') ? el('scTopN').value : '15') || 15,
       maxPositions: parseInt(el('scMaxPos') ? el('scMaxPos').value : '3') || 3,
       btcFilterEnabled: (el('scBtcFilter') ? el('scBtcFilter').value : 'true') === 'true',
+      btcEmaPeriod: parseInt(el('scBtcEmaPeriod') ? el('scBtcEmaPeriod').value : '20') || 20,
       openFailedEnabled: (el('scOpenFailed') ? el('scOpenFailed').value : 'true') === 'true',
       volumeMult: parseFloat(el('scVolMult') ? el('scVolMult').value : '1.5') || 1.5,
+      // TP_TRAIL
+      tpTrailActivatePct: parseFloat(el('scTpTrailActivate') ? el('scTpTrailActivate').value : '1.5') || 1.5,
+      tpTrailDropPct: parseFloat(el('scTpTrailDrop') ? el('scTpTrailDrop').value : '1.0') || 1.0,
       minBodyRatio: parseFloat(el('scBodyRatio') ? el('scBodyRatio').value : '0.40') || 0.40,
       minPriceKrw: parseInt(el('scMinPrice') ? el('scMinPrice').value : '20') || 0,
       excludeMarkets: el('scExcludeMarkets') ? el('scExcludeMarkets').value.trim() : '',
@@ -941,7 +951,9 @@
       splitTpPct: parseFloat(el('scSplitTpPct') ? el('scSplitTpPct').value : '1.5') || 1.5,
       splitRatio: parseFloat(el('scSplitRatio') ? el('scSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('scTrailDropAfterSplit') ? el('scTrailDropAfterSplit').value : '1.2') || 1.2,
-      split1stTrailDrop: parseFloat(el('scSplit1stTrailDrop') ? el('scSplit1stTrailDrop').value : '0.5') || 0.5
+      split1stTrailDrop: parseFloat(el('scSplit1stTrailDrop') ? el('scSplit1stTrailDrop').value : '0.5') || 0.5,
+      split1stCooldownSec: parseInt(el('scSplit1stCooldownSec') ? el('scSplit1stCooldownSec').value : '60', 10) || 0,
+      vol3RatioThreshold: parseFloat(el('scVol3RatioThreshold') ? el('scVol3RatioThreshold').value : '2.5') || 2.5
     };
 
     await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
@@ -995,10 +1007,18 @@
       if (el('adTopN')) el('adTopN').value = cfg.topN || 15;
       if (el('adMaxPos')) el('adMaxPos').value = cfg.maxPositions || 2;
       if (el('adBtcFilter')) el('adBtcFilter').value = String(cfg.btcFilterEnabled !== false);
+      if (el('adBtcEmaPeriod')) el('adBtcEmaPeriod').value = cfg.btcEmaPeriod != null ? cfg.btcEmaPeriod : 20;
       if (el('adVolSurge')) el('adVolSurge').value = cfg.volumeSurgeMult || 3.0;
       if (el('adBodyRatio')) el('adBodyRatio').value = cfg.minBodyRatio || 0.50;
       if (el('adMinPrice')) el('adMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('adExcludeMarkets')) el('adExcludeMarkets').value = cfg.excludeMarkets || '';
+      // SL 종합안 (WebSocket 실시간)
+      if (el('adGracePeriod')) el('adGracePeriod').value = cfg.gracePeriodSec != null ? cfg.gracePeriodSec : 30;
+      if (el('adWidePeriod')) el('adWidePeriod').value = cfg.widePeriodMin != null ? cfg.widePeriodMin : 15;
+      if (el('adWideSlPct')) el('adWideSlPct').value = cfg.wideSlPct != null ? cfg.wideSlPct : 3.0;
+      // TP_TRAIL
+      if (el('adTpTrailActivate')) el('adTpTrailActivate').value = cfg.tpTrailActivatePct != null ? cfg.tpTrailActivatePct : 2.0;
+      if (el('adTpTrailDrop')) el('adTpTrailDrop').value = cfg.tpTrailDropPct != null ? cfg.tpTrailDropPct : 1.0;
       // Quick TP
       if (el('adQuickTpEnabled')) el('adQuickTpEnabled').value = String(cfg.quickTpEnabled !== false);
       if (el('adQuickTpPct')) el('adQuickTpPct').value = cfg.quickTpPct || 0.7;
@@ -1037,10 +1057,18 @@
       topN: parseInt(el('adTopN') ? el('adTopN').value : '15') || 15,
       maxPositions: parseInt(el('adMaxPos') ? el('adMaxPos').value : '2') || 2,
       btcFilterEnabled: (el('adBtcFilter') ? el('adBtcFilter').value : 'true') === 'true',
+      btcEmaPeriod: parseInt(el('adBtcEmaPeriod') ? el('adBtcEmaPeriod').value : '20') || 20,
       volumeSurgeMult: parseFloat(el('adVolSurge') ? el('adVolSurge').value : '3.0') || 3.0,
       minBodyRatio: parseFloat(el('adBodyRatio') ? el('adBodyRatio').value : '0.50') || 0.50,
       minPriceKrw: parseInt(el('adMinPrice') ? el('adMinPrice').value : '20') || 0,
       excludeMarkets: el('adExcludeMarkets') ? el('adExcludeMarkets').value.trim() : '',
+      // SL 종합안 (WebSocket 실시간)
+      gracePeriodSec: parseInt(el('adGracePeriod') ? el('adGracePeriod').value : '30') || 30,
+      widePeriodMin: parseInt(el('adWidePeriod') ? el('adWidePeriod').value : '15') || 15,
+      wideSlPct: parseFloat(el('adWideSlPct') ? el('adWideSlPct').value : '3.0') || 3.0,
+      // TP_TRAIL
+      tpTrailActivatePct: parseFloat(el('adTpTrailActivate') ? el('adTpTrailActivate').value : '2.0') || 2.0,
+      tpTrailDropPct: parseFloat(el('adTpTrailDrop') ? el('adTpTrailDrop').value : '1.0') || 1.0,
       // Quick TP
       quickTpEnabled: (el('adQuickTpEnabled') ? el('adQuickTpEnabled').value : 'true') === 'true',
       quickTpPct: parseFloat(el('adQuickTpPct') ? el('adQuickTpPct').value : '0.7') || 0.7,
@@ -1092,6 +1120,10 @@
         el('mrGlobalCapDisplay').textContent = '(현재 Capital: ' + fmt(cfg.globalCapitalKrw) + '원)';
       }
       if (el('mrOrderValue')) el('mrOrderValue').value = cfg.orderSizingValue || 20;
+      // Timing
+      if (el('mrRangeStart')) el('mrRangeStart').value = fmtHHMM(cfg.rangeStartHour, cfg.rangeStartMin);
+      if (el('mrEntryStart')) el('mrEntryStart').value = fmtHHMM(cfg.entryStartHour, cfg.entryStartMin);
+      if (el('mrEntryEnd')) el('mrEntryEnd').value = fmtHHMM(cfg.entryEndHour, cfg.entryEndMin);
       if (el('mrGapThreshold')) el('mrGapThreshold').value = cfg.gapThresholdPct || 5.0;
       if (el('mrVolMult')) el('mrVolMult').value = cfg.volumeMult || 5.0;
       if (el('mrConfirmCount')) el('mrConfirmCount').value = cfg.confirmCount || 3;
@@ -1107,6 +1139,8 @@
       if (el('mrMinTradeAmount')) el('mrMinTradeAmount').value = cfg.minTradeAmountBillion || 10;
       if (el('mrMinPrice')) el('mrMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('mrExcludeMarkets')) el('mrExcludeMarkets').value = cfg.excludeMarkets || '';
+      // TP_TRAIL
+      if (el('mrTpTrailDrop')) el('mrTpTrailDrop').value = cfg.tpTrailDropPct != null ? cfg.tpTrailDropPct : 1.5;
       // Split-Exit
       if (el('mrSplitEnabled')) el('mrSplitEnabled').value = String(cfg.splitExitEnabled === true);
       if (el('mrSplitTpPct')) el('mrSplitTpPct').value = cfg.splitTpPct || 1.5;
@@ -1121,12 +1155,18 @@
   async function saveMorningRushConfig() {
     var el = function(id) { return document.getElementById(id); };
     var se = parseHHMM(el('mrSessionEnd') ? el('mrSessionEnd').value : '10:00');
+    var rs = parseHHMM(el('mrRangeStart') ? el('mrRangeStart').value : '08:50');
+    var es = parseHHMM(el('mrEntryStart') ? el('mrEntryStart').value : '09:00');
+    var ee = parseHHMM(el('mrEntryEnd') ? el('mrEntryEnd').value : '09:05');
 
     var body = {
       enabled: mrEnabled,
       mode: el('mrMode') ? el('mrMode').value : 'PAPER',
       orderSizingMode: el('mrOrderMode') ? el('mrOrderMode').value : 'PCT',
       orderSizingValue: parseFloat(el('mrOrderValue') ? el('mrOrderValue').value : '20') || 20,
+      rangeStartHour: rs[0], rangeStartMin: rs[1],
+      entryStartHour: es[0], entryStartMin: es[1],
+      entryEndHour: ee[0], entryEndMin: ee[1],
       gapThresholdPct: parseFloat(el('mrGapThreshold') ? el('mrGapThreshold').value : '5.0') || 5.0,
       volumeMult: parseFloat(el('mrVolMult') ? el('mrVolMult').value : '5.0') || 5.0,
       confirmCount: parseInt(el('mrConfirmCount') ? el('mrConfirmCount').value : '3') || 3,
@@ -1142,6 +1182,8 @@
       minTradeAmountBillion: parseInt(el('mrMinTradeAmount') ? el('mrMinTradeAmount').value : '10') || 10,
       minPriceKrw: parseInt(el('mrMinPrice') ? el('mrMinPrice').value : '20') || 0,
       excludeMarkets: el('mrExcludeMarkets') ? el('mrExcludeMarkets').value.trim() : '',
+      // TP_TRAIL
+      tpTrailDropPct: parseFloat(el('mrTpTrailDrop') ? el('mrTpTrailDrop').value : '1.5') || 1.5,
       // Split-Exit
       splitExitEnabled: (el('mrSplitEnabled') ? el('mrSplitEnabled').value : 'false') === 'true',
       splitTpPct: parseFloat(el('mrSplitTpPct') ? el('mrSplitTpPct').value : '1.5') || 1.5,

@@ -86,6 +86,10 @@ public class AllDayScannerService {
     private volatile double cachedTrailDropAfterSplit = 1.2;
     // V115: 1차 매도 TRAIL drop %
     private volatile double cachedSplit1stTrailDrop = 0.5;
+    // V129: SPLIT_1ST 체결 후 SPLIT_2ND_TRAIL 매도 쿨다운(ms). SL은 허용 (진짜 급락 방어).
+    private volatile long cachedSplit1stCooldownMs = 60_000L;
+    // V129: market → epochMs of SPLIT_1ST execution (쿨다운 기준점, 재시작 시 DB에서 복구)
+    private final ConcurrentHashMap<String, Long> split1stExecutedAtMap = new ConcurrentHashMap<String, Long>();
     private volatile PriceUpdateListener priceListener;
 
     // 당일 09:00 시가 캐시 (Daily Change 계산용)
@@ -518,6 +522,7 @@ public class AllDayScannerService {
         cachedSplitRatio = cfg.getSplitRatio().doubleValue();
         cachedTrailDropAfterSplit = cfg.getTrailDropAfterSplit().doubleValue();
         cachedSplit1stTrailDrop = cfg.getSplit1stTrailDrop().doubleValue();  // V115
+        cachedSplit1stCooldownMs = cfg.getSplit1stCooldownSec() * 1000L;  // V129
 
         String mode = cfg.getMode();
         boolean isLive = "LIVE".equalsIgnoreCase(mode);
@@ -665,11 +670,11 @@ public class AllDayScannerService {
                     Signal signal = strategy.evaluate(ctx);
 
                     if (signal.action == SignalAction.SELL) {
-                        // V111: splitPhase=1이면 TIME_STOP 무시 (1차 수익 확보, 2차는 trail/BEV만 관리)
+                        // V111/V129: splitPhase=1이면 TIME_STOP 무시 (1차 수익 확보, 2차는 realtime SPLIT_2ND_TRAIL 또는 SL만)
                         if (pe.getSplitPhase() == 1 && signal.reason != null
                                 && signal.reason.contains("TIME_STOP")) {
                             addDecision(pe.getMarket(), "SELL", "BLOCKED", "SPLIT_TIME_STOP_SKIP",
-                                    "splitPhase=1 → TIME_STOP 비활성 (2차는 realtime trail/BEV만)");
+                                    "splitPhase=1 → TIME_STOP 비활성 (2차는 realtime SPLIT_2ND_TRAIL 또는 SL)");
                         } else {
                             executeSell(pe, candles.get(candles.size() - 1), signal, cfg);
                             addDecision(pe.getMarket(), "SELL", "EXECUTED", "SIGNAL",
@@ -1111,6 +1116,7 @@ public class AllDayScannerService {
                 tl.setMode(cfg.getMode());
                 tl.setPatternType("HIGH_CONFIDENCE_BREAKOUT");
                 tl.setPatternReason(signal.reason);
+                tl.setEntrySignal(signal.reason); // V128
                 tl.setConfidence(signal.confidence);
                 tl.setCandleUnitMin(cfg.getCandleUnitMin());
                 tradeLogRepo.save(tl);
@@ -1191,6 +1197,10 @@ public class AllDayScannerService {
         // P4-21: SESSION_END + splitPhase=1이면 note 구분
         final String sellNote = (pe.getSplitPhase() == 1 && signal.reason != null
                 && signal.reason.contains("SESSION_END")) ? "SPLIT_SESSION_END" : null;
+        // V128: tpPositionCache [1]=peakPrice, [6]=split1stTrailArmed
+        final double[] cachePos = tpPositionCache.get(peMarket);
+        final double fPeakPrice = cachePos != null && cachePos.length >= 2 ? cachePos[1] : 0;
+        final boolean fArmed = cachePos != null && cachePos.length >= 7 && cachePos[6] > 0;
         txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
             @Override
             protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
@@ -1209,6 +1219,14 @@ public class AllDayScannerService {
                 tl.setConfidence(signal.confidence);
                 tl.setCandleUnitMin(cfg.getCandleUnitMin());
                 if (sellNote != null) tl.setNote(sellNote);
+                // V128: peak/armed 로그 기록
+                if (fPeakPrice > 0 && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                    tl.setPeakPrice(fPeakPrice);
+                    double peakRoi = (fPeakPrice - peAvgPrice.doubleValue())
+                            / peAvgPrice.doubleValue() * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                }
+                tl.setArmedFlag(fArmed ? "Y" : "N");
                 tradeLogRepo.save(tl);
 
                 positionRepo.deleteById(peMarket);
@@ -1219,6 +1237,7 @@ public class AllDayScannerService {
                 pe.getMarket(), fillPrice, String.format("%.0f", pnlKrw),
                 String.format("%.2f", roiPct), signal.reason);
         sellCooldownMap.put(pe.getMarket(), System.currentTimeMillis());
+        split1stExecutedAtMap.remove(pe.getMarket());  // V129: 최종 매도 — 쿨다운 맵 제거
     }
 
     // ========== Quick TP Ticker ==========
@@ -1375,6 +1394,11 @@ public class AllDayScannerService {
         final String fReason = reason;
         final String fSellType = sellType;
 
+        // V128: tpPositionCache [1]=peakPrice, [6]=split1stTrailArmed
+        final double[] cachePos = tpPositionCache.get(market);
+        final double fPeakPrice = cachePos != null && cachePos.length >= 2 ? cachePos[1] : 0;
+        final boolean fArmed = cachePos != null && cachePos.length >= 7 && cachePos[6] > 0;
+
         // Atomic: trade_log + position delete
         txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
             @Override
@@ -1392,6 +1416,13 @@ public class AllDayScannerService {
                 tl.setPatternReason(fReason);
                 tl.setAvgBuyPrice(BigDecimal.valueOf(avgPrice));
                 tl.setCandleUnitMin(cfg.getCandleUnitMin());
+                // V128: peak/armed 로그 기록
+                if (fPeakPrice > 0 && avgPrice > 0) {
+                    tl.setPeakPrice(fPeakPrice);
+                    double peakRoi = (fPeakPrice - avgPrice) / avgPrice * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                }
+                tl.setArmedFlag(fArmed ? "Y" : "N");
                 tradeLogRepo.save(tl);
                 positionRepo.deleteById(market);
             }
@@ -1402,6 +1433,7 @@ public class AllDayScannerService {
 
         addDecision(market, "SELL", "EXECUTED", fSellType, fReason);
         sellCooldownMap.put(market, System.currentTimeMillis());
+        split1stExecutedAtMap.remove(market);  // V129: 최종 매도 — 쿨다운 맵 제거
     }
 
     // ========== WebSocket Real-time TP_TRAIL + Tiered SL (V109: 2026-04-13) ==========
@@ -1446,6 +1478,9 @@ public class AllDayScannerService {
             troughPrice = price;
         }
 
+        // V129: Grace 가드 최상단 — SL/SPLIT/TP 포함 모든 매도 차단 (매수 직후 꼬리 흡수)
+        if (elapsedMs < cachedGracePeriodMs) return;
+
         String sellType = null;
         String reason = null;
         boolean isSplitFirst = false;
@@ -1473,18 +1508,22 @@ public class AllDayScannerService {
                 }
             }
         }
-        // ━━━ V111: Split-Exit 2차 관리 (splitPhase=1) ━━━
+        // ━━━ V129: Split-Exit 2차 관리 (splitPhase=1) — BEV 제거 + 쿨다운 게이트 ━━━
         else if (cachedSplitExitEnabled && splitPhase == 1) {
-            // Breakeven SL: 매수가까지 하락 시 잔량 전량 매도
-            if (pnlPct <= 0) {
-                double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
-                sellType = "SPLIT_2ND_BEV";
-                reason = String.format(Locale.ROOT,
-                        "SPLIT_2ND_BEV pnl=%.2f%% <= 0%% (breakeven) avg=%.2f now=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                        pnlPct, avgPrice, price, troughPrice, troughPnl);
+            // V129 쿨다운: SPLIT_1ST 체결 후 60초 동안 SPLIT_2ND_TRAIL 차단. SL은 아래 블록이 처리.
+            Long execAt = split1stExecutedAtMap.get(market);
+            boolean cooldownActive = false;
+            if (execAt != null && cachedSplit1stCooldownMs > 0) {
+                long sinceMs = System.currentTimeMillis() - execAt;
+                if (sinceMs < cachedSplit1stCooldownMs) {
+                    cooldownActive = true;
+                    log.debug("[AllDayScanner] SPLIT_2ND cooldown active: {} since={}ms < {}ms",
+                            market, sinceMs, cachedSplit1stCooldownMs);
+                }
             }
-            // TP_TRAIL drop (피크 대비 trailDropAfterSplit% 하락)
-            else {
+            if (!cooldownActive && peakPrice > avgPrice) {
+                // V129: SPLIT_2ND_BEV(pnlPct<=0 본전) 제거 — 꼬리 본전매도 후 반등 놓침 원인.
+                //       2차 매도는 TP_TRAIL(trailDropAfterSplit) 조건만. 급락은 아래 SL 블록이 처리.
                 double dropFromPeak = (peakPrice - price) / peakPrice * 100.0;
                 if (dropFromPeak >= cachedTrailDropAfterSplit) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
@@ -1495,22 +1534,16 @@ public class AllDayScannerService {
                 }
             }
         }
-        // ━━━ 기존 TP_TRAIL + SL 종합안 ━━━
-        // V115: splitPhase=1(2차 관리 중)이 아니면 항상 동작
-        // - splitExit 비활성 시 항상 동작
-        // - splitPhase=-1 (분할 불가) 시 동작
-        // - splitPhase=0에서 Split 1차 매도 미발동 시에도 SL 안전망으로 동작
+        // ━━━ TP_TRAIL 활성화 + drop 판정 (splitPhase=0 전용) ━━━
+        // splitPhase=1은 위에서 SPLIT_2ND_TRAIL로 이미 판정됨. splitPhase=-1(분할 불가) 시도 여기에 해당.
         if (sellType == null && splitPhase != 1) {
-            // TP_TRAIL 활성화 체크
             if (!activated && pnlPct >= cachedTpTrailActivatePct) {
                 pos[2] = 1.0;
                 activated = true;
                 log.info("[AllDayScanner] TP_TRAIL activated: {} pnl=+{}% peak={} (realtime)",
                         market, String.format(Locale.ROOT, "%.2f", pnlPct), peakPrice);
             }
-
             if (activated) {
-                // ★ 돌파 성공 구간: TP_TRAIL 단독 관리 (SL 비활성)
                 double dropFromPeak = (peakPrice - price) / peakPrice * 100.0;
                 if (dropFromPeak >= cachedTpTrailDropPct) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
@@ -1519,38 +1552,38 @@ public class AllDayScannerService {
                             "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
                             avgPrice, peakPrice, price, dropFromPeak, pnlPct, troughPrice, troughPnl);
                 }
+            }
+        }
+
+        // ━━━ V129: 티어드 SL (splitPhase 무관 — 쿨다운 중이어도 SL은 허용) ━━━
+        // Grace는 메서드 상단에서 이미 return 처리됨 → 여기서는 Wide/Tight만 처리.
+        // splitPhase=0에서 TP_TRAIL activated이면 수익 보존 위해 SL 비활성.
+        if (sellType == null && !(splitPhase == 0 && activated)) {
+            if (elapsedMs < cachedWidePeriodMs) {
+                if (pnlPct <= -cachedWideSlPct) {
+                    double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
+                    sellType = "SL_WIDE";
+                    reason = String.format(Locale.ROOT,
+                            "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            pnlPct, cachedWideSlPct, price, avgPrice, troughPrice, troughPnl);
+                }
             } else {
-                // ★ 돌파 미확인 구간: 티어드 SL 적용
-                if (elapsedMs < cachedGracePeriodMs) {
-                    if (pnlPct <= -5.0) {
-                        double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
-                        sellType = "SL_EMERGENCY";
-                        reason = String.format(Locale.ROOT,
-                                "SL_EMERGENCY pnl=%.2f%% <= -5.0%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (grace, realtime)",
-                                pnlPct, price, avgPrice, troughPrice, troughPnl);
-                    }
-                } else if (elapsedMs < cachedWidePeriodMs) {
-                    if (pnlPct <= -cachedWideSlPct) {
-                        double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
-                        sellType = "SL_WIDE";
-                        reason = String.format(Locale.ROOT,
-                                "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                                pnlPct, cachedWideSlPct, price, avgPrice, troughPrice, troughPnl);
-                    }
-                } else {
-                    if (pnlPct <= -cachedTightSlPct) {
-                        double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
-                        sellType = "SL_TIGHT";
-                        reason = String.format(Locale.ROOT,
-                                "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                                pnlPct, cachedTightSlPct, price, avgPrice, troughPrice, troughPnl);
-                    }
+                if (pnlPct <= -cachedTightSlPct) {
+                    double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
+                    sellType = "SL_TIGHT";
+                    reason = String.format(Locale.ROOT,
+                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            pnlPct, cachedTightSlPct, price, avgPrice, troughPrice, troughPnl);
                 }
             }
         }
 
         // 매도 실행
         if (sellType != null) {
+            // V128: 매도 시점 armed/peak 스냅샷 — cache 리셋/제거 전에 캡처 (로깅용)
+            final boolean fCapturedArmed = pos.length >= 7 && pos[6] > 0;
+            final double fCapturedPeak = peakPrice;
+
             if (isSplitFirst) {
                 // ★ V111: 1차 분할 매도 — 캐시 유지, splitPhase=1로 갱신
                 final String fReason = reason;
@@ -1562,7 +1595,8 @@ public class AllDayScannerService {
                     wsTpExecutor.submit(new Runnable() {
                         @Override
                         public void run() {
-                            executeSplitFirstSellForWsTp(market, fPrice, fPnlPct, fReason);
+                            executeSplitFirstSellForWsTp(market, fPrice, fPnlPct, fReason,
+                                    Boolean.valueOf(fCapturedArmed), Double.valueOf(fCapturedPeak));
                         }
                     });
                 } catch (Exception e) {
@@ -1584,7 +1618,8 @@ public class AllDayScannerService {
                     wsTpExecutor.submit(new Runnable() {
                         @Override
                         public void run() {
-                            executeSellForWsTp(market, price, fPnlPct, fTroughPrice, fTroughPnl, fNote);
+                            executeSellForWsTp(market, price, fPnlPct, fTroughPrice, fTroughPnl, fNote,
+                                    Boolean.valueOf(fCapturedArmed), Double.valueOf(fCapturedPeak));
                         }
                     });
                 } catch (Exception e) {
@@ -1922,13 +1957,19 @@ public class AllDayScannerService {
      */
     private void executeSellForWsTp(String market, double wsPrice, double pnlPct,
                                      double troughPrice, double troughPnl, String note) {
+        executeSellForWsTp(market, wsPrice, pnlPct, troughPrice, troughPnl, note, null, null);
+    }
+
+    private void executeSellForWsTp(String market, double wsPrice, double pnlPct,
+                                     double troughPrice, double troughPnl, String note,
+                                     Boolean capturedArmed, Double capturedPeak) {
         // ★ race 방어: in-flight 매도 차단 (WS TP path와 mainLoop monitorPositions 동시 매도 가능)
         if (!sellingMarkets.add(market)) {
             log.debug("[AllDayScanner] WS_TP SELL in progress, skip duplicate: {}", market);
             return;
         }
         try {
-            executeSellForWsTpInner(market, wsPrice, pnlPct, troughPrice, troughPnl, note);
+            executeSellForWsTpInner(market, wsPrice, pnlPct, troughPrice, troughPnl, note, capturedArmed, capturedPeak);
         } finally {
             sellingMarkets.remove(market);
         }
@@ -1936,6 +1977,12 @@ public class AllDayScannerService {
 
     private void executeSellForWsTpInner(String market, double wsPrice, double pnlPct,
                                           double troughPrice, double troughPnl, final String note) {
+        executeSellForWsTpInner(market, wsPrice, pnlPct, troughPrice, troughPnl, note, null, null);
+    }
+
+    private void executeSellForWsTpInner(String market, double wsPrice, double pnlPct,
+                                          double troughPrice, double troughPnl, final String note,
+                                          Boolean capturedArmed, Double capturedPeak) {
         PositionEntity pe = positionRepo.findById(market).orElse(null);
         if (pe == null || pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("[AllDayScanner] WS_TP: position not found for {} (already sold?)", market);
@@ -1976,6 +2023,20 @@ public class AllDayScannerService {
                 "TP_TRAIL pnl=%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
                 pnlPct, fFillPrice, avgPrice, troughPrice, troughPnl);
 
+        // V128 B안: 호출자가 cache 제거 전 캡처한 armed/peak 우선 사용. 없으면 cache fallback.
+        double resolvedPeak;
+        boolean resolvedArmed;
+        if (capturedPeak != null && capturedArmed != null) {
+            resolvedPeak = capturedPeak.doubleValue();
+            resolvedArmed = capturedArmed.booleanValue();
+        } else {
+            double[] cachePos = tpPositionCache.get(market);
+            resolvedPeak = cachePos != null && cachePos.length >= 2 ? cachePos[1] : 0;
+            resolvedArmed = cachePos != null && cachePos.length >= 7 && cachePos[6] > 0;
+        }
+        final double fPeakPrice = resolvedPeak;
+        final boolean fArmed = resolvedArmed;
+
         txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
             @Override
             protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
@@ -1993,6 +2054,13 @@ public class AllDayScannerService {
                 tl.setAvgBuyPrice(BigDecimal.valueOf(avgPrice));
                 tl.setCandleUnitMin(cfg.getCandleUnitMin());
                 if (note != null) tl.setNote(note);
+                // V128: peak/armed 로그 기록
+                if (fPeakPrice > 0 && avgPrice > 0) {
+                    tl.setPeakPrice(fPeakPrice);
+                    double peakRoi = (fPeakPrice - avgPrice) / avgPrice * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                }
+                tl.setArmedFlag(fArmed ? "Y" : "N");
                 tradeLogRepo.save(tl);
                 positionRepo.deleteById(market);
             }
@@ -2003,23 +2071,34 @@ public class AllDayScannerService {
                 logLabel, market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
         addDecision(market, "SELL", "EXECUTED", logLabel, reason);
         sellCooldownMap.put(market, System.currentTimeMillis());
+        split1stExecutedAtMap.remove(market);  // V129: 최종 매도(2차/SL/TP) — 쿨다운 맵 제거
     }
 
     // ━━━ V111: Split-Exit 1차 분할 매도 (60%) ━━━
 
     private void executeSplitFirstSellForWsTp(String market, double wsPrice, double pnlPct, String splitReason) {
+        executeSplitFirstSellForWsTp(market, wsPrice, pnlPct, splitReason, null, null);
+    }
+
+    private void executeSplitFirstSellForWsTp(String market, double wsPrice, double pnlPct, String splitReason,
+                                                Boolean capturedArmed, Double capturedPeak) {
         if (!sellingMarkets.add(market)) {
             log.debug("[AllDayScanner] SPLIT_1ST in progress, skip duplicate: {}", market);
             return;
         }
         try {
-            executeSplitFirstSellInner(market, wsPrice, pnlPct, splitReason);
+            executeSplitFirstSellInner(market, wsPrice, pnlPct, splitReason, capturedArmed, capturedPeak);
         } finally {
             sellingMarkets.remove(market);
         }
     }
 
     private void executeSplitFirstSellInner(String market, double wsPrice, double pnlPct, String splitReason) {
+        executeSplitFirstSellInner(market, wsPrice, pnlPct, splitReason, null, null);
+    }
+
+    private void executeSplitFirstSellInner(String market, double wsPrice, double pnlPct, String splitReason,
+                                              Boolean capturedArmed, Double capturedPeak) {
         PositionEntity pe = positionRepo.findById(market).orElse(null);
         if (pe == null || pe.getQty() == null || pe.getQty().compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("[AllDayScanner] SPLIT_1ST: position not found for {} (already sold?)", market);
@@ -2081,6 +2160,20 @@ public class AllDayScannerService {
         final boolean fIsDust = isDust;
         final double fRemainQty = remainQty;
 
+        // V128 B안: 호출자가 cache 리셋(pos[6]=0) 전 캡처한 armed/peak 우선. 없으면 cache fallback.
+        double resolvedPeak;
+        boolean resolvedArmed;
+        if (capturedPeak != null && capturedArmed != null) {
+            resolvedPeak = capturedPeak.doubleValue();
+            resolvedArmed = capturedArmed.booleanValue();
+        } else {
+            double[] cachePos = tpPositionCache.get(market);
+            resolvedPeak = cachePos != null && cachePos.length >= 2 ? cachePos[1] : 0;
+            resolvedArmed = cachePos != null && cachePos.length >= 7 && cachePos[6] > 0;
+        }
+        final double fPeakPrice = resolvedPeak;
+        final boolean fArmed = resolvedArmed;
+
         try {
             txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
                 @Override
@@ -2099,6 +2192,13 @@ public class AllDayScannerService {
                     tl.setAvgBuyPrice(peAvgPrice);
                     tl.setCandleUnitMin(cfg.getCandleUnitMin());
                     tl.setNote(fIsDust ? "SPLIT_1ST_DUST" : "SPLIT_1ST");
+                    // V128: peak/armed 로그 기록
+                    if (fPeakPrice > 0 && avgPrice > 0) {
+                        tl.setPeakPrice(fPeakPrice);
+                        double peakRoi = (fPeakPrice - avgPrice) / avgPrice * 100.0;
+                        tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                    }
+                    tl.setArmedFlag(fArmed ? "Y" : "N");
                     tradeLogRepo.save(tl);
 
                     if (fIsDust) {
@@ -2110,6 +2210,8 @@ public class AllDayScannerService {
                         // V118: 1차 매도 후 peak/armed 리셋 — 2차 TRAIL은 매도가를 새 기준점으로 추적
                         pe.setPeakPrice(BigDecimal.valueOf(fFillPrice));
                         pe.setArmedAt(null);
+                        // V129: 쿨다운 기준점 DB 영속화 (재시작 후 복구용)
+                        pe.setSplit1stExecutedAt(java.time.Instant.now());
                         positionRepo.save(pe);
                     }
                 }
@@ -2128,12 +2230,18 @@ public class AllDayScannerService {
             return;
         }
 
+        // V129: DB commit 성공 후 쿨다운 기준점 메모리 맵에도 등록 (즉시 체크용)
+        if (!fIsDust) {
+            split1stExecutedAtMap.put(market, System.currentTimeMillis());
+        }
+
         // 캐시 갱신
         double[] pos = tpPositionCache.get(market);
         if (fIsDust) {
             // dust → 캐시 제거
             tpPositionCache.remove(market);
             sellCooldownMap.put(market, System.currentTimeMillis());
+            split1stExecutedAtMap.remove(market);  // V129: dust 전량 매도 시 쿨다운 맵도 제거
             log.info("[AllDayScanner] SPLIT_1ST_DUST SELL {} (전량, 잔량<5000원) price={} pnl={} roi={}%",
                     market, fFillPrice, Math.round(pnlKrw), String.format("%.2f", roiPct));
         } else if (pos != null) {
@@ -2193,12 +2301,17 @@ public class AllDayScannerService {
                     }
                 }
                 tpPositionCache.put(market, new double[]{avg, recPeak, 0, avg, openedAtMs, splitPhase, recArmed});
+                // V129: splitPhase==1 포지션의 쿨다운 기준점 복구 (재시작 시 DB → 메모리)
+                if (splitPhase == 1 && pe.getSplit1stExecutedAt() != null) {
+                    split1stExecutedAtMap.putIfAbsent(market, pe.getSplit1stExecutedAt().toEpochMilli());
+                }
             }
         }
         // 없어진 포지션 제거
         for (String market : new ArrayList<String>(tpPositionCache.keySet())) {
             if (!currentMarkets.contains(market)) {
                 tpPositionCache.remove(market);
+                split1stExecutedAtMap.remove(market);  // V129: 캐시에서 제거 시 쿨다운 맵도 제거
             }
         }
 

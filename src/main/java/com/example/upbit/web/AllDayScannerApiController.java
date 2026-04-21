@@ -101,6 +101,19 @@ public class AllDayScannerApiController {
         if (body.containsKey("quickTpPct")) cfg.setQuickTpPct(toBD(body.get("quickTpPct")));
         if (body.containsKey("quickTpIntervalSec")) cfg.setQuickTpIntervalSec(toInt(body.get("quickTpIntervalSec"), 5));
 
+        // SL 종합안 (WebSocket 실시간 티어드 SL)
+        if (body.containsKey("gracePeriodSec")) cfg.setGracePeriodSec(toInt(body.get("gracePeriodSec"), 30));
+        if (body.containsKey("widePeriodMin")) cfg.setWidePeriodMin(toInt(body.get("widePeriodMin"), 15));
+        if (body.containsKey("wideSlPct")) cfg.setWideSlPct(toBD(body.get("wideSlPct")));
+
+        // TP_TRAIL
+        if (body.containsKey("tpTrailActivatePct")) cfg.setTpTrailActivatePct(toBD(body.get("tpTrailActivatePct")));
+        if (body.containsKey("tpTrailDropPct")) cfg.setTpTrailDropPct(toBD(body.get("tpTrailDropPct")));
+
+        // 진입 필터 강화
+        if (body.containsKey("maxEntryRsi")) cfg.setMaxEntryRsi(toInt(body.get("maxEntryRsi"), 80));
+        if (body.containsKey("minVolumeMult")) cfg.setMinVolumeMult(toBD(body.get("minVolumeMult")));
+
         // Split-Exit
         if (body.containsKey("splitExitEnabled")) cfg.setSplitExitEnabled(Boolean.TRUE.equals(body.get("splitExitEnabled")));
         if (body.containsKey("splitTpPct")) cfg.setSplitTpPct(toBD(body.get("splitTpPct")));
@@ -171,6 +184,16 @@ public class AllDayScannerApiController {
         m.put("quickTpEnabled", cfg.isQuickTpEnabled());
         m.put("quickTpPct", cfg.getQuickTpPctBD());
         m.put("quickTpIntervalSec", cfg.getQuickTpIntervalSec());
+        // SL 종합안 (WebSocket 실시간 티어드 SL)
+        m.put("gracePeriodSec", cfg.getGracePeriodSec());
+        m.put("widePeriodMin", cfg.getWidePeriodMin());
+        m.put("wideSlPct", cfg.getWideSlPct());
+        // TP_TRAIL
+        m.put("tpTrailActivatePct", cfg.getTpTrailActivatePct());
+        m.put("tpTrailDropPct", cfg.getTpTrailDropPct());
+        // 진입 필터 강화
+        m.put("maxEntryRsi", cfg.getMaxEntryRsi());
+        m.put("minVolumeMult", cfg.getMinVolumeMult());
         // Split-Exit
         m.put("splitExitEnabled", cfg.isSplitExitEnabled());
         m.put("splitTpPct", cfg.getSplitTpPct());

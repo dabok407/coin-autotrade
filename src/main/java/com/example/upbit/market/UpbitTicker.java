@@ -10,4 +10,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public class UpbitTicker {
     public String market;
     public double trade_price;
+    public double high_price;
+    public double low_price;
+    public double opening_price;
 }

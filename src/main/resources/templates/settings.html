@@ -231,6 +231,19 @@
           </div>
         </div>
 
+        <!-- TP_TRAIL (Split OFF 시 fallback) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">TP_TRAIL (Split OFF 시 fallback)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Activate (%) <span class="help-icon" data-tooltip="TP_TRAIL 활성화 기준 수익률 (%)&#10;이 수익률 도달 시 trail 모드로 전환&#10;예: 1.5 = +1.5% 도달 시 trail 시작" aria-label="TP Trail activate help"></span></label>
+            <input class="input" type="number" id="scTpTrailActivate" value="1.5" step="0.1" min="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Drop (%) <span class="help-icon" data-tooltip="TP_TRAIL: 피크 대비 하락 매도 기준 (%)&#10;trail 활성화 후 고점 대비 이 비율 하락 시 매도&#10;예: 1.0 = 고점 대비 -1% 시 매도" aria-label="TP Trail drop help"></span></label>
+            <input class="input" type="number" id="scTpTrailDrop" value="1.0" step="0.1" min="0.1"/>
+          </div>
+        </div>
+
         <!-- Row 4: Scan/Filter -->
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Scan &amp; Filter</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:16px">
@@ -243,8 +256,12 @@
             <input class="input" type="number" id="scMaxPos" value="3" min="1" max="15"/>
           </div>
           <div class="config-field">
-            <label>BTC Filter <span class="help-icon" data-tooltip="BTC 방향 필터 (EMA 20 기준)&#10;ON: BTC가 EMA(20) 위일 때만 롱 진입" aria-label="BTC filter help"></span></label>
+            <label>BTC Filter <span class="help-icon" data-tooltip="BTC 방향 필터 (EMA 기준)&#10;ON: BTC가 EMA 위일 때만 롱 진입" aria-label="BTC filter help"></span></label>
             <select class="select" id="scBtcFilter"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+          </div>
+          <div class="config-field">
+            <label>BTC EMA Period <span class="help-icon" data-tooltip="BTC 방향 필터에 사용되는 EMA 기간&#10;예: 20 = EMA(20) 기준&#10;기본: 20" aria-label="BTC EMA period help"></span></label>
+            <input class="input" type="number" id="scBtcEmaPeriod" value="20" min="5" step="5"/>
           </div>
           <div class="config-field">
             <label>Volume Mult <span class="help-icon" data-tooltip="진입 조건: 현재 거래량 > 평균 x 배수&#10;예: 1.5 = 평균의 1.5배 이상 거래량 필요" aria-label="Volume mult help"></span></label>
@@ -290,6 +307,14 @@
           <div class="config-field">
             <label>1차 Trail Drop (%)</label>
             <input class="input" type="number" id="scSplit1stTrailDrop" value="0.5" step="0.1" min="0.1" max="3"/>
+          </div>
+          <div class="config-field">
+            <label>2차 Cooldown (초)</label>
+            <input class="input" type="number" id="scSplit1stCooldownSec" value="60" step="5" min="0" max="600"/>
+          </div>
+          <div class="config-field">
+            <label>3분봉 Vol 임계값 (C4, 배)</label>
+            <input class="input" type="number" id="scVol3RatioThreshold" value="2.5" step="0.1" min="1.0" max="5.0"/>
           </div>
         </div>
       </div>
@@ -374,6 +399,36 @@
           </div>
         </div>
 
+        <!-- SL 종합안 (WebSocket 실시간) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">SL 종합안 (WebSocket 실시간)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Grace Period (초) <span class="help-icon" data-tooltip="SL 종합안: 매수 직후 SL 무시 기간 (초)&#10;예: 30 = 매수 후 30초 동안 흔들기 보호 (TP는 항상 작동)&#10;권장: 30초" aria-label="Grace period help"></span></label>
+            <input class="input" type="number" id="adGracePeriod" value="30" step="10" min="0" max="600"/>
+          </div>
+          <div class="config-field">
+            <label>Wide Period (분) <span class="help-icon" data-tooltip="SL 종합안: SL_WIDE 지속 시간 (분)&#10;예: 15 = 매수 후 15분까지 SL_WIDE 적용, 그 후 SL_TIGHT&#10;권장: 15분" aria-label="Wide period help"></span></label>
+            <input class="input" type="number" id="adWidePeriod" value="15" step="1" min="1" max="120"/>
+          </div>
+          <div class="config-field">
+            <label>SL_WIDE (%) <span class="help-icon" data-tooltip="SL 종합안: 흔들기 보호용 Wide SL (%)&#10;Grace Period 이후 ~ Wide Period 까지 적용&#10;권장: 3.0%" aria-label="SL wide help"></span></label>
+            <input class="input" type="number" id="adWideSlPct" value="3.0" step="0.1"/>
+          </div>
+        </div>
+
+        <!-- TP_TRAIL (Split OFF 시 fallback) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">TP_TRAIL (Split OFF 시 fallback)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Activate (%) <span class="help-icon" data-tooltip="TP_TRAIL 활성화 기준 수익률 (%)&#10;이 수익률 도달 시 trail 모드로 전환&#10;예: 2.0 = +2% 도달 시 trail 시작" aria-label="TP Trail activate help"></span></label>
+            <input class="input" type="number" id="adTpTrailActivate" value="2.0" step="0.1" min="0.1"/>
+          </div>
+          <div class="config-field">
+            <label>Drop (%) <span class="help-icon" data-tooltip="TP_TRAIL: 피크 대비 하락 매도 기준 (%)&#10;trail 활성화 후 고점 대비 이 비율 하락 시 매도&#10;예: 1.0 = 고점 대비 -1% 시 매도" aria-label="TP Trail drop help"></span></label>
+            <input class="input" type="number" id="adTpTrailDrop" value="1.0" step="0.1" min="0.1"/>
+          </div>
+        </div>
+
         <!-- Row 4: Time Stop -->
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Time Stop</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
@@ -445,6 +500,10 @@
             <select class="select" id="adBtcFilter"><option value="true" selected>ON</option><option value="false">OFF</option></select>
           </div>
           <div class="config-field">
+            <label>BTC EMA Period <span class="help-icon" data-tooltip="BTC 방향 필터에 사용되는 EMA 기간&#10;예: 20 = EMA(20) 기준&#10;기본: 20" aria-label="BTC EMA period help"></span></label>
+            <input class="input" type="number" id="adBtcEmaPeriod" value="20" min="5" step="5"/>
+          </div>
+          <div class="config-field">
             <label>Volume Surge Mult <span class="help-icon" data-tooltip="진입 조건: 현재 거래량 > 평균 x 배수&#10;예: 3.0 = 평균의 3배 이상 거래량 필요" aria-label="Volume surge help"></span></label>
             <input class="input" type="number" id="adVolSurge" value="3.0" step="0.1"/>
           </div>
@@ -508,7 +567,24 @@
           <span id="mrGlobalCapDisplay" style="color:var(--primary)"></span>
         </div>
 
-        <!-- Row 2: Gap & Volume -->
+        <!-- Row 2: Timing (KST) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Timing (KST)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Range Start <span class="help-icon" data-tooltip="레인지 수집 시작 시각 (KST)&#10;이 시간부터 모닝러쉬 고가/저가를 추적합니다." aria-label="Range start help"></span></label>
+            <input class="input" type="time" id="mrRangeStart" value="08:50"/>
+          </div>
+          <div class="config-field">
+            <label>Entry Start <span class="help-icon" data-tooltip="진입 허용 시작 시각 (KST)&#10;이 시간부터 갭업 진입 시그널을 실행합니다." aria-label="Entry start help"></span></label>
+            <input class="input" type="time" id="mrEntryStart" value="09:00"/>
+          </div>
+          <div class="config-field">
+            <label>Entry End <span class="help-icon" data-tooltip="진입 마감 시각 (KST)&#10;이후에는 새 진입을 차단합니다." aria-label="Entry end help"></span></label>
+            <input class="input" type="time" id="mrEntryEnd" value="09:05"/>
+          </div>
+        </div>
+
+        <!-- Row 3: Gap & Volume -->
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Gap &amp; Volume</div>
         <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
           <div class="config-field">
@@ -587,6 +663,14 @@
           <div class="config-field">
             <label>제외 마켓 <span class="help-icon" data-tooltip="스캐너가 절대 매수하지 않을 마켓 목록&#10;콤마(,)로 구분. 예: KRW-BTC,KRW-XRP,KRW-DOGE" aria-label="Exclude markets help"></span></label>
             <input class="input" type="text" id="mrExcludeMarkets" value="" placeholder="KRW-BTC,KRW-XRP,KRW-DOGE" style="width:100%"/>
+          </div>
+        </div>
+        <!-- TP_TRAIL (Split OFF 시 fallback) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">TP_TRAIL (Split OFF 시 fallback)</div>
+        <div class="config-bar" style="grid-template-columns:1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>Drop (%) <span class="help-icon" data-tooltip="TP_TRAIL: 피크 대비 하락 매도 기준 (%)&#10;splitTpPct 도달 후 고점 대비 이 비율 하락 시 매도&#10;예: 1.5 = 고점 대비 -1.5% 시 매도&#10;(MR은 splitTpPct 재사용으로 activate 없음)" aria-label="TP Trail drop help"></span></label>
+            <input class="input" type="number" id="mrTpTrailDrop" value="1.5" step="0.1" min="0.1" style="max-width:200px"/>
           </div>
         </div>
         <!-- Split-Exit -->

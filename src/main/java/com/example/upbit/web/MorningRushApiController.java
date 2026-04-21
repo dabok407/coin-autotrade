@@ -104,6 +104,9 @@ public class MorningRushApiController {
         if (body.containsKey("excludeMarkets")) cfg.setExcludeMarkets(String.valueOf(body.get("excludeMarkets")));
         if (body.containsKey("minPriceKrw")) cfg.setMinPriceKrw(toInt(body.get("minPriceKrw"), 20));
 
+        // TP_TRAIL
+        if (body.containsKey("tpTrailDropPct")) cfg.setTpTrailDropPct(toBD(body.get("tpTrailDropPct")));
+
         // Split-Exit
         if (body.containsKey("splitExitEnabled")) cfg.setSplitExitEnabled(Boolean.TRUE.equals(body.get("splitExitEnabled")));
         if (body.containsKey("splitTpPct")) cfg.setSplitTpPct(toBD(body.get("splitTpPct")));
@@ -183,6 +186,8 @@ public class MorningRushApiController {
         m.put("minTradeAmount", cfg.getMinTradeAmount());
         m.put("excludeMarkets", cfg.getExcludeMarkets());
         m.put("minPriceKrw", cfg.getMinPriceKrw());
+        // TP_TRAIL
+        m.put("tpTrailDropPct", cfg.getTpTrailDropPct());
         // Split-Exit
         m.put("splitExitEnabled", cfg.isSplitExitEnabled());
         m.put("splitTpPct", cfg.getSplitTpPct());

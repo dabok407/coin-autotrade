@@ -69,6 +69,7 @@ public class OpeningDetectorSplitExitTest {
         detector.setSplitRatio(0.60);
         detector.setTrailDropAfterSplit(1.0);
         detector.setSplit1stTrailDropPct(0.5);  // V115: 1차 TRAIL drop 0.5%
+        detector.setSplit1stCooldownSec(0);     // V126: 기본 테스트는 쿨다운 없음 (V126-* 테스트에서 개별 설정)
 
         // 기존 TP 설정
         detector.setTpActivatePct(2.0);
@@ -125,20 +126,19 @@ public class OpeningDetectorSplitExitTest {
     }
 
     // ═══════════════════════════════════════════════════
-    //  S03: 정상 2차 Breakeven SL
+    //  S03 (V129): BEV 제거 — 매수가 하락 시 매도 안 됨
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("S03: splitPhase=1에서 매수가까지 하락 → SPLIT_2ND_BEV")
+    @DisplayName("S03 (V129): splitPhase=1에서 매수가 하락해도 매도 안 됨 (BEV 제거, 반등 대기)")
     void s03_normalSecondBreakeven() throws Exception {
         long now = System.currentTimeMillis();
         detector.addPosition("KRW-C", 100.0, now - 300_000, 5);
         detector.setSplitPhase("KRW-C", 1);
 
-        // 매수가 100원까지 하락
+        // 매수가 100원까지 하락 → peak=100, drop=0% → BEV 제거로 매도 없음
         checkRealtimeTp("KRW-C", 100.0);
 
-        assertEquals(1, sellMarkets.size());
-        assertEquals("SPLIT_2ND_BEV", sellTypes.get(0));
+        assertTrue(sellMarkets.isEmpty(), "V129: BEV 제거로 매수가 터치해도 매도 안 됨 (반등 기회 확보)");
     }
 
     // ═══════════════════════════════════════════════════
@@ -285,22 +285,24 @@ public class OpeningDetectorSplitExitTest {
     }
 
     // ═══════════════════════════════════════════════════
-    //  S11: 2차 완료 후 removePosition → splitPhase 제거
+    //  S11 (V129): 2차 매도 (TRAIL) 트리거 — BEV 제거 후 TRAIL만 경로
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("S11: 2차 매도 후 removePosition → splitPhase 제거")
+    @DisplayName("S11 (V129): splitPhase=1 + peak 대비 1%+ drop → SPLIT_2ND_TRAIL 매도 콜백")
     void s11_removePositionClearsSplitPhase() throws Exception {
         long now = System.currentTimeMillis();
         detector.addPosition("KRW-RM", 100.0, now - 300_000, 5);
         detector.setSplitPhase("KRW-RM", 1);
 
-        // 2차 매도 (breakeven)
-        checkRealtimeTp("KRW-RM", 100.0);
+        // peak 102 갱신
+        checkRealtimeTp("KRW-RM", 102.0);
+        assertTrue(sellMarkets.isEmpty(), "peak 갱신만");
+
+        // peak 대비 -1.2% drop → SPLIT_2ND_TRAIL (trailDropAfterSplit=1.0%)
+        checkRealtimeTp("KRW-RM", 100.8);
 
         assertEquals(1, sellTypes.size());
-        assertEquals("SPLIT_2ND_BEV", sellTypes.get(0));
-        // removePosition 호출 → splitPhase 제거
-        assertEquals(0, detector.getSplitPhase("KRW-RM"), "제거 후 기본값 0");
+        assertEquals("SPLIT_2ND_TRAIL", sellTypes.get(0));
     }
 
     // ═══════════════════════════════════════════════════
@@ -605,6 +607,260 @@ public class OpeningDetectorSplitExitTest {
 
         assertEquals(1, det.getSplitPhase("KRW-V118E"), "phase=1 유지");
         assertEquals(105.0, det.getPeak("KRW-V118E"), 0.0001, "phase=1에서도 DB peak 복원");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V126-1: SPLIT_2ND_BEV 쿨다운 내 차단
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V126-1: SPLIT_1ST 직후 쿨다운 중 -0.1%로 하락 → SPLIT_2ND_BEV 차단")
+    void v126_bevBlockedDuringCooldown() throws Exception {
+        detector.setSplit1stCooldownSec(60);  // 60s 쿨다운
+
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-V126A", 100.0, now - 120_000, 5);
+
+        // 1차 매도 트리거: armed → peak → drop
+        checkRealtimeTp("KRW-V126A", 101.6);  // armed
+        checkRealtimeTp("KRW-V126A", 102.0);  // peak
+        checkRealtimeTp("KRW-V126A", 101.4);  // SPLIT_1ST
+        assertEquals("SPLIT_1ST", sellTypes.get(0));
+        sellMarkets.clear();
+        sellTypes.clear();
+
+        // 즉시 매수가 이하(-0.1%)로 하락 → BEV 조건 충족이나 쿨다운으로 차단
+        checkRealtimeTp("KRW-V126A", 99.9);
+        assertTrue(sellMarkets.isEmpty(), "쿨다운 중 SPLIT_2ND_BEV 차단");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V126-2: SPLIT_2ND_TRAIL 쿨다운 내 차단 + peak 갱신 유지
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V126-2: 쿨다운 중 peak 갱신 유지 + SPLIT_2ND_TRAIL drop 차단")
+    void v126_trailBlockedDuringCooldownPeakKept() throws Exception {
+        detector.setSplit1stCooldownSec(60);
+
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-V126B", 100.0, now - 120_000, 5);
+        detector.setSplitPhase("KRW-V126B", 1);
+        // 쿨다운 기준 시점 설정 (현재 시각)
+        java.lang.reflect.Field f = OpeningBreakoutDetector.class.getDeclaredField("split1stExecutedAtMap");
+        f.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Long> execMap = (java.util.Map<String, Long>) f.get(detector);
+        execMap.put("KRW-V126B", System.currentTimeMillis());
+
+        // peak 103으로 갱신 (쿨다운 중)
+        checkRealtimeTp("KRW-V126B", 103.0);
+        assertTrue(sellMarkets.isEmpty(), "peak 갱신만 — 매도 없음");
+
+        // peak 103에서 -1.5% drop (trailDropAfterSplit=1.0 초과) → 쿨다운으로 차단
+        checkRealtimeTp("KRW-V126B", 101.4);
+        assertTrue(sellMarkets.isEmpty(), "쿨다운 중 SPLIT_2ND_TRAIL 차단");
+
+        // peak는 갱신 유지되었는지 확인 — getPeak 103
+        assertEquals(103.0, detector.getPeak("KRW-V126B"), 0.0001, "쿨다운 중에도 peak 갱신 유지");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V126-3 (V129): 쿨다운 만료 후 SPLIT_2ND_TRAIL 허용 (BEV 제거)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V126-3 (V129): 쿨다운 만료 후 peak -1.2% drop → SPLIT_2ND_TRAIL 발동")
+    void v126_bevAllowedAfterCooldown() throws Exception {
+        detector.setSplit1stCooldownSec(60);
+
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-V126C", 100.0, now - 120_000, 5);
+        detector.setSplitPhase("KRW-V126C", 1);
+
+        // 쿨다운 기준 시점을 과거로 설정 (이미 만료)
+        java.lang.reflect.Field f = OpeningBreakoutDetector.class.getDeclaredField("split1stExecutedAtMap");
+        f.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Long> execMap = (java.util.Map<String, Long>) f.get(detector);
+        execMap.put("KRW-V126C", System.currentTimeMillis() - 120_000);  // 120초 전
+
+        // peak 102 갱신 후 -1.2% drop → 쿨다운 만료 + TRAIL 조건 충족 → 매도
+        checkRealtimeTp("KRW-V126C", 102.0);
+        checkRealtimeTp("KRW-V126C", 100.8);
+        assertEquals(1, sellTypes.size(), "쿨다운 만료 후 TRAIL 매도 발동");
+        assertEquals("SPLIT_2ND_TRAIL", sellTypes.get(0));
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V126-4: SL_WIDE는 쿨다운 영향 없음 (별도 경로)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V126-4: 쿨다운 중이어도 SL_WIDE는 즉시 발동 (SL 경로 별개)")
+    void v126_slWideNotAffectedByCooldown() throws Exception {
+        detector.setSplit1stCooldownSec(60);
+
+        long now = System.currentTimeMillis();
+        // 2분 경과 (grace 30s 통과, SL_WIDE 구간)
+        detector.addPosition("KRW-V126D", 100.0, now - 120_000, 5);
+        detector.setSplitPhase("KRW-V126D", 1);
+
+        java.lang.reflect.Field f = OpeningBreakoutDetector.class.getDeclaredField("split1stExecutedAtMap");
+        f.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Long> execMap = (java.util.Map<String, Long>) f.get(detector);
+        execMap.put("KRW-V126D", System.currentTimeMillis());  // 지금 막 1차 체결
+
+        // -6.5% 급락 → SL_WIDE (TOP 5 = wideSlTop10 6.0%) 발동
+        checkRealtimeTp("KRW-V126D", 93.5);
+        assertEquals(1, sellTypes.size(), "SL_WIDE는 쿨다운 무관 즉시 발동");
+        assertEquals("SL_WIDE", sellTypes.get(0));
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V126-5 (V129): 쿨다운 0초 → SPLIT_2ND_TRAIL 즉시 발동 (BEV 제거)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V126-5 (V129): cooldownSec=0 → 쿨다운 비활성 → SPLIT_2ND_TRAIL 즉시 발동")
+    void v126_cooldownZeroAllowsImmediate() throws Exception {
+        detector.setSplit1stCooldownSec(0);  // 쿨다운 끔
+
+        long now = System.currentTimeMillis();
+        detector.addPosition("KRW-V126E", 100.0, now - 120_000, 5);
+
+        // 1차 매도 트리거
+        checkRealtimeTp("KRW-V126E", 101.6);
+        checkRealtimeTp("KRW-V126E", 102.0);
+        checkRealtimeTp("KRW-V126E", 101.4);  // SPLIT_1ST (peak 리셋 = 101.4)
+        sellMarkets.clear();
+        sellTypes.clear();
+
+        // 즉시 -1.5% 하락 → peak 101.4 기준 drop 1.48% ≥ 1.0% → TRAIL 즉시 발동
+        checkRealtimeTp("KRW-V126E", 99.9);
+        assertEquals(1, sellTypes.size(), "쿨다운 0초 → TRAIL 즉시 매도");
+        assertEquals("SPLIT_2ND_TRAIL", sellTypes.get(0));
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V126-6: DB split1stExecutedAt 복원 — 쿨다운 이어가기
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V126-6: 재시작 시 DB split1stExecutedAt 복원 → 쿨다운 상태 유지")
+    void v126_restartRestoresCooldown() throws Exception {
+        com.example.upbit.market.SharedPriceService sps = mock(com.example.upbit.market.SharedPriceService.class);
+        OpeningBreakoutDetector det = new OpeningBreakoutDetector(sps);
+        det.setSplitExitEnabled(true);
+        det.setSplitTpPct(1.5);
+        det.setTrailDropAfterSplit(1.0);
+        det.setSplit1stCooldownSec(60);
+
+        det.setListener(new OpeningBreakoutDetector.BreakoutListener() {
+            @Override
+            public void onBreakoutConfirmed(String market, double price, double rangeHigh, double boPct) {}
+            @Override
+            public void onTpSlTriggered(String market, double price, String sellType, String reason) {
+                sellMarkets.add(market);
+                sellTypes.add(sellType);
+            }
+        });
+
+        Map<String, Double> positions = new HashMap<String, Double>();
+        positions.put("KRW-V126F", 100.0);
+        Map<String, Long> openedAt = new HashMap<String, Long>();
+        openedAt.put("KRW-V126F", System.currentTimeMillis() - 600_000);
+        Map<String, Integer> splitPhases = new HashMap<String, Integer>();
+        splitPhases.put("KRW-V126F", 1);
+        Map<String, Double> dbPeaks = new HashMap<String, Double>();
+        dbPeaks.put("KRW-V126F", 101.5);
+        Map<String, Boolean> dbArmed = new HashMap<String, Boolean>();
+        dbArmed.put("KRW-V126F", false);
+        Map<String, Long> dbSplitExec = new HashMap<String, Long>();
+        dbSplitExec.put("KRW-V126F", System.currentTimeMillis() - 10_000);  // 10초 전
+
+        det.updatePositionCache(positions, openedAt, splitPhases, dbPeaks, dbArmed, dbSplitExec);
+
+        // 쿨다운 남아있음 (60초 - 10초 = 50초 남음)
+        java.lang.reflect.Method m = OpeningBreakoutDetector.class.getDeclaredMethod(
+                "checkRealtimeTp", String.class, double.class);
+        m.setAccessible(true);
+        m.invoke(det, "KRW-V126F", 99.9);  // BEV 조건이지만 쿨다운
+
+        assertTrue(sellMarkets.isEmpty(), "재시작 후에도 쿨다운 이어가기 → 차단");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-GR1: Grace 내 SPLIT_1ST armed 차단 (Grace 60s 이내 +1.6% 돌파 시도)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-GR1: Grace 60s 내에서 +1.6% 도달해도 SPLIT_1ST armed 안 됨 (V129 확장)")
+    void t_v129_gr1_graceBlocksSplitArmed() throws Exception {
+        detector.updateSlConfig(60, 5, 5.0, 5.0, 5.0, 5.0, 3.0);
+        long openedAt = System.currentTimeMillis() - 20_000L;  // Grace 20초 경과 (60s 이내)
+        detector.addPosition("KRW-TEST", 100.0, openedAt, 999);
+
+        // +1.6% (splitTpPct 1.5% 초과) — Grace 내 → armed 안 됨
+        checkRealtimeTp("KRW-TEST", 101.6);
+
+        assertFalse(detector.isArmed("KRW-TEST"),
+                "Grace 내에서는 armed 조건 도달해도 차단");
+        assertTrue(sellMarkets.isEmpty(), "Grace 내 매도 없음");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-GR2: Grace 내 SPLIT_1ST drop 차단 (armed 이후 drop이 Grace 안에서 발생)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-GR2: Grace 내에서는 armed 이후 drop 0.6% 발생해도 SPLIT_1ST 매도 차단")
+    void t_v129_gr2_graceBlocksSplitDrop() throws Exception {
+        detector.updateSlConfig(60, 5, 5.0, 5.0, 5.0, 5.0, 3.0);
+        // Grace 아주 이내 (10초 경과)
+        long openedAt = System.currentTimeMillis() - 10_000L;
+        detector.addPosition("KRW-TEST", 100.0, openedAt, 999);
+
+        checkRealtimeTp("KRW-TEST", 101.6);  // +1.6% — Grace 내 armed 차단
+        checkRealtimeTp("KRW-TEST", 102.0);  // peak 시도
+        checkRealtimeTp("KRW-TEST", 101.3);  // drop — Grace 내 매도 차단
+
+        assertTrue(sellMarkets.isEmpty(),
+                "V129: Grace 내 SPLIT_1ST drop도 차단 (꼬리 흡수)");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-GR3: Grace 내 TP_TRAIL drop 차단
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-GR3: Grace 내에서는 TP_TRAIL activate + drop 발생해도 매도 차단")
+    void t_v129_gr3_graceBlocksTpTrail() throws Exception {
+        // splitExit 끈 상태에서 기존 TP_TRAIL 경로 검증
+        detector.setSplitExitEnabled(false);
+        detector.updateSlConfig(60, 5, 5.0, 5.0, 5.0, 5.0, 3.0);
+        long openedAt = System.currentTimeMillis() - 15_000L;  // Grace 15s (60s 이내)
+        detector.addPosition("KRW-TEST", 100.0, openedAt, 999);
+
+        checkRealtimeTp("KRW-TEST", 102.5);  // TP activate 시도 (+2.5%)
+        checkRealtimeTp("KRW-TEST", 101.3);  // drop 시도
+
+        assertTrue(sellMarkets.isEmpty(),
+                "V129: Grace 내 TP_TRAIL도 차단");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-GR4: Grace 통과 직후 정상 armed 복구 (회귀 방지)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-GR4: Grace 60s 통과 직후 +1.6% 진입 시 정상 armed 동작")
+    void t_v129_gr4_postGraceNormalOperation() throws Exception {
+        detector.updateSlConfig(60, 5, 5.0, 5.0, 5.0, 5.0, 3.0);
+        // Grace 지나서 진입 (65초 경과)
+        long openedAt = System.currentTimeMillis() - 65_000L;
+        detector.addPosition("KRW-TEST", 100.0, openedAt, 999);
+
+        checkRealtimeTp("KRW-TEST", 101.6);  // armed 조건
+        assertTrue(detector.isArmed("KRW-TEST"),
+                "Grace 지난 후 armed 정상 동작");
+
+        checkRealtimeTp("KRW-TEST", 102.0);  // peak
+        checkRealtimeTp("KRW-TEST", 101.3);  // drop 0.69%
+
+        assertEquals(1, sellTypes.size(), "Grace 후 SPLIT_1ST 정상 매도");
+        assertEquals("SPLIT_1ST", sellTypes.get(0));
     }
 
     // ═══════════════════════════════════════════════════

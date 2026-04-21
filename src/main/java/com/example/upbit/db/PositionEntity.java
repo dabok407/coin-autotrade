@@ -52,6 +52,10 @@ public class PositionEntity {
     @Column(name = "armed_at")
     private Instant armedAt;
 
+    /** V126: SPLIT_1ST 체결 시점. Opening 쿨다운(splitPhase=1 후 BEV/TRAIL 2차 매도 N초 차단) 기준점. */
+    @Column(name = "split_1st_executed_at")
+    private Instant split1stExecutedAt;
+
     public String getMarket() { return market; }
     public void setMarket(String market) { this.market = market; }
 
@@ -83,4 +87,7 @@ public class PositionEntity {
 
     public Instant getArmedAt() { return armedAt; }
     public void setArmedAt(Instant armedAt) { this.armedAt = armedAt; }
+
+    public Instant getSplit1stExecutedAt() { return split1stExecutedAt; }
+    public void setSplit1stExecutedAt(Instant split1stExecutedAt) { this.split1stExecutedAt = split1stExecutedAt; }
 }

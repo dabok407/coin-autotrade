@@ -116,23 +116,20 @@ public class AllDayTieredSlScenarioTest {
     }
 
     // ═══════════════════════════════════════════════════
-    //  시나리오 2: Grace 구간 — 비상 SL -5% 작동
+    //  시나리오 2 (V129): Grace 구간 확장 — -5% 급락도 SL 차단 (SL_EMERGENCY 제거)
     // ═══════════════════════════════════════════════════
     @Test
-    @DisplayName("Grace 구간이라도 -5% 이하 비상 SL 발동")
+    @DisplayName("Grace 구간 (V129): -5% 이상 급락도 SL 차단 (꼬리 흡수 우선)")
     public void scenario2_graceEmergencySlFires() throws Exception {
         long nowMs = System.currentTimeMillis();
         ConcurrentHashMap<String, double[]> cache = getTpCache();
         cache.put("KRW-B", new double[]{100.0, 100.0, 0, 100.0, nowMs - 10_000, 0, 0});
 
-        // PAPER 모드 설정
-        when(positionRepo.findById("KRW-B")).thenReturn(Optional.of(buildPosition("KRW-B", 100.0)));
-
-        // -5.5% 급락 → 비상 SL
+        // -5.5% 급락 → V129: Grace가 모든 매도 차단 (SL_EMERGENCY 제거)
         invoke("KRW-B", 94.5);
-        Thread.sleep(500);
+        Thread.sleep(200);
 
-        assertFalse(cache.containsKey("KRW-B"), "비상 SL -5% 발동으로 캐시 제거");
+        assertTrue(cache.containsKey("KRW-B"), "V129: Grace 구간 내 SL 전면 차단 (꼬리 흔들기 흡수)");
     }
 
     // ═══════════════════════════════════════════════════

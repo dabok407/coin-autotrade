@@ -89,7 +89,7 @@ public class AllDayWsTpTest {
     public void testTpTrailActivation() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
         // [avgPrice=100, peakPrice=100, activated=0]
-        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis() - 120_000L, 0, 0});
 
         // +2.0% 도달 → 활성화
         invokeCheckRealtimeTp("KRW-TEST", 102.0);
@@ -108,7 +108,7 @@ public class AllDayWsTpTest {
     public void testTpTrailTriggered() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
         // 이미 활성화된 상태, peak=103.0
-        cache.put("KRW-TEST", new double[]{100.0, 103.0, 1.0, 100.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-TEST", new double[]{100.0, 103.0, 1.0, 100.0, System.currentTimeMillis() - 120_000L - 120_000L, 0, 0});
 
         // PAPER 매도용 mock
         AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
@@ -140,7 +140,7 @@ public class AllDayWsTpTest {
     @Test
     public void testTpNotReached() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis() - 120_000L, 0, 0});
 
         // +1.5% → TP_TRAIL 활성화(2.0%) 미도달
         invokeCheckRealtimeTp("KRW-TEST", 101.5);
@@ -158,7 +158,7 @@ public class AllDayWsTpTest {
     @Test
     public void testTrailActivatedButNotDropped() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 103.0, 1.0, 100.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-TEST", new double[]{100.0, 103.0, 1.0, 100.0, System.currentTimeMillis() - 120_000L - 120_000L, 0, 0});
 
         // 피크(103.0)에서 -0.5% = 102.485 → 매도 안 됨
         invokeCheckRealtimeTp("KRW-TEST", 102.5);
@@ -185,7 +185,7 @@ public class AllDayWsTpTest {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
 
         // 기존 캐시에 OLD 포지션 (3-element)
-        cache.put("KRW-OLD", new double[]{50.0, 50.0, 0, 50.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-OLD", new double[]{50.0, 50.0, 0, 50.0, System.currentTimeMillis() - 120_000L, 0, 0});
 
         // 현재 포지션: NEW만 있음 (OLD는 매도됨)
         List<PositionEntity> positions = new ArrayList<PositionEntity>();
@@ -214,7 +214,7 @@ public class AllDayWsTpTest {
     @Test
     public void testPeakUpdateThenTrail() throws Exception {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, System.currentTimeMillis() - 120_000L, 0, 0});
 
         // 1단계: +3.0% → 활성화 + 피크 갱신
         invokeCheckRealtimeTp("KRW-TEST", 103.0);

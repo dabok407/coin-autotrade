@@ -67,6 +67,40 @@ public class OpeningScannerService {
     // ════════════════════════════════════════════════════════════════
     private static final boolean BOUNDARY_BUY_ENABLED = false;
 
+    /**
+     * V127: 3분봉 vol 비율 계산 (순수함수, 단위테스트 대상).
+     * 직전 3개 1분봉 평균 vs 그 이전 20개 1분봉 평균.
+     * candles.size() &lt; 23 → -1 (데이터 부족 신호, 게이트는 bypass).
+     * avgVol20 &lt;= 0 → 0 (나누기 방어).
+     */
+    public static double computeVol3Ratio(java.util.List<com.example.upbit.market.UpbitCandle> candles) {
+        if (candles == null) return -1;
+        int size = candles.size();
+        if (size < 23) return -1;
+        double avgVol20 = 0;
+        for (int i = size - 23; i < size - 3; i++) {
+            avgVol20 += candles.get(i).candle_acc_trade_volume;
+        }
+        avgVol20 /= 20.0;
+        double avgVol3 = 0;
+        for (int i = size - 3; i < size; i++) {
+            avgVol3 += candles.get(i).candle_acc_trade_volume;
+        }
+        avgVol3 /= 3.0;
+        return avgVol20 > 0 ? avgVol3 / avgVol20 : 0;
+    }
+
+    /**
+     * V127: vol3 게이트 통과 여부 (순수함수, 단위테스트 대상).
+     * - vol3Ratio &lt; 0 (데이터 부족) → true (기존 동작 유지, 필터 bypass)
+     * - vol3Ratio &gt;= threshold → true
+     * - vol3Ratio &lt; threshold → false (진입 차단)
+     */
+    public static boolean vol3GatePass(double vol3Ratio, double threshold) {
+        if (vol3Ratio < 0) return true;
+        return vol3Ratio >= threshold;
+    }
+
     private final OpeningScannerConfigRepository configRepo;
     private final BotConfigRepository botConfigRepo;
     private final PositionRepository positionRepo;
@@ -306,6 +340,10 @@ public class OpeningScannerService {
             public void onTpSlTriggered(String market, double price, String sellType, String reason) {
                 log.info("[OpeningScanner] realtime {} triggered: {} | {}", sellType, market, reason);
                 addDecision(market, "SELL", "REALTIME_TP", sellType, reason);
+                // V128: WS 스레드에서 detector의 armed/peak 캡처 (스케줄러 실행 전, DB 영속 전 시점)
+                final boolean capturedArmed = breakoutDetector.isArmed(market);
+                Double memPeak = breakoutDetector.getPeak(market);
+                final double capturedPeak = memPeak != null ? memPeak.doubleValue() : 0;
                 // scheduler에서 매도 실행 (DB 접근)
                 if (scheduler != null && !scheduler.isShutdown()) {
                     final String fMarket = market;
@@ -321,10 +359,12 @@ public class OpeningScannerService {
                                         || pe.getQty().compareTo(java.math.BigDecimal.ZERO) <= 0) return;
                                 // V111: Split-Exit 분기
                                 if ("SPLIT_1ST".equals(fSellType)) {
-                                    executeSplitFirstSellForTp(pe, fPrice, fReason);
+                                    executeSplitFirstSellForTp(pe, fPrice, fReason,
+                                            Boolean.valueOf(capturedArmed), Double.valueOf(capturedPeak));
                                 } else {
                                     String note = fSellType.startsWith("SPLIT_2ND") ? "SPLIT_2ND" : null;
-                                    executeSellForTp(pe, fPrice, fReason, note);
+                                    executeSellForTp(pe, fPrice, fReason, note,
+                                            Boolean.valueOf(capturedArmed), Double.valueOf(capturedPeak));
                                 }
                             } catch (Exception e) {
                                 log.error("[OpeningScanner] realtime TP sell failed for {}", fMarket, e);
@@ -479,6 +519,7 @@ public class OpeningScannerService {
         breakoutDetector.setSplitRatio(cfg.getSplitRatio().doubleValue());
         breakoutDetector.setTrailDropAfterSplit(cfg.getTrailDropAfterSplit().doubleValue());
         breakoutDetector.setSplit1stTrailDropPct(cfg.getSplit1stTrailDrop().doubleValue());  // V115
+        breakoutDetector.setSplit1stCooldownSec(cfg.getSplit1stCooldownSec());  // V126
 
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
@@ -661,6 +702,8 @@ public class OpeningScannerService {
             // V118: DB peak/armed 맵 전달 (재시작 복구 시 실제 peak/armed 유지)
             Map<String, Double> dbPeakMap = new LinkedHashMap<String, Double>();
             Map<String, Boolean> dbArmedMap = new LinkedHashMap<String, Boolean>();
+            // V126: SPLIT_1ST 체결 시점 복구 (재시작 시 쿨다운 이어가기)
+            Map<String, Long> dbSplit1stExecMap = new LinkedHashMap<String, Long>();
             for (PositionEntity pe : scannerPositions) {
                 if (pe.getAvgPrice() != null) {
                     posMap.put(pe.getMarket(), pe.getAvgPrice().doubleValue());
@@ -672,9 +715,12 @@ public class OpeningScannerService {
                         dbPeakMap.put(pe.getMarket(), pe.getPeakPrice().doubleValue());
                     }
                     dbArmedMap.put(pe.getMarket(), pe.getArmedAt() != null);
+                    if (pe.getSplit1stExecutedAt() != null) {
+                        dbSplit1stExecMap.put(pe.getMarket(), pe.getSplit1stExecutedAt().toEpochMilli());
+                    }
                 }
             }
-            breakoutDetector.updatePositionCache(posMap, openedAtMap, splitPhaseMap, dbPeakMap, dbArmedMap);
+            breakoutDetector.updatePositionCache(posMap, openedAtMap, splitPhaseMap, dbPeakMap, dbArmedMap, dbSplit1stExecMap);
 
             // V118: detector 메모리 peak/armed → DB 영속화 (0.3% 이상 상승 또는 armed 전환 시)
             for (PositionEntity pe : scannerPositions) {
@@ -1091,6 +1137,7 @@ public class OpeningScannerService {
                 pe.setAddBuys(0);
                 pe.setOpenedAt(Instant.now());
                 pe.setEntryStrategy("SCALP_OPENING_BREAK");
+                pe.setPeakPrice(BigDecimal.valueOf(fFillPrice));
                 positionRepo.save(pe);
 
                 TradeEntity tl = new TradeEntity();
@@ -1104,6 +1151,7 @@ public class OpeningScannerService {
                 tl.setMode(cfg.getMode());
                 tl.setPatternType("SCALP_OPENING_BREAK");
                 tl.setPatternReason(signal.reason);
+                tl.setEntrySignal(signal.reason); // V128
                 tl.setConfidence(signal.confidence);
                 tl.setCandleUnitMin(cfg.getCandleUnitMin());
                 tradeLogRepo.save(tl);
@@ -1181,6 +1229,12 @@ public class OpeningScannerService {
         final double fRoiPct = roiPct;
         final BigDecimal peAvgPrice = pe.getAvgPrice();
         final String peMarket = pe.getMarket();
+        // V128 B안: detector 메모리의 armed/peak가 더 정확 (DB는 영속화 주기 전까지 stale).
+        final Double detectorPeak = breakoutDetector.getPeak(peMarket);
+        final boolean detectorArmed = breakoutDetector.isArmed(peMarket);
+        final BigDecimal pePeakPrice = pe.getPeakPrice(); // V118 DB 영속화 peak (fallback)
+        final boolean peArmed = detectorArmed || pe.getArmedAt() != null;
+        final double memPeakVal = detectorPeak != null ? detectorPeak.doubleValue() : 0;
         txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
             @Override
             protected void doInTransactionWithoutResult(org.springframework.transaction.TransactionStatus status) {
@@ -1198,6 +1252,20 @@ public class OpeningScannerService {
                 tl.setAvgBuyPrice(peAvgPrice);
                 tl.setConfidence(signal.confidence);
                 tl.setCandleUnitMin(cfg.getCandleUnitMin());
+                // V128: peak/armed 로그 기록 — detector 메모리 peak 우선, DB 영속 peak fallback
+                if (memPeakVal > 0 && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                    tl.setPeakPrice(memPeakVal);
+                    double peakRoi = (memPeakVal - peAvgPrice.doubleValue())
+                            / peAvgPrice.doubleValue() * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                } else if (pePeakPrice != null && pePeakPrice.signum() > 0
+                        && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                    tl.setPeakPrice(pePeakPrice);
+                    double peakRoi = (pePeakPrice.doubleValue() - peAvgPrice.doubleValue())
+                            / peAvgPrice.doubleValue() * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                }
+                tl.setArmedFlag(peArmed ? "Y" : "N");
                 tradeLogRepo.save(tl);
 
                 positionRepo.deleteById(peMarket);
@@ -1413,22 +1481,32 @@ public class OpeningScannerService {
      * WebSocket 콜백에서 scheduler를 통해 호출됨.
      */
     private void executeSellForTp(PositionEntity pe, double price, String reason) {
-        executeSellForTp(pe, price, reason, null);
+        executeSellForTp(pe, price, reason, null, null, null);
     }
 
     private void executeSellForTp(PositionEntity pe, double price, String reason, String note) {
+        executeSellForTp(pe, price, reason, note, null, null);
+    }
+
+    private void executeSellForTp(PositionEntity pe, double price, String reason, String note,
+                                    Boolean capturedArmed, Double capturedPeak) {
         if (!sellingMarkets.add(pe.getMarket())) {
             log.debug("[OpeningScanner] TP SELL in progress, skip duplicate: {}", pe.getMarket());
             return;
         }
         try {
-            executeSellForTpInner(pe, price, reason, note);
+            executeSellForTpInner(pe, price, reason, note, capturedArmed, capturedPeak);
         } finally {
             sellingMarkets.remove(pe.getMarket());
         }
     }
 
     private void executeSellForTpInner(PositionEntity pe, double price, String reason, final String note) {
+        executeSellForTpInner(pe, price, reason, note, null, null);
+    }
+
+    private void executeSellForTpInner(PositionEntity pe, double price, String reason, final String note,
+                                        Boolean capturedArmed, Double capturedPeak) {
         String market = pe.getMarket();
         double qty = pe.getQty().doubleValue();
         double avgPrice = pe.getAvgPrice().doubleValue();
@@ -1468,6 +1546,11 @@ public class OpeningScannerService {
         final String fReason = reason;
         final String fMode = cfg.getMode();
         final BigDecimal peAvgPrice = pe.getAvgPrice();
+        final BigDecimal pePeakPrice = pe.getPeakPrice(); // V128
+        // V128 B안: WS 스레드가 캡처한 detector.isArmed() 우선 사용. 없으면 DB armedAt fallback.
+        //  ※ DB armedAt은 V118 mainloop 영속화 주기(수 초) 전까지는 stale일 수 있음.
+        final boolean peArmed = capturedArmed != null ? capturedArmed.booleanValue() : (pe.getArmedAt() != null);
+        final double capturedPeakVal = capturedPeak != null ? capturedPeak.doubleValue() : 0;
 
         txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
             @Override
@@ -1486,6 +1569,20 @@ public class OpeningScannerService {
                 tl.setAvgBuyPrice(peAvgPrice);
                 tl.setNote(note != null ? note : "TP_TRAIL_REALTIME");
                 tl.setCandleUnitMin(5);
+                // V128: peak/armed 로그 기록 — 캡처된 peak(WS)를 우선, 없으면 DB peakPrice 사용
+                if (capturedPeakVal > 0 && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                    tl.setPeakPrice(capturedPeakVal);
+                    double peakRoi = (capturedPeakVal - peAvgPrice.doubleValue())
+                            / peAvgPrice.doubleValue() * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                } else if (pePeakPrice != null && pePeakPrice.signum() > 0
+                        && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                    tl.setPeakPrice(pePeakPrice);
+                    double peakRoi = (pePeakPrice.doubleValue() - peAvgPrice.doubleValue())
+                            / peAvgPrice.doubleValue() * 100.0;
+                    tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                }
+                tl.setArmedFlag(peArmed ? "Y" : "N");
                 tradeLogRepo.save(tl);
                 positionRepo.deleteById(market);
             }
@@ -1502,18 +1599,28 @@ public class OpeningScannerService {
     // ━━━ V111: Split-Exit 1차 분할 매도 ━━━
 
     private void executeSplitFirstSellForTp(PositionEntity pe, double price, String reason) {
+        executeSplitFirstSellForTp(pe, price, reason, null, null);
+    }
+
+    private void executeSplitFirstSellForTp(PositionEntity pe, double price, String reason,
+                                             Boolean capturedArmed, Double capturedPeak) {
         if (!sellingMarkets.add(pe.getMarket())) {
             log.debug("[OpeningScanner] SPLIT_1ST in progress, skip duplicate: {}", pe.getMarket());
             return;
         }
         try {
-            executeSplitFirstSellForTpInner(pe, price, reason);
+            executeSplitFirstSellForTpInner(pe, price, reason, capturedArmed, capturedPeak);
         } finally {
             sellingMarkets.remove(pe.getMarket());
         }
     }
 
     private void executeSplitFirstSellForTpInner(PositionEntity pe, double price, String reason) {
+        executeSplitFirstSellForTpInner(pe, price, reason, null, null);
+    }
+
+    private void executeSplitFirstSellForTpInner(PositionEntity pe, double price, String reason,
+                                                   Boolean capturedArmed, Double capturedPeak) {
         String market = pe.getMarket();
         if (pe.getSplitPhase() != 0) {
             log.debug("[OpeningScanner] SPLIT_1ST: already split for {} phase={}", market, pe.getSplitPhase());
@@ -1574,6 +1681,12 @@ public class OpeningScannerService {
         final boolean fIsDust = isDust;
         final double fActualSellQty = actualSellQty;
         final double fRemainQty = remainQty;
+        final BigDecimal pePeakPrice = pe.getPeakPrice(); // V128
+        // V128 B안: SPLIT_1ST는 detector 메모리의 armed/peak가 권위 있음 (WS 캡처값 우선).
+        //  - DB armedAt은 V118 mainloop 영속화 주기 전까지 stale.
+        //  - SPLIT_1ST 감지 순간 detector.isArmed()=true였음을 그대로 반영.
+        final boolean peArmed = capturedArmed != null ? capturedArmed.booleanValue() : (pe.getArmedAt() != null);
+        final double capturedPeakVal = capturedPeak != null ? capturedPeak.doubleValue() : 0;
 
         try {
             txTemplate.execute(new org.springframework.transaction.support.TransactionCallbackWithoutResult() {
@@ -1593,6 +1706,20 @@ public class OpeningScannerService {
                     tl.setAvgBuyPrice(peAvgPrice);
                     tl.setNote(fIsDust ? "SPLIT_1ST_DUST" : "SPLIT_1ST");
                     tl.setCandleUnitMin(5);
+                    // V128: peak/armed 로그 기록 — 캡처된 WS peak 우선, 없으면 DB peakPrice
+                    if (capturedPeakVal > 0 && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                        tl.setPeakPrice(capturedPeakVal);
+                        double peakRoi = (capturedPeakVal - peAvgPrice.doubleValue())
+                                / peAvgPrice.doubleValue() * 100.0;
+                        tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                    } else if (pePeakPrice != null && pePeakPrice.signum() > 0
+                            && peAvgPrice != null && peAvgPrice.signum() > 0) {
+                        tl.setPeakPrice(pePeakPrice);
+                        double peakRoi = (pePeakPrice.doubleValue() - peAvgPrice.doubleValue())
+                                / peAvgPrice.doubleValue() * 100.0;
+                        tl.setPeakRoiPct(BigDecimal.valueOf(peakRoi));
+                    }
+                    tl.setArmedFlag(peArmed ? "Y" : "N");
                     tradeLogRepo.save(tl);
 
                     if (fIsDust) {
@@ -1604,6 +1731,8 @@ public class OpeningScannerService {
                         // V118: 1차 매도 후 peak/armed 리셋 — 2차 TRAIL은 매도가를 새 기준점으로 추적
                         pe.setPeakPrice(BigDecimal.valueOf(fFillPrice));
                         pe.setArmedAt(null);
+                        // V126: 쿨다운 기준점 기록
+                        pe.setSplit1stExecutedAt(java.time.Instant.now());
                         positionRepo.save(pe);
                     }
                 }
@@ -1813,28 +1942,15 @@ public class OpeningScannerService {
             // 5. 볼륨 필터 복원 (3분봉 평균, 2026-04-13)
             // FLOCK 사고 교훈: 단일 1분봉 vol은 부정확 → 3분봉 합산 평균으로 개선
             // 직전 3개 1분봉 평균 vs 20개 1분봉 평균 비교
+            // V127: 임계값 하드코딩(1.5x) → DB값(기본 2.50x, UI에서 1.0~5.0 조정)
             int candleSize = candles.size();
-            double vol3Ratio = 0;
-            if (candleSize >= 23) {  // 최소 20+3개 필요
-                double avgVol20 = 0;
-                for (int i = candleSize - 23; i < candleSize - 3; i++) {
-                    avgVol20 += candles.get(i).candle_acc_trade_volume;
-                }
-                avgVol20 /= 20.0;
-
-                double avgVol3 = 0;
-                for (int i = candleSize - 3; i < candleSize; i++) {
-                    avgVol3 += candles.get(i).candle_acc_trade_volume;
-                }
-                avgVol3 /= 3.0;
-
-                vol3Ratio = avgVol20 > 0 ? avgVol3 / avgVol20 : 0;
-                if (vol3Ratio < 1.5) {
-                    addDecision(market, "BUY", "SKIPPED", "VOL_3MIN_WEAK",
-                            String.format(Locale.ROOT, "3분봉 vol=%.1fx < 1.5x", vol3Ratio));
-                    breakoutDetector.releaseMarket(market);
-                    return;
-                }
+            double vol3Ratio = computeVol3Ratio(candles);
+            double vol3Threshold = cfg.getVol3RatioThreshold().doubleValue();
+            if (candleSize >= 23 && !vol3GatePass(vol3Ratio, vol3Threshold)) {
+                addDecision(market, "BUY", "SKIPPED", "VOL_3MIN_WEAK",
+                        String.format(Locale.ROOT, "3분봉 vol=%.1fx < %.1fx", vol3Ratio, vol3Threshold));
+                breakoutDetector.releaseMarket(market);
+                return;
             }
 
             // volRatio는 로그용 (vol3Ratio 없을 때 fallback)
@@ -1912,6 +2028,26 @@ public class OpeningScannerService {
 
             try {
                 executeBuy(market, synth, sig, cfg);
+                // WS 경로 positionCache 등록 — tick 경로(line 995)와 대칭. executeBuy는 void이지만
+                // 성공 시 DB에 포지션 저장됨. DB 재조회로 실패 경로(ORDER_NOT_FILLED 등)에서
+                // phantom cache 생기는 것 방지.
+                try {
+                    PositionEntity savedPe = positionRepo.findById(market).orElse(null);
+                    if (savedPe != null && savedPe.getQty() != null
+                            && savedPe.getQty().signum() > 0
+                            && savedPe.getAvgPrice() != null
+                            && savedPe.getAvgPrice().signum() > 0) {
+                        double realAvg = savedPe.getAvgPrice().doubleValue();
+                        long realOpenedMs = savedPe.getOpenedAt() != null
+                                ? savedPe.getOpenedAt().toEpochMilli()
+                                : System.currentTimeMillis();
+                        int volumeRank = breakoutDetector.getSharedPriceService() != null
+                                ? breakoutDetector.getSharedPriceService().getVolumeRank(market) : 999;
+                        breakoutDetector.addPosition(market, realAvg, realOpenedMs, volumeRank);
+                    }
+                } catch (Exception dbEx) {
+                    log.warn("[OpeningScanner] WS buy 직후 DB 재조회 실패 {}: {}", market, dbEx.getMessage());
+                }
             } catch (Exception e) {
                 // 매수 실패 → throttle 권한 반환
                 if (throttleClaimed) {

@@ -97,6 +97,11 @@ public class OpeningBreakoutDetector {
     private final ConcurrentHashMap<String, Boolean> split1stTrailArmed = new ConcurrentHashMap<String, Boolean>();
     private volatile double split1stTrailDropPct = 0.5;
 
+    // V126: SPLIT_1ST 체결 후 2차 매도(BEV/TRAIL) 쿨다운 — Opening 전용
+    // peak 갱신은 유지(엣지 추적). SL_WIDE/SL_TIGHT는 별도 경로로 영향 없음.
+    private final ConcurrentHashMap<String, Long> split1stExecutedAtMap = new ConcurrentHashMap<String, Long>();
+    private volatile long cachedSplit1stCooldownMs = 60_000L;
+
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
     }
@@ -124,6 +129,11 @@ public class OpeningBreakoutDetector {
     public void setTrailDropAfterSplit(double pct) { this.trailDropAfterSplit = pct; }
     /** V115: 1차 매도 TRAIL drop % */
     public void setSplit1stTrailDropPct(double pct) { this.split1stTrailDropPct = pct; }
+    /** V126: SPLIT_1ST 체결 후 2차(BEV/TRAIL) 매도 쿨다운 초. 0~600 */
+    public void setSplit1stCooldownSec(int sec) {
+        int clamped = Math.max(0, Math.min(600, sec));
+        this.cachedSplit1stCooldownMs = clamped * 1000L;
+    }
     public int getSplitPhase(String market) {
         Integer phase = splitPhaseMap.get(market);
         return phase != null ? phase : 0;
@@ -238,6 +248,7 @@ public class OpeningBreakoutDetector {
         tpActivated.remove(market);
         splitPhaseMap.remove(market);
         split1stTrailArmed.remove(market);  // V115
+        split1stExecutedAtMap.remove(market);  // V126
     }
 
     public void updatePositionCache(Map<String, Double> positions) {
@@ -263,6 +274,18 @@ public class OpeningBreakoutDetector {
                                      Map<String, Integer> splitPhases,
                                      Map<String, Double> dbPeaks,
                                      Map<String, Boolean> dbArmedAt) {
+        updatePositionCache(positions, openedAtMap, splitPhases, dbPeaks, dbArmedAt, null);
+    }
+
+    /**
+     * V126: SPLIT_1ST 체결 시점 영속 맵 포함 — 재시작 시 쿨다운 상태 복원.
+     * dbSplit1stExecutedAt이 null이면 쿨다운 미복원(쿨다운 없음으로 간주).
+     */
+    public void updatePositionCache(Map<String, Double> positions, Map<String, Long> openedAtMap,
+                                     Map<String, Integer> splitPhases,
+                                     Map<String, Double> dbPeaks,
+                                     Map<String, Boolean> dbArmedAt,
+                                     Map<String, Long> dbSplit1stExecutedAt) {
         for (Map.Entry<String, Double> e : positions.entrySet()) {
             String market = e.getKey();
             if (!positionCache.containsKey(market)) {
@@ -313,6 +336,13 @@ public class OpeningBreakoutDetector {
                 splitPhaseMap.put(market, splitPhases.get(market));
             } else if (!splitPhaseMap.containsKey(market)) {
                 splitPhaseMap.put(market, 0);
+            }
+            // V126: split1stExecutedAt 복원 — splitPhase=1 재시작 시 쿨다운 이어가기
+            if (dbSplit1stExecutedAt != null && dbSplit1stExecutedAt.containsKey(market)) {
+                Long execAt = dbSplit1stExecutedAt.get(market);
+                if (execAt != null && execAt > 0) {
+                    split1stExecutedAtMap.put(market, execAt);
+                }
             }
         }
         for (String market : new ArrayList<String>(positionCache.keySet())) {
@@ -504,13 +534,16 @@ public class OpeningBreakoutDetector {
             trough = price;
         }
 
+        // V129: Grace 가드 최상단 이동 — SL/SPLIT/TP 포함 모든 매도 차단 (매수 직후 꼬리 흡수)
+        if (elapsedMs < cachedGracePeriodMs) {
+            return;
+        }
+
         String sellType = null;
         String reason = null;
 
         // 1. SL 종합안 체크 (DB 설정값 + TOP-N 차등)
-        if (elapsedMs < cachedGracePeriodMs) {
-            // 그레이스 — SL 무시
-        } else if (elapsedMs < cachedWidePeriodMs) {
+        if (elapsedMs < cachedWidePeriodMs) {
             // SL_WIDE — TOP-N 차등
             double wideSlPct = getWideSlForRank(volumeRank);
             if (pnlPct <= -wideSlPct) {
@@ -558,23 +591,30 @@ public class OpeningBreakoutDetector {
         }
         // V111: Split 2차 관리 (splitPhase=1)
         else if (sellType == null && splitExitEnabled && splitPhase == 1) {
-            // Breakeven SL
-            if (pnlPct <= 0) {
-                double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
-                sellType = "SPLIT_2ND_BEV";
-                reason = String.format(java.util.Locale.ROOT,
-                        "SPLIT_2ND_BEV pnl=%.2f%% <= 0%% (breakeven) avg=%.2f now=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                        pnlPct, avgPrice, price, trough, troughPnl);
+            // V126: SPLIT_1ST 체결 후 쿨다운 — BEV/TRAIL 매도만 차단. peak 갱신은 위에서 이미 수행됨.
+            Long execAt = split1stExecutedAtMap.get(market);
+            boolean cooldownActive = false;
+            if (execAt != null && cachedSplit1stCooldownMs > 0) {
+                long sinceMs = System.currentTimeMillis() - execAt;
+                if (sinceMs < cachedSplit1stCooldownMs) {
+                    cooldownActive = true;
+                    log.debug("[BreakoutDetector] SPLIT_2ND cooldown active: {} since={}ms < {}ms",
+                            market, sinceMs, cachedSplit1stCooldownMs);
+                }
             }
-            // TP_TRAIL drop (trailDropAfterSplit)
-            else if (peak > avgPrice) {
-                double dropFromPeak = (peak - price) / peak * 100.0;
-                if (dropFromPeak >= trailDropAfterSplit) {
-                    double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
-                    sellType = "SPLIT_2ND_TRAIL";
-                    reason = String.format(java.util.Locale.ROOT,
-                            "SPLIT_2ND_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                            avgPrice, peak, price, dropFromPeak, trailDropAfterSplit, pnlPct, trough, troughPnl);
+
+            if (!cooldownActive) {
+                // V129: SPLIT_2ND_BEV(pnlPct<=0 본전 매도) 제거 — 꼬리 본전매도 후 반등 놓침 원인
+                // 2차 매도는 TP_TRAIL(trailDropAfterSplit) 조건만으로 판정; 급락은 상위 SL_TIGHT/WIDE가 처리
+                if (peak > avgPrice) {
+                    double dropFromPeak = (peak - price) / peak * 100.0;
+                    if (dropFromPeak >= trailDropAfterSplit) {
+                        double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                        sellType = "SPLIT_2ND_TRAIL";
+                        reason = String.format(java.util.Locale.ROOT,
+                                "SPLIT_2ND_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                                avgPrice, peak, price, dropFromPeak, trailDropAfterSplit, pnlPct, trough, troughPnl);
+                    }
                 }
             }
         }
@@ -614,6 +654,7 @@ public class OpeningBreakoutDetector {
             peakPrices.put(market, price);
             tpActivated.put(market, false);
             split1stTrailArmed.put(market, false);  // V115: 1차 trail armed 리셋
+            split1stExecutedAtMap.put(market, System.currentTimeMillis());  // V126: 쿨다운 기준점
         } else {
             removePosition(market);
         }
@@ -640,5 +681,6 @@ public class OpeningBreakoutDetector {
         confirmFirstPrice.clear();
         confirmLastTime.clear();
         splitPhaseMap.clear();
+        split1stExecutedAtMap.clear();  // V126
     }
 }

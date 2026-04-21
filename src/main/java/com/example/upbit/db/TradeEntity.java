@@ -61,6 +61,19 @@ public class TradeEntity {
     @Column(name = "candle_unit_min")
     private Integer candleUnitMin;
 
+    // V128: 매도 row에 매수 이후 최고 peak/ROI/armed 기록, 매수 row에 entry_signal 기록
+    @Column(name = "peak_price", precision = 28, scale = 12)
+    private BigDecimal peakPrice;
+
+    @Column(name = "peak_roi_pct", precision = 12, scale = 4)
+    private BigDecimal peakRoiPct;
+
+    @Column(name = "armed_flag", length = 8)
+    private String armedFlag;
+
+    @Column(name = "entry_signal", length = 256)
+    private String entrySignal;
+
     public Long getId() { return id; }
 
     public long getTsEpochMs() { return tsEpochMs; }
@@ -117,4 +130,18 @@ public class TradeEntity {
 
     public Integer getCandleUnitMin() { return candleUnitMin; }
     public void setCandleUnitMin(Integer candleUnitMin) { this.candleUnitMin = candleUnitMin; }
+
+    public BigDecimal getPeakPrice() { return peakPrice; }
+    public void setPeakPrice(BigDecimal peakPrice) { this.peakPrice = peakPrice; }
+    public void setPeakPrice(double peakPrice) { this.peakPrice = BigDecimal.valueOf(peakPrice); }
+
+    public BigDecimal getPeakRoiPct() { return peakRoiPct; }
+    public void setPeakRoiPct(BigDecimal peakRoiPct) { this.peakRoiPct = peakRoiPct; }
+    public void setPeakRoiPct(double peakRoiPct) { this.peakRoiPct = BigDecimal.valueOf(peakRoiPct); }
+
+    public String getArmedFlag() { return armedFlag; }
+    public void setArmedFlag(String armedFlag) { this.armedFlag = armedFlag; }
+
+    public String getEntrySignal() { return entrySignal; }
+    public void setEntrySignal(String entrySignal) { this.entrySignal = entrySignal; }
 }

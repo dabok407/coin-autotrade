@@ -55,6 +55,18 @@ public class TickerService {
         return result;
     }
 
+    /**
+     * 단일 마켓의 오늘 최고가(high_price)를 조회합니다.
+     * 실패 시 0 반환.
+     */
+    public double getTodayHighPrice(String market) {
+        if (market == null || market.isEmpty()) return 0;
+        String url = "https://api.upbit.com/v1/ticker?markets=" + market;
+        UpbitTicker[] tickers = fetchWithRetry(url);
+        if (tickers == null || tickers.length == 0) return 0;
+        return Math.max(0, tickers[0].high_price);
+    }
+
     private UpbitTicker[] fetchWithRetry(String url) {
         Exception last = null;
         final int maxRetries = 3;

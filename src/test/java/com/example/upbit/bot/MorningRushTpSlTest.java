@@ -68,25 +68,26 @@ public class MorningRushTpSlTest {
         getPositionCache().put(market, new double[]{avgPrice, 1000.0, openedAtMs, avgPrice, avgPrice, 0, 0});
     }
 
-    // ===== Test 1: TP 트레일링 — peak 추적 후 drop 시 매도 (그레이스 무관) =====
-    // 2026-04-09 변경: 즉시 매도 → trail 매도
+    // ===== Test 1 (V129): Grace 구간 확장 — TP도 차단 =====
+    // V129 변경: Grace 가드가 checkRealtimeTpSl 상단에서 모든 매도 차단 (SL/TP/SPLIT 공통)
+    // 이유: 매수 직후 꼬리(-2~3%) 후 대폭 반등 사례(AXL/FLOCK) 방어 — Grace 내에선 매매 유보
     @Test
     public void testTpFiresEvenInGracePeriod() throws Exception {
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
 
-        // 매수 직후 (0초 경과)
+        // 매수 직후 (0초 경과 — Grace 내)
         putPosition("KRW-TEST", 100.0, System.currentTimeMillis());
 
-        // pnl=+5% → trail 활성화 (peak=105), 아직 drop 없음 → 매도 안 함
+        // pnl=+5% → peak 갱신, Grace로 매도 안 함
         invokeCheckRealtimeTpSl("KRW-TEST", 105.0);
         assertTrue(getPositionCache().containsKey("KRW-TEST"),
-                "trail 활성화됨, drop 없음 → 매도 안 함");
+                "peak 갱신, Grace 내 매도 차단");
 
-        // peak에서 -1.1% drop → TP_TRAIL 매도 (그레이스 무관)
-        invokeCheckRealtimeTpSl("KRW-TEST", 103.8);  // 105 × 0.989 = 103.845
-        assertFalse(getPositionCache().containsKey("KRW-TEST"),
-                "peak 105에서 -1.1% drop → TP_TRAIL 매도 (그레이스 기간에도 발동)");
+        // peak에서 -1.1% drop → V129: Grace 내이므로 TP_TRAIL도 차단
+        invokeCheckRealtimeTpSl("KRW-TEST", 103.8);
+        assertTrue(getPositionCache().containsKey("KRW-TEST"),
+                "V129: Grace 구간 내 TP_TRAIL 차단 (꼬리 흔들기 흡수)");
     }
 
     // ===== Test 2: 1분 그레이스 — SL 무시 =====
@@ -269,67 +270,110 @@ public class MorningRushTpSlTest {
                 "peak 105에서 -1.62% drop → 매도, roi=+3.3% (기존 1.0%면 +4%에서 매도)");
     }
 
-    // ===== Ghost placeholder (qty=0) 방어 테스트 (2026-04-18) =====
-    // BUY 신호 직후 placeholder(qty=0) 상태에서 WS 틱이 들어와도
-    // checkRealtimeTpSl이 조기 return 해야 한다. (유령 SPLIT/TP 시그널 방지)
+    // ===== A안 P0 root fix (2026-04-19) — placeholder 제거 + pendingBuyMarkets + DB 재조회 =====
+    // 구 버그: realtime BUY 시 positionCache에 qty=0 placeholder → checkRealtimeTpSl의
+    //         qty<=0 조기 return 가드가 WS realtime TP/SL을 영구 무효화.
+    // 수정:  (1) pendingBuyMarkets set으로 중복 진입 CAS 차단
+    //        (2) placeholder 제거, executeBuy 완료 후 DB 재조회로 실제 qty/avg 저장
+    //        (3) checkRealtimeTpSl의 qty<=0 가드 제거 (stale placeholder 없으니 불필요)
 
     @Test
-    public void testPlaceholderQtyZeroSkipped() throws Exception {
-        setField("cachedTpPct", 2.0);
-        setField("cachedSlPct", 3.0);
-        setField("cachedTpTrailDropPct", 1.5);
-
-        // qty=0 placeholder 삽입 (실매매 체결 전 상태 시뮬레이션)
-        getPositionCache().put("KRW-GHOST",
-                new double[]{100.0, 0.0, System.currentTimeMillis() - 360_000L, 100.0, 100.0, 0, 0});
-
-        // 상승 → 하락 시나리오 돌려도 매도 발동 안 해야 함
-        invokeCheckRealtimeTpSl("KRW-GHOST", 105.0);
-        invokeCheckRealtimeTpSl("KRW-GHOST", 90.0);
-
-        assertTrue(getPositionCache().containsKey("KRW-GHOST"),
-                "qty=0 placeholder는 매도 트리거되지 않아야 함");
+    public void testPendingBuyMarketsFieldExists() throws Exception {
+        // A안 코어: pendingBuyMarkets 필드가 반드시 Set<String>으로 존재해야 함
+        Field f = MorningRushScannerService.class.getDeclaredField("pendingBuyMarkets");
+        f.setAccessible(true);
+        Object val = f.get(scanner);
+        assertNotNull(val, "pendingBuyMarkets Set 필드 존재 필수 (A안)");
+        assertTrue(val instanceof java.util.Set, "pendingBuyMarkets는 Set이어야 함 (CAS add/remove)");
     }
 
     @Test
-    public void testPlaceholderPeakNotUpdated() throws Exception {
+    public void testCheckRealtimeTpSlNoOpWhenPositionMissing() throws Exception {
+        // placeholder 제거 후: positionCache miss 시 어떤 side effect도 없어야 함
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
-        setField("cachedTpTrailDropPct", 1.5);
 
-        // qty=0 placeholder 삽입 (초기 peak=100)
-        double[] placeholder = new double[]{100.0, 0.0, System.currentTimeMillis() - 120_000L, 100.0, 100.0, 0, 0};
-        getPositionCache().put("KRW-GHOST2", placeholder);
-
-        // 가격 105 업데이트 시도
-        invokeCheckRealtimeTpSl("KRW-GHOST2", 105.0);
-
-        // qty=0이면 즉시 return 하므로 peak가 갱신되지 않아야 함
-        double[] after = getPositionCache().get("KRW-GHOST2");
-        assertEquals(100.0, after[3], 0.001,
-                "qty=0 placeholder는 peak 갱신 로직 실행 안 해야 함");
+        // positionCache에 entry 없음 → 호출 시 조용히 return
+        assertFalse(getPositionCache().containsKey("KRW-MISSING"));
+        invokeCheckRealtimeTpSl("KRW-MISSING", 150.0);
+        // 자동 생성되지 않아야 함 (placeholder 제거 원칙)
+        assertFalse(getPositionCache().containsKey("KRW-MISSING"),
+                "positionCache 미존재 마켓에 대해 어떤 entry도 자동 생성 금지");
     }
 
     @Test
-    public void testNormalPositionNotAffectedByQtyCheck() throws Exception {
-        // qty 체크 추가가 정상 포지션에 영향 없는지 확인
+    public void testRealtimeTpWorksWhenDbRereadFallsBackToQtyZero() throws Exception {
+        // A안의 핵심 회귀 방어 테스트 — 바로 오늘의 P0 버그 재현/해결 시나리오.
+        // executeBuy 후 DB 재조회 실패로 qty=0 fallback이 들어가더라도,
+        // avgPrice=fPrice(>0) 이면 WS realtime TP/SL이 정상 동작해야 한다.
+        // (구 버그: qty<=0 가드 때문에 영구 무효화 → 오늘 MR 사고 원인)
         setField("cachedTpPct", 2.0);
         setField("cachedSlPct", 3.0);
         setField("cachedTpTrailDropPct", 1.5);
 
-        // 정상 포지션 (qty=1000)
+        // DB 재조회 실패 fallback path 상태 직접 재현:
+        //   [avgPrice=fPrice, qty=0, openedAt=now-6분, peak=avg, trough=avg, phase=0, armed=0]
         long openedAt = System.currentTimeMillis() - 360_000L;
-        putPosition("KRW-NORMAL", 100.0, openedAt);
+        getPositionCache().put("KRW-FALLBACK",
+                new double[]{100.0, 0.0, openedAt, 100.0, 100.0, 0, 0});
 
-        // +3% → trail 활성화, peak 갱신 정상 동작 확인
-        invokeCheckRealtimeTpSl("KRW-NORMAL", 103.0);
-        double[] pos = getPositionCache().get("KRW-NORMAL");
-        assertEquals(103.0, pos[3], 0.001, "정상 포지션은 peak 갱신되어야 함");
+        // +5% 상승 → peak 105 갱신 (이전 버그에선 qty<=0 가드로 이 갱신이 안 됐음)
+        invokeCheckRealtimeTpSl("KRW-FALLBACK", 105.0);
+        double[] after = getPositionCache().get("KRW-FALLBACK");
+        assertNotNull(after, "엔트리 유지");
+        assertEquals(105.0, after[3], 0.001,
+                "qty=0 fallback에서도 peak 갱신 되어야 함 (A안 qty 가드 제거)");
 
-        // peak -1.6% → 매도 정상 발동 확인
-        invokeCheckRealtimeTpSl("KRW-NORMAL", 101.35);
-        assertFalse(getPositionCache().containsKey("KRW-NORMAL"),
-                "정상 포지션은 TP_TRAIL 매도 정상 발동 (qty 체크 영향 없음)");
+        // peak 105 대비 -1.6% drop → TP_TRAIL 정상 매도 (이전 버그에선 무효화)
+        invokeCheckRealtimeTpSl("KRW-FALLBACK", 103.3);
+        assertFalse(getPositionCache().containsKey("KRW-FALLBACK"),
+                "qty=0 fallback에서도 TP_TRAIL 정상 발동 (오늘 P0 사고 회귀 방어)");
+    }
+
+    @Test
+    public void testRealtimeSlWorksAfterDbRereadFallback() throws Exception {
+        // Split-Exit 경로도 동일하게 qty=0 fallback에서 동작해야 함
+        setField("cachedTpPct", 2.0);
+        setField("cachedSlPct", 2.5);
+        setField("cachedSplitExitEnabled", true);
+        setField("cachedSplitTpPct", 1.5);
+        setField("cachedSplit1stTrailDrop", 0.65);
+        setField("cachedSplitRatio", 0.5);
+
+        // qty=0 fallback entry (DB 재조회 실패 상태)
+        long openedAt = System.currentTimeMillis() - 360_000L;
+        getPositionCache().put("KRW-SPLITFB",
+                new double[]{100.0, 0.0, openedAt, 100.0, 100.0, 0, 0});
+
+        // +2% → armed (splitTpPct=1.5 초과)
+        invokeCheckRealtimeTpSl("KRW-SPLITFB", 102.0);
+        double[] armed = getPositionCache().get("KRW-SPLITFB");
+        assertNotNull(armed, "armed 시점에도 엔트리 유지");
+        assertEquals(1.0, armed[6], 0.001, "SPLIT_1ST armed 되어야 함 (qty=0 fallback에서도)");
+
+        // peak 102 대비 -0.70% drop (0.65% 이상) → SPLIT_1ST 발동
+        invokeCheckRealtimeTpSl("KRW-SPLITFB", 101.29);
+        // splitPhase 전이 or 매도 트리거 중 하나 발생해야 함
+        double[] afterSplit = getPositionCache().get("KRW-SPLITFB");
+        boolean splitFired = afterSplit == null || (afterSplit.length >= 6 && afterSplit[5] >= 1.0);
+        assertTrue(splitFired, "qty=0 fallback에서도 SPLIT_1ST 정상 발동 (오늘 P0 회귀 방어)");
+    }
+
+    @Test
+    public void testPendingBuyMarketsAtomicCasOnlyOnce() throws Exception {
+        // pendingBuyMarkets.add() CAS — 같은 마켓 2번째 add는 false 반환해야 (동시 WS 틱 방어)
+        Field f = MorningRushScannerService.class.getDeclaredField("pendingBuyMarkets");
+        f.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Set<String> pending = (java.util.Set<String>) f.get(scanner);
+
+        assertTrue(pending.add("KRW-RACE"), "첫 add는 true (claim 성공)");
+        assertFalse(pending.add("KRW-RACE"), "두번째 add는 false (동시 진입 차단)");
+
+        // 정리 후 다시 add 가능해야 함
+        pending.remove("KRW-RACE");
+        assertTrue(pending.add("KRW-RACE"), "정리 후에는 다시 claim 가능");
+        pending.remove("KRW-RACE");
     }
 
     // ===== Helpers =====

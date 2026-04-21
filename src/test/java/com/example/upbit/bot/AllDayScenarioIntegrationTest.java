@@ -92,9 +92,9 @@ public class AllDayScenarioIntegrationTest {
     @Test
     @DisplayName("시나리오 1: 매수 → +2.5% 활성화 → 피크+3% → 피크에서 -1% → TP_TRAIL 매도")
     public void scenario1_wsQuickTpCycle() throws Exception {
-        // 포지션 생성 [avgPrice=1000, peakPrice=1000, activated=0]
+        // 포지션 생성 [avgPrice=1000, peakPrice=1000, activated=0] — V129: Grace(60s) 밖으로 설정
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
-        cache.put("KRW-TEST", new double[]{1000.0, 1000.0, 0, 1000.0, System.currentTimeMillis(), 0, 0});
+        cache.put("KRW-TEST", new double[]{1000.0, 1000.0, 0, 1000.0, System.currentTimeMillis() - 120_000L, 0, 0});
 
         // PAPER 모드 설정
         AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
@@ -188,6 +188,126 @@ public class AllDayScenarioIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════
+    //  V129 시나리오 4: 전체 사이클 — armed → SPLIT_1ST → 쿨다운 차단 → 쿨다운 만료 → SPLIT_2ND_TRAIL
+    // ═══════════════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-4: AllDay SPLIT_1ST 체결 → 60s 쿨다운 SPLIT_2ND_TRAIL 차단 → 만료 후 발동")
+    public void scenarioV129_4_splitFirstThenCooldownThenSecondTrail() throws Exception {
+        enableV129Split();
+
+        // PAPER 모드 + Position mock (executor 내부에서 findById 호출됨)
+        AllDayScannerConfigEntity cfg = new AllDayScannerConfigEntity();
+        cfg.setMode("PAPER");
+        when(configRepo.loadOrCreate()).thenReturn(cfg);
+        PositionEntity pe = new PositionEntity();
+        pe.setMarket("KRW-TEST");
+        pe.setAvgPrice(java.math.BigDecimal.valueOf(100.0));
+        pe.setQty(java.math.BigDecimal.valueOf(10.0));
+        when(positionRepo.findById("KRW-TEST")).thenReturn(Optional.of(pe));
+
+        long now = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
+        // openedAt 120초 전 (Grace 30s 밖)
+        cache.put("KRW-TEST", new double[]{100.0, 100.0, 0, 100.0, now - 120_000L, 0, 0});
+
+        // 1) armed: +1.5%
+        invokeCheckRealtimeTp("KRW-TEST", 101.5);
+        double[] pos = cache.get("KRW-TEST");
+        assertEquals(1.0, pos[6], 0.01, "armed=1");
+
+        // 2) peak +2%
+        invokeCheckRealtimeTp("KRW-TEST", 102.0);
+        assertEquals(102.0, pos[1], 0.01, "peak=102");
+
+        // 3) drop 0.69% >= 0.5% → SPLIT_1ST (async 부분 매도 — 캐시는 executor 내부에서 갱신됨)
+        invokeCheckRealtimeTp("KRW-TEST", 101.3);
+        // splitPhase=1 로 바뀌는 것은 executor가 DB update 후 → race 회피 위해 직접 세팅
+        getSplit1stExecMap().put("KRW-TEST", now);
+        pos = cache.get("KRW-TEST");
+        pos[5] = 1.0;   // splitPhase=1
+        pos[1] = 101.3; // peak 리셋
+        pos[6] = 0.0;   // armed 리셋
+        getSellingMarkets().clear();  // executor async 가드 회피
+
+        // 4) 쿨다운 중 peak 상승 + 1.5% drop → SPLIT_2ND_TRAIL 차단
+        invokeCheckRealtimeTp("KRW-TEST", 102.5);  // 새 peak
+        invokeCheckRealtimeTp("KRW-TEST", 101.0);  // drop (102.5-101)/102.5 = 1.46% > 1.2%
+        assertTrue(cache.containsKey("KRW-TEST"),
+                "쿨다운 활성 → SPLIT_2ND_TRAIL 차단");
+
+        // 5) 쿨다운 만료 (65초 전으로 변경)
+        getSplit1stExecMap().put("KRW-TEST", now - 65_000L);
+
+        // 6) 동일 drop 재현 → SPLIT_2ND_TRAIL 발동 (전량 매도 → 캐시 제거 동기)
+        invokeCheckRealtimeTp("KRW-TEST", 101.0);
+        assertFalse(cache.containsKey("KRW-TEST"),
+                "쿨다운 만료 → SPLIT_2ND_TRAIL 전량 매도");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  V129 시나리오 5: 쿨다운 중 급락 → SL_WIDE 바이패스
+    // ═══════════════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-5: AllDay 쿨다운 중 -3.5% 급락 → SL_WIDE 발동 (쿨다운 바이패스)")
+    public void scenarioV129_5_splitFirstThenCrashSlBypassesCooldown() throws Exception {
+        enableV129Split();
+        // WideSlPct 3.0 유지 (AllDay 기본)
+
+        long now = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
+        // 이미 splitPhase=1 상태 재현 (SPLIT_1ST 체결 직후, 쿨다운 active)
+        cache.put("KRW-TEST", new double[]{100.0, 101.3, 0, 100.0, now - 120_000L, 1, 0});
+        getSplit1stExecMap().put("KRW-TEST", now - 10_000L);  // 10초 전 체결 (쿨다운 활성)
+
+        // -3.5% 급락 → SL_WIDE (쿨다운은 SL 차단 안 함)
+        invokeCheckRealtimeTp("KRW-TEST", 96.5);
+        assertFalse(cache.containsKey("KRW-TEST"),
+                "쿨다운 중에도 SL_WIDE는 발동");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  V129 시나리오 6: 쿨다운 경계 — 29s(차단) vs 31s(허용) (쿨다운 30s일 때)
+    // ═══════════════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-6: AllDay 쿨다운 경계 — 29초 차단, 31초 허용 (쿨다운 30s 가정)")
+    public void scenarioV129_6_cooldownBoundary() throws Exception {
+        enableV129Split();
+        setField("cachedSplit1stCooldownMs", 30_000L);  // 30초 쿨다운
+
+        long now = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
+        cache.put("KRW-TEST", new double[]{100.0, 102.0, 0, 100.0, now - 120_000L, 1, 0});
+
+        // 29초 전 체결 → 쿨다운 활성
+        getSplit1stExecMap().put("KRW-TEST", now - 29_000L);
+        invokeCheckRealtimeTp("KRW-TEST", 100.5);  // drop 1.47% > 1.2%
+        assertTrue(cache.containsKey("KRW-TEST"),
+                "29초 → 쿨다운 활성 → 차단");
+
+        // 31초 전 체결 → 쿨다운 만료
+        getSplit1stExecMap().put("KRW-TEST", now - 31_000L);
+        invokeCheckRealtimeTp("KRW-TEST", 100.5);
+        assertFalse(cache.containsKey("KRW-TEST"),
+                "31초 → 쿨다운 만료 → SPLIT_2ND_TRAIL");
+    }
+
+    /** V129 Split 기본값 활성화 (AllDay 기본 grace 30s/wide 15min/wide SL 3%/tight SL 1.5%). */
+    private void enableV129Split() throws Exception {
+        setField("cachedSplitExitEnabled", true);
+        setField("cachedSplitTpPct", 1.5);
+        setField("cachedSplitRatio", 0.60);
+        setField("cachedSplit1stTrailDrop", 0.5);
+        setField("cachedTrailDropAfterSplit", 1.2);
+        setField("cachedSplit1stCooldownMs", 60_000L);
+        setField("cachedGracePeriodMs", 30_000L);
+        setField("cachedWidePeriodMs", 15 * 60_000L);
+        setField("cachedWideSlPct", 3.0);
+        setField("cachedTightSlPct", 1.5);
+        setField("cachedTpTrailActivatePct", 2.0);
+        setField("cachedTpTrailDropPct", 1.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     //  Helpers
     // ═══════════════════════════════════════════════════════════
 
@@ -202,6 +322,20 @@ public class AllDayScenarioIntegrationTest {
         Field f = AllDayScannerService.class.getDeclaredField("tpPositionCache");
         f.setAccessible(true);
         return (ConcurrentHashMap<String, double[]>) f.get(scanner);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ConcurrentHashMap<String, Long> getSplit1stExecMap() throws Exception {
+        Field f = AllDayScannerService.class.getDeclaredField("split1stExecutedAtMap");
+        f.setAccessible(true);
+        return (ConcurrentHashMap<String, Long>) f.get(scanner);
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.Set<String> getSellingMarkets() throws Exception {
+        Field f = AllDayScannerService.class.getDeclaredField("sellingMarkets");
+        f.setAccessible(true);
+        return (java.util.Set<String>) f.get(scanner);
     }
 
     private void invokeCheckRealtimeTp(String market, double price) throws Exception {

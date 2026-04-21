@@ -156,6 +156,22 @@ public class OpeningScannerConfigEntity {
     @Column(name = "split_1st_trail_drop", nullable = false, precision = 5, scale = 2)
     private BigDecimal split1stTrailDrop = BigDecimal.valueOf(0.5);
 
+    /**
+     * V126: SPLIT_1ST 체결 후 BEV/SPLIT_2ND_TRAIL 매도 차단 시간(초).
+     * peak 갱신은 계속 수행. SL_WIDE/SL_TIGHT는 영향 없음(별도 경로).
+     * 0=쿨다운 비활성(기존 동작). 기본값 60(Agent 3 백테스트 최적).
+     */
+    @Column(name = "split_1st_cooldown_sec", nullable = false)
+    private int split1stCooldownSec = 60;
+
+    /**
+     * V127: C4 3분봉 vol 비율 임계값. 기존 1.5 하드코딩 → DB값(기본 2.50).
+     * 3분봉 평균(last 3) / 1분봉 평균(prior 20) 비율. 이 값 미만이면 진입 차단.
+     * 1.0 이하면 사실상 필터 비활성, UI에서 1.0~5.0 범위 조정.
+     */
+    @Column(name = "vol3_ratio_threshold", nullable = false, precision = 5, scale = 2)
+    private BigDecimal vol3RatioThreshold = BigDecimal.valueOf(2.50);
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -290,6 +306,18 @@ public class OpeningScannerConfigEntity {
 
     public BigDecimal getSplit1stTrailDrop() { return split1stTrailDrop; }
     public void setSplit1stTrailDrop(BigDecimal v) { this.split1stTrailDrop = v != null ? v : BigDecimal.valueOf(0.5); }
+
+    public int getSplit1stCooldownSec() { return split1stCooldownSec; }
+    public void setSplit1stCooldownSec(int v) { this.split1stCooldownSec = Math.max(0, Math.min(600, v)); }
+
+    public BigDecimal getVol3RatioThreshold() { return vol3RatioThreshold; }
+    public void setVol3RatioThreshold(BigDecimal v) {
+        if (v == null) { this.vol3RatioThreshold = BigDecimal.valueOf(2.50); return; }
+        double d = v.doubleValue();
+        if (d < 1.0) d = 1.0;
+        if (d > 5.0) d = 5.0;
+        this.vol3RatioThreshold = BigDecimal.valueOf(d);
+    }
 
     /**
      * 거래대금 순위에 따라 SL_WIDE 값 반환.

@@ -128,6 +128,11 @@ public class MorningRushConfigEntity {
     @Column(name = "split_1st_trail_drop", nullable = false, precision = 5, scale = 2)
     private BigDecimal split1stTrailDrop = BigDecimal.valueOf(0.5);
 
+    /** V129: SPLIT_1ST 체결 후 SPLIT_2ND_TRAIL 매도 쿨다운(초). 0~600. 기본 60.
+     *  쿨다운 중 SL은 허용(진짜 급락 방어). Grace와는 시간대 다름(매수 직후 vs 1차 매도 직후). */
+    @Column(name = "split_1st_cooldown_sec", nullable = false)
+    private int split1stCooldownSec = 60;
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -230,6 +235,9 @@ public class MorningRushConfigEntity {
 
     public BigDecimal getSplit1stTrailDrop() { return split1stTrailDrop; }
     public void setSplit1stTrailDrop(BigDecimal v) { this.split1stTrailDrop = v != null ? v : BigDecimal.valueOf(0.5); }
+
+    public int getSplit1stCooldownSec() { return split1stCooldownSec; }
+    public void setSplit1stCooldownSec(int v) { this.split1stCooldownSec = Math.max(0, Math.min(600, v)); }
 
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public Set<String> getExcludeMarketsSet() {

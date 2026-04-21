@@ -602,7 +602,7 @@
     filtered = applySort(filtered);
 
     if(filtered.length === 0){
-      logTbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted)">\ud45c\uc2dc\ud560 \ub85c\uadf8\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</td></tr>';
+      logTbody.innerHTML = '<tr><td colspan="9" style="color:var(--muted)">\ud45c\uc2dc\ud560 \ub85c\uadf8\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</td></tr>';
       return;
     }
 
@@ -639,6 +639,26 @@
 
       var actionLower = String(x.action||'').toLowerCase().replace('_','-');
       var pnlClass = Number(pnlVal||0) >= 0 ? 'positive' : 'negative';
+
+      // V128: Peak/Signal 컬럼
+      // BUY: entrySignal 표시 (진입 사유 요약)
+      // SELL: peak가격 + peakRoi% + armed 뱃지
+      var peakSignalCell = '-';
+      var isBuy = /BUY/i.test(x.action) && !/PENDING|BLOCKED/i.test(x.action);
+      if (isBuy && x.entrySignal) {
+        var sig = String(x.entrySignal);
+        if (sig.length > 28) sig = sig.substring(0, 26) + '..';
+        peakSignalCell = '<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)" title="' + String(x.entrySignal).replaceAll('"','&quot;') + '">' + sig + '</span>';
+      } else if (isSell && x.peakPrice != null && Number(x.peakPrice) > 0) {
+        var peakRoi = (x.peakRoiPct != null) ? Number(x.peakRoiPct) : null;
+        var peakColor = peakRoi != null && peakRoi >= 2 ? 'var(--success)' : peakRoi != null && peakRoi >= 0.5 ? '#e0a000' : 'var(--muted)';
+        var armed = String(x.armedFlag || '') === 'Y';
+        var armedBadge = armed ? '<span style="background:rgba(0,180,100,0.15);color:var(--success);font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:700">\ud83d\udd25 armed</span>' : (String(x.armedFlag || '') === 'N' ? '<span style="color:var(--muted);font-size:10px;margin-left:4px">not armed</span>' : '');
+        peakSignalCell = '<span style="font-family:var(--font-mono);font-size:11px;color:' + peakColor + ';font-weight:700" title="peak ' + fmt(x.peakPrice) + (peakRoi != null ? (' (+' + peakRoi.toFixed(2) + '%)') : '') + '">' + fmt(x.peakPrice) + (peakRoi != null ? (' <span style="font-size:10px">(' + (peakRoi >= 0 ? '+' : '') + peakRoi.toFixed(2) + '%)</span>') : '') + '</span>' + armedBadge;
+      } else if (isSell && String(x.armedFlag || '') === 'N') {
+        peakSignalCell = '<span style="color:var(--muted);font-size:10px">not armed</span>';
+      }
+
       return `
       <tr class="chart-row" data-logidx="${idx}">
         <td style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${timeText}</td>
@@ -648,6 +668,7 @@
         <td style="color:${confColor};font-weight:700;text-align:center">${confText}</td>
         <td style="font-family:var(--font-mono)">${priceCell}</td>
         <td style="font-family:var(--font-mono)">${x.qty == null ? '-' : x.qty}</td>
+        <td>${peakSignalCell}</td>
         <td class="td-pnl ${pnlVal != null ? pnlClass : ''}">${pnlCell}</td>
       </tr>
     `;

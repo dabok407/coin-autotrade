@@ -641,6 +641,259 @@ public class MorningRushSplitExitTest {
     }
 
     // ═══════════════════════════════════════════════════
+    //  V129-A: BEV 제거 — splitPhase=1 + 매수가 하락해도 매도 없음
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-A: splitPhase=1 + 매수가 터치 → BEV 제거로 매도 없음")
+    void v129_bevRemoved_noSellAtBreakeven() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        // splitPhase=1, peak=100, grace 밖
+        cache.put("KRW-V129A", new double[]{100.0, 400.0, nowMs - 300_000, 100.0, 100.0, 1, 0});
+
+        invoke("KRW-V129A", 100.0);  // 매수가 터치
+        invoke("KRW-V129A", 99.5);   // -0.5% 하락
+
+        assertTrue(cache.containsKey("KRW-V129A"), "V129: BEV 제거로 매수가 터치/하락해도 매도 없음");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-B: 쿨다운 중 SPLIT_2ND_TRAIL 차단
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-B: 쿨다운 60s 내 peak-1% drop 발생해도 SPLIT_2ND_TRAIL 차단")
+    void v129_cooldownBlocksSecondTrail() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-V129B", new double[]{100.0, 400.0, nowMs - 300_000, 102.0, 100.0, 1, 0});
+
+        // 쿨다운 기준 시점: 10초 전 (쿨다운 내)
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129B", nowMs - 10_000);
+
+        invoke("KRW-V129B", 100.8);  // peak 102에서 -1.18% drop
+
+        assertTrue(cache.containsKey("KRW-V129B"), "V129: 쿨다운 중 SPLIT_2ND_TRAIL 차단");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-C: 쿨다운 만료 후 SPLIT_2ND_TRAIL 발동
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-C: 쿨다운 만료 후 peak-1% drop → SPLIT_2ND_TRAIL 정상 발동")
+    void v129_cooldownExpiredAllowsSecondTrail() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-V129C", new double[]{100.0, 400.0, nowMs - 300_000, 102.0, 100.0, 1, 0});
+
+        PositionEntity pe = buildPosition("KRW-V129C", 400.0, 100.0);
+        pe.setSplitPhase(1);
+        pe.setSplitOriginalQty(BigDecimal.valueOf(1000.0));
+        when(positionRepo.findById("KRW-V129C")).thenReturn(Optional.of(pe));
+
+        // 쿨다운 기준 시점: 120초 전 (쿨다운 이미 만료)
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129C", nowMs - 120_000);
+
+        invoke("KRW-V129C", 100.8);  // peak 102에서 -1.18% drop → TRAIL 발동
+
+        assertFalse(cache.containsKey("KRW-V129C"), "V129: 쿨다운 만료 후 SPLIT_2ND_TRAIL 발동 → 캐시 제거");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-D: Grace 가드 확장 — SPLIT/TP/SL 모두 차단
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-D: Grace 60초 내 -5% 급락 + peak 존재해도 모든 매도 차단")
+    void v129_graceBlocksAllSells() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+        setField("cachedGracePeriodMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        // 매수 직후 (10초 경과, Grace 내), splitPhase=1, peak 102
+        cache.put("KRW-V129D", new double[]{100.0, 400.0, nowMs - 10_000, 102.0, 100.0, 1, 0});
+
+        invoke("KRW-V129D", 95.0);   // -5% (SL 조건)
+        invoke("KRW-V129D", 100.8);  // peak 대비 drop 1.18% (TRAIL 조건)
+
+        assertTrue(cache.containsKey("KRW-V129D"), "V129: Grace 내 모든 매도 차단 (SL+SPLIT+TP)");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-E: DB split1stExecutedAt 복원 — 재시작 후 쿨다운 유지
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-E: updatePositionCache 시 DB split1stExecutedAt 복원 → 쿨다운 유지")
+    void v129_restartRestoresCooldown() throws Exception {
+        // DB에 splitPhase=1 포지션 + split1stExecutedAt 설정
+        PositionEntity pe = buildPosition("KRW-V129E", 400.0, 100.0);
+        pe.setSplitPhase(1);
+        pe.setSplitOriginalQty(BigDecimal.valueOf(1000.0));
+        pe.setOpenedAt(Instant.now().minusSeconds(300));
+        pe.setSplit1stExecutedAt(Instant.now().minusSeconds(10));  // 10초 전 1차 체결
+
+        when(positionRepo.findAll()).thenReturn(Collections.singletonList(pe));
+
+        MorningRushConfigEntity cfg = new MorningRushConfigEntity();
+        cfg.setMode("PAPER");
+        cfg.setTpPct(BigDecimal.valueOf(2.3));
+        cfg.setSlPct(BigDecimal.valueOf(3.0));
+        cfg.setGracePeriodSec(60);
+        cfg.setWidePeriodMin(5);
+        cfg.setWideSlPct(BigDecimal.valueOf(5.0));
+        cfg.setTpTrailDropPct(BigDecimal.valueOf(1.0));
+        cfg.setSplitExitEnabled(true);
+        cfg.setSplitTpPct(BigDecimal.valueOf(1.5));
+        cfg.setSplitRatio(BigDecimal.valueOf(0.60));
+        cfg.setTrailDropAfterSplit(BigDecimal.valueOf(1.0));
+
+        Method m = MorningRushScannerService.class.getDeclaredMethod(
+                "updatePositionCache", MorningRushConfigEntity.class);
+        m.setAccessible(true);
+        m.invoke(scanner, cfg);
+
+        // split1stExecutedAtMap 복원 확인
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        assertTrue(execMap.containsKey("KRW-V129E"), "V129: DB split1stExecutedAt 복원됨");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-F: 쿨다운 중에도 SL은 발동 (안전망 유지)
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-F: 쿨다운 10s 경과 중 -5.1% 급락 → SL_WIDE 발동 (쿨다운은 SL 차단 안 함)")
+    void v129f_cooldownDoesNotBlockSl() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        // splitPhase=1, peak=102, Wide SL 구간 (3분 경과 < 5분)
+        cache.put("KRW-V129F", new double[]{100.0, 400.0, nowMs - 180_000, 102.0, 100.0, 1, 0});
+
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129F", nowMs - 10_000);  // 쿨다운 10s 내
+
+        // -5.1% 급락 → Wide SL 조건(-5.0%) 도달. 2차 TRAIL은 쿨다운 차단, SL은 허용
+        invoke("KRW-V129F", 94.9);
+
+        assertFalse(cache.containsKey("KRW-V129F"), "V129: 쿨다운 중에도 SL_WIDE 발동 → 캐시 제거");
+    }
+
+    @Test
+    @DisplayName("V129-F2: 쿨다운 중 Tight 구간 -3.1% → SL_TIGHT 발동")
+    void v129f2_cooldownTightSl() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        // splitPhase=1, peak=102, Tight SL 구간 (6분 경과 > 5분)
+        cache.put("KRW-V129F2", new double[]{100.0, 400.0, nowMs - 360_000, 102.0, 100.0, 1, 0});
+
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129F2", nowMs - 30_000);  // 쿨다운 30s 내
+
+        // -3.1% → Tight SL 조건(-3.0%) 도달
+        invoke("KRW-V129F2", 96.9);
+
+        assertFalse(cache.containsKey("KRW-V129F2"), "V129: 쿨다운 중 Tight SL 발동");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-G: 쿨다운 경계 — 60초 정확히 경과하면 TRAIL 허용
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-G: 쿨다운 기준 시각 65s 전 (만료) → SPLIT_2ND_TRAIL 발동")
+    void v129g_cooldownBoundaryExpired() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-V129G", new double[]{100.0, 400.0, nowMs - 300_000, 102.0, 100.0, 1, 0});
+
+        PositionEntity pe = buildPosition("KRW-V129G", 400.0, 100.0);
+        pe.setSplitPhase(1);
+        pe.setSplitOriginalQty(BigDecimal.valueOf(1000.0));
+        when(positionRepo.findById("KRW-V129G")).thenReturn(Optional.of(pe));
+
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129G", nowMs - 65_000);  // 5초 여유 → 확실히 만료
+
+        invoke("KRW-V129G", 100.8);  // peak 102 → -1.18% drop
+
+        assertFalse(cache.containsKey("KRW-V129G"), "V129: 쿨다운 만료 → SPLIT_2ND_TRAIL 허용");
+    }
+
+    @Test
+    @DisplayName("V129-G2: 쿨다운 기준 시각 55s 전 (아직 내) → SPLIT_2ND_TRAIL 차단")
+    void v129g2_cooldownBoundaryStillActive() throws Exception {
+        setField("cachedSplit1stCooldownMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-V129G2", new double[]{100.0, 400.0, nowMs - 300_000, 102.0, 100.0, 1, 0});
+
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> execMap = (ConcurrentHashMap<String, Long>)
+                getField("split1stExecutedAtMap");
+        execMap.put("KRW-V129G2", nowMs - 55_000);  // 5초 여유 → 확실히 쿨다운 내
+
+        invoke("KRW-V129G2", 100.8);
+
+        assertTrue(cache.containsKey("KRW-V129G2"), "V129: 쿨다운 내 TRAIL 차단");
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  V129-H: Grace 경계 — 65s 경과하면 매도 허용
+    // ═══════════════════════════════════════════════════
+    @Test
+    @DisplayName("V129-H: Grace 65s 경과 + Wide 구간 -5.1% → SL_WIDE 발동")
+    void v129h_graceBoundaryExpired() throws Exception {
+        setField("cachedGracePeriodMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        // 65s 경과 (Grace 밖), Wide SL 구간
+        cache.put("KRW-V129H", new double[]{100.0, 400.0, nowMs - 65_000, 100.0, 100.0, 0, 0});
+
+        invoke("KRW-V129H", 94.9);  // -5.1%
+
+        assertFalse(cache.containsKey("KRW-V129H"), "V129: Grace 경과 후 SL_WIDE 발동");
+    }
+
+    @Test
+    @DisplayName("V129-H2: Grace 55s 경과 (아직 내) + -10% 급락 → 모든 매도 차단")
+    void v129h2_graceBoundaryStillActive() throws Exception {
+        setField("cachedGracePeriodMs", 60_000L);
+
+        long nowMs = System.currentTimeMillis();
+        ConcurrentHashMap<String, double[]> cache = getPositionCache();
+        cache.put("KRW-V129H2", new double[]{100.0, 400.0, nowMs - 55_000, 100.0, 100.0, 0, 0});
+
+        invoke("KRW-V129H2", 90.0);  // -10% 급락
+
+        assertTrue(cache.containsKey("KRW-V129H2"), "V129: Grace 내 -10%도 차단");
+    }
+
+    // ═══════════════════════════════════════════════════
     //  Helpers
     // ═══════════════════════════════════════════════════
 
@@ -649,6 +902,12 @@ public class MorningRushSplitExitTest {
                 "checkRealtimeTpSl", String.class, double.class);
         m.setAccessible(true);
         m.invoke(scanner, market, price);
+    }
+
+    private Object getField(String name) throws Exception {
+        Field f = MorningRushScannerService.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(scanner);
     }
 
     private void invokeExecuteSell(PositionEntity pe, double price, double pnlPct,
