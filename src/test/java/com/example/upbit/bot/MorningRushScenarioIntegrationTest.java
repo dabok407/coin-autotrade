@@ -63,10 +63,11 @@ public class MorningRushScenarioIntegrationTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new MorningRushScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 liveOrders, privateClient, txTemplate, catalogService, tickerService,
-                sharedPriceService, new SharedTradeThrottle()
+                sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField("running", new AtomicBoolean(true));
 
@@ -389,6 +390,8 @@ public class MorningRushScenarioIntegrationTest {
         setField("cachedSplit1stTrailDrop", 0.5);
         setField("cachedTrailDropAfterSplit", 1.2);
         setField("cachedSplit1stCooldownMs", 60_000L);
+        // V130: Trail Ladder 비활성 (기존 단일값 테스트 유지)
+        setField("cachedTrailLadderEnabled", false);
     }
 
     // ═══════════════════════════════════════════════════════════

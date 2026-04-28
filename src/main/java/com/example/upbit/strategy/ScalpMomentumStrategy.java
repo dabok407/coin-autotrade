@@ -80,18 +80,8 @@ public class ScalpMomentumStrategy implements TradingStrategy {
         // ATR
         if (atr / close < MIN_ATR_PCT) return Signal.none();
 
-        // 양봉 필수
-        if (last.trade_price <= last.opening_price) return Signal.none();
-
         // close > EMA8
         if (close <= emaFast) return Signal.none();
-
-        // 직전 캔들 큰 음봉 차단
-        double prevRange = prev.high_price - prev.low_price;
-        double prevBody = Math.abs(prev.trade_price - prev.opening_price);
-        if (prev.trade_price < prev.opening_price && prevRange > 0 && (prevBody / prevRange) > 0.6) {
-            return Signal.none();
-        }
 
         // 양봉 강도
         double range = last.high_price - last.low_price;

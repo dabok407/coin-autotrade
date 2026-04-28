@@ -21,7 +21,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for HighConfidenceBreakoutStrategy (Strategy #21) - 6-Factor v2.
  *
  * Covers:
- *  - Hard Gates: VOL_GATE, DAY_GATE, BO_GATE, NOT_BULLISH, DOWNTREND
+ *  - Hard Gates: VOL_GATE, DAY_GATE, BO_GATE, DOWNTREND
+ *    (NOT_BULLISH 필터는 2026-04-23 제거됨)
  *  - 6-Factor scoring tiers with boundary values
  *  - candleSurge vs breakoutPct hybrid logic
  *  - Exit mechanisms: HC_SL, HC_EMA_BREAK, HC_MACD_FADE, HC_TRAIL, HC_TIME_STOP, HC_SESSION_END
@@ -165,7 +166,8 @@ public class HighConfidenceBreakoutStrategyTest {
     // ============================================================
 
     @Test
-    public void gate_bearishCandle_blocked() {
+    public void gate_bearishCandle_notBlockedByNotBullish() {
+        // 2026-04-23: NOT_BULLISH 필터 제거됨. 음봉이어도 NOT_BULLISH 사유로는 차단되지 않아야 함.
         List<UpbitCandle> candles = buildTrendingUpCandles(80, 50000, 50);
         UpbitCandle last = candles.get(candles.size() - 1);
         double origClose = last.trade_price;
@@ -173,8 +175,10 @@ public class HighConfidenceBreakoutStrategyTest {
         last.opening_price = origClose + 100;
 
         Signal signal = strategy.evaluate(entryContext(candles));
-        assertEquals(SignalAction.NONE, signal.action);
-        assertTrue(signal.reason.contains("NOT_BULLISH"), "reason=" + signal.reason);
+        // 다른 게이트(vol/day/BO/score)에서 차단될 수는 있으나 NOT_BULLISH 사유는 나오면 안 됨
+        String reason = signal.reason != null ? signal.reason : "";
+        assertFalse(reason.contains("NOT_BULLISH"),
+                "NOT_BULLISH 필터 제거됨 — 이 사유는 더 이상 발생하면 안 됨. reason=" + reason);
     }
 
     @Test

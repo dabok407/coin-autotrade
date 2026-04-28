@@ -14,18 +14,16 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * 오프닝 스캐너 옵션 B (`tryWsBreakoutBuy`) 1분봉 필터 검사 시나리오 테스트.
  *
- * 검증 항목 (5가지 필터):
- *  1. 직전 1분봉 양봉 (close > open)
- *  2. 거래량 ≥ 평균 × 1.5
- *  3. RSI(14) < 83
- *  4. EMA(20) 위 (price > ema20)
- *  5. 돌파 강도 ≥ 1.0%
+ * 검증 항목 (4가지 필터):
+ *  1. 거래량 ≥ 평균 × 1.5
+ *  2. RSI(14) < 83
+ *  3. EMA(20) 위 (price > ema20)
+ *  4. 돌파 강도 ≥ 1.0%
  */
 public class OpeningOptionBFilterScenarioTest {
 
     public enum FilterResult {
         PASS,
-        BEARISH_LAST_1MIN,
         VOLUME_LOW,
         RSI_OVERBOUGHT,
         BELOW_EMA20,
@@ -39,10 +37,7 @@ public class OpeningOptionBFilterScenarioTest {
 
         UpbitCandle last = candles.get(candles.size() - 1);
 
-        // 1. 양봉
-        if (last.trade_price <= last.opening_price) return FilterResult.BEARISH_LAST_1MIN;
-
-        // 2. 거래량 1.5배
+        // 1. 거래량 1.5배
         double avgVol = 0;
         int volCount = Math.min(20, candles.size());
         for (int i = candles.size() - volCount; i < candles.size(); i++) {
@@ -138,14 +133,15 @@ public class OpeningOptionBFilterScenarioTest {
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  시나리오 2: 직전 1분봉 음봉 → BEARISH_LAST_1MIN
+    //  시나리오 2 (과거 BEARISH_LAST_1MIN): 음봉이어도 진입 허용 (필터 제거됨)
     // ═══════════════════════════════════════════════════════════
     @Test
-    @DisplayName("시나리오 2: 직전 1분봉 음봉 → BEARISH_LAST_1MIN")
-    public void scenario2_bearishLastCandle() {
+    @DisplayName("시나리오 2: 직전 1분봉 음봉이어도 다른 필터 통과면 PASS")
+    public void scenario2_bearishNoLongerBlocks() {
         List<UpbitCandle> candles = sidewaysCandles(false, 2.0);
         FilterResult result = evaluateOptionBFilters(candles, 100.5, 1.5);
-        assertEquals(FilterResult.BEARISH_LAST_1MIN, result);
+        assertEquals(FilterResult.PASS, result,
+                "음봉 필터 제거: 음봉이어도 vol/RSI/EMA/돌파 통과면 진입 허용");
     }
 
     // ═══════════════════════════════════════════════════════════

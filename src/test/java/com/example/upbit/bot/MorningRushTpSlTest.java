@@ -53,10 +53,11 @@ public class MorningRushTpSlTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new MorningRushScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 liveOrders, privateClient, txTemplate, catalogService, tickerService,
-                sharedPriceService, new SharedTradeThrottle()
+                sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField("running", new AtomicBoolean(true));
         // V110: 기존 테스트는 drop 1.0% 기준으로 작성됨
@@ -339,6 +340,8 @@ public class MorningRushTpSlTest {
         setField("cachedSplitTpPct", 1.5);
         setField("cachedSplit1stTrailDrop", 0.65);
         setField("cachedSplitRatio", 0.5);
+        // V130: Trail Ladder 비활성 (기존 단일값 테스트 유지)
+        setField("cachedTrailLadderEnabled", false);
 
         // qty=0 fallback entry (DB 재조회 실패 상태)
         long openedAt = System.currentTimeMillis() - 360_000L;

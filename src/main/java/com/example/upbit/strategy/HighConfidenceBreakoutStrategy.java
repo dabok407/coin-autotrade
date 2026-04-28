@@ -24,7 +24,7 @@ import java.util.Locale;
  *   실효성 높은 진입 판단. 예측력 없는 팩터(MACD/ADX/ATR/EMA50) 제거.
  *
  * ■ Hard Prerequisites:
- *   ① 마지막 캔들 양봉
+ *   (제거됨 2026-04-23: 마지막 캔들 양봉 필수 — 양봉 필수 필터 철폐 방침)
  *
  * ■ 6-Factor Scoring (max 10.0, 내부 8.0을 ×1.25 환산):
  *   1. Volume Surge (1.875)  — 거래량 폭발
@@ -148,8 +148,10 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
 
     private Signal evaluateEntry(List<UpbitCandle> candles, UpbitCandle last, double close, double dailyOpenPrice) {
 
-        // ── Hard prerequisite: 양봉만 ──
-        if (!CandlePatterns.isBullish(last)) return Signal.none("NOT_BULLISH");
+        // (제거됨 2026-04-23) Hard prerequisite: 양봉만
+        //   if (!CandlePatterns.isBullish(last)) return Signal.none("NOT_BULLISH");
+        // 사유: 양봉 필수 필터를 전 전략에서 제거하는 방침과 일관성 유지.
+        //      급등 중 음봉(꼬리 큰 캔들 등)이 섞여도 vol/day/BO/score 게이트로 필터링.
 
         // ── 명확한 하락세 필터: EMA50 기울기가 -0.3% 이상 하락이면 차단 ──
         // (횡보/약한 하락은 허용, 명확한 하락만 차단)

@@ -70,6 +70,8 @@ public class OpeningDetectorSplitExitTest {
         detector.setTrailDropAfterSplit(1.0);
         detector.setSplit1stTrailDropPct(0.5);  // V115: 1차 TRAIL drop 0.5%
         detector.setSplit1stCooldownSec(0);     // V126: 기본 테스트는 쿨다운 없음 (V126-* 테스트에서 개별 설정)
+        // V130: Trail Ladder 비활성 (기존 단일값 테스트 유지)
+        detector.setTrailLadder(false, 0.5, 1.0, 1.5, 2.0, 1.0, 1.2, 1.5, 2.0);
 
         // 기존 TP 설정
         detector.setTpActivatePct(2.0);

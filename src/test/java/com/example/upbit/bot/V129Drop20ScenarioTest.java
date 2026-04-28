@@ -80,10 +80,11 @@ public class V129Drop20ScenarioTest {
     @BeforeEach
     public void setUp() throws Exception {
         // MR 인스턴스
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         mr = new MorningRushScannerService(
                 mrConfigRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 liveOrders, privateClient, txTemplate, catalogService, tickerService,
-                sharedPriceService, new SharedTradeThrottle()
+                sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField(mr, "running", new AtomicBoolean(true));
         setField(mr, "cachedTpPct", 2.3);
@@ -99,6 +100,9 @@ public class V129Drop20ScenarioTest {
         setField(mr, "cachedSplit1stTrailDrop", 2.0);
         setField(mr, "cachedTrailDropAfterSplit", 2.0);
         setField(mr, "cachedSplit1stCooldownMs", 60_000L);
+        // V130: Trail Ladder 비활성 (V129 2.0% 단일값 테스트 유지)
+        setField(mr, "cachedTrailLadderEnabled", false);
+        setField(mr, "cachedSplit1stRoiFloorPct", 0.0);
 
         MorningRushConfigEntity mrCfg = new MorningRushConfigEntity();
         mrCfg.setMode("PAPER");
@@ -113,7 +117,7 @@ public class V129Drop20ScenarioTest {
         ad = new AllDayScannerService(
                 adConfigRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService, sharedPriceService, new SharedTradeThrottle()
+                tickerService, sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField(ad, "running", new AtomicBoolean(true));
         ScheduledExecutorService sched = Executors.newSingleThreadScheduledExecutor();
@@ -131,6 +135,9 @@ public class V129Drop20ScenarioTest {
         setField(ad, "cachedSplit1stTrailDrop", 2.0);
         setField(ad, "cachedTrailDropAfterSplit", 2.0);
         setField(ad, "cachedSplit1stCooldownMs", 60_000L);
+        // V130: Trail Ladder 비활성 (V129 2.0% 단일값 테스트 유지)
+        setField(ad, "cachedTrailLadderEnabled", false);
+        setField(ad, "cachedSplit1stRoiFloorPct", 0.0);
 
         AllDayScannerConfigEntity adCfg = new AllDayScannerConfigEntity();
         adCfg.setMode("PAPER");
@@ -163,6 +170,8 @@ public class V129Drop20ScenarioTest {
         opDet.setTpActivatePct(2.0);
         opDet.setTrailFromPeakPct(1.0);
         opDet.updateSlConfig(30, 15, 6.0, 5.0, 3.5, 3.0, 1.5);
+        // V130: Trail Ladder 비활성 (V129 2.0% 단일값 테스트 유지)
+        opDet.setTrailLadder(false, 0.5, 1.0, 1.5, 2.0, 1.0, 1.2, 1.5, 2.0);
 
         // txTemplate mock
         when(txTemplate.execute(any())).thenAnswer(new Answer<Object>() {

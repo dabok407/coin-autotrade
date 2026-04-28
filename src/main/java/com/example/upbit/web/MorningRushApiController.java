@@ -116,6 +116,21 @@ public class MorningRushApiController {
         // V129: SPLIT_1ST → SPLIT_2ND_TRAIL 쿨다운
         if (body.containsKey("split1stCooldownSec")) cfg.setSplit1stCooldownSec(toInt(body.get("split1stCooldownSec"), 60));
 
+        // V130 ①: Trail Ladder A
+        if (body.containsKey("trailLadderEnabled")) cfg.setTrailLadderEnabled(Boolean.TRUE.equals(body.get("trailLadderEnabled")));
+        if (body.containsKey("split1stDropUnder2")) cfg.setSplit1stDropUnder2(toBD(body.get("split1stDropUnder2")));
+        if (body.containsKey("split1stDropUnder3")) cfg.setSplit1stDropUnder3(toBD(body.get("split1stDropUnder3")));
+        if (body.containsKey("split1stDropUnder5")) cfg.setSplit1stDropUnder5(toBD(body.get("split1stDropUnder5")));
+        if (body.containsKey("split1stDropAbove5")) cfg.setSplit1stDropAbove5(toBD(body.get("split1stDropAbove5")));
+        if (body.containsKey("trailAfterDropUnder2")) cfg.setTrailAfterDropUnder2(toBD(body.get("trailAfterDropUnder2")));
+        if (body.containsKey("trailAfterDropUnder3")) cfg.setTrailAfterDropUnder3(toBD(body.get("trailAfterDropUnder3")));
+        if (body.containsKey("trailAfterDropUnder5")) cfg.setTrailAfterDropUnder5(toBD(body.get("trailAfterDropUnder5")));
+        if (body.containsKey("trailAfterDropAbove5")) cfg.setTrailAfterDropAbove5(toBD(body.get("trailAfterDropAbove5")));
+        // V130 ②: L1 지연 진입
+        if (body.containsKey("l1DelaySec")) cfg.setL1DelaySec(toInt(body.get("l1DelaySec"), 60));
+        // V130 ④: SPLIT_1ST roi 하한
+        if (body.containsKey("split1stRoiFloorPct")) cfg.setSplit1stRoiFloorPct(toBD(body.get("split1stRoiFloorPct")));
+
         configRepo.save(cfg);
         return ResponseEntity.ok(configToMap(cfg));
     }
@@ -197,6 +212,20 @@ public class MorningRushApiController {
         m.put("trailDropAfterSplit", cfg.getTrailDropAfterSplit());
         m.put("split1stTrailDrop", cfg.getSplit1stTrailDrop());
         m.put("split1stCooldownSec", cfg.getSplit1stCooldownSec());
+        // V130 ①: Trail Ladder A
+        m.put("trailLadderEnabled", cfg.isTrailLadderEnabled());
+        m.put("split1stDropUnder2", cfg.getSplit1stDropUnder2());
+        m.put("split1stDropUnder3", cfg.getSplit1stDropUnder3());
+        m.put("split1stDropUnder5", cfg.getSplit1stDropUnder5());
+        m.put("split1stDropAbove5", cfg.getSplit1stDropAbove5());
+        m.put("trailAfterDropUnder2", cfg.getTrailAfterDropUnder2());
+        m.put("trailAfterDropUnder3", cfg.getTrailAfterDropUnder3());
+        m.put("trailAfterDropUnder5", cfg.getTrailAfterDropUnder5());
+        m.put("trailAfterDropAbove5", cfg.getTrailAfterDropAbove5());
+        // V130 ②: L1 지연 진입
+        m.put("l1DelaySec", cfg.getL1DelaySec());
+        // V130 ④: SPLIT_1ST roi 하한
+        m.put("split1stRoiFloorPct", cfg.getSplit1stRoiFloorPct());
 
         return m;
     }

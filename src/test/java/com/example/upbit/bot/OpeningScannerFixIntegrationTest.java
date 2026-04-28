@@ -67,11 +67,13 @@ public class OpeningScannerFixIntegrationTest {
         // entry window 시각 제한 비활성 (테스트는 모든 시각에서 동작)
         breakoutDetector.setEntryWindow(-1, -1);
 
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
                 breakoutDetector, sharedThrottle,
-                null
+                null,
+                scannerLockService
         );
 
         Field running = OpeningScannerService.class.getDeclaredField("running");
@@ -396,6 +398,7 @@ public class OpeningScannerFixIntegrationTest {
         cfg.setSessionEndMin(59);
         cfg.setExcludeMarkets("");
         cfg.setVol3RatioThreshold(BigDecimal.valueOf(1.5)); // V127: 기존 테스트 데이터 호환 (시나리오는 필터 아닌 경로 검증)
+        cfg.setL1DelaySec(0); // V130: L1 지연 비활성화 (테스트에서는 즉시 매수 경로로 검증)
         return cfg;
     }
 }

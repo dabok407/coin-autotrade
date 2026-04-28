@@ -297,6 +297,110 @@ public class AllDayScannerConfigEntity {
     public int getSplit1stCooldownSec() { return split1stCooldownSec; }
     public void setSplit1stCooldownSec(int v) { this.split1stCooldownSec = Math.max(0, Math.min(600, v)); }
 
+    // ── V130: Trail Ladder A — peak% 구간별 차등 drop ──
+    /** peak < 2% 구간: 1차 SPLIT_1ST drop 기준 */
+    @Column(name = "split_1st_drop_under_2", nullable = false, precision = 5, scale = 2)
+    private BigDecimal split1stDropUnder2 = BigDecimal.valueOf(0.50);
+
+    /** peak 2~3% 구간: 1차 SPLIT_1ST drop 기준 */
+    @Column(name = "split_1st_drop_under_3", nullable = false, precision = 5, scale = 2)
+    private BigDecimal split1stDropUnder3 = BigDecimal.valueOf(1.00);
+
+    /** peak 3~5% 구간: 1차 SPLIT_1ST drop 기준 */
+    @Column(name = "split_1st_drop_under_5", nullable = false, precision = 5, scale = 2)
+    private BigDecimal split1stDropUnder5 = BigDecimal.valueOf(1.50);
+
+    /** peak >= 5% 구간: 1차 SPLIT_1ST drop 기준 */
+    @Column(name = "split_1st_drop_above_5", nullable = false, precision = 5, scale = 2)
+    private BigDecimal split1stDropAbove5 = BigDecimal.valueOf(2.00);
+
+    /** peak < 2% 구간: 2차 trail after split drop 기준 */
+    @Column(name = "trail_after_drop_under_2", nullable = false, precision = 5, scale = 2)
+    private BigDecimal trailAfterDropUnder2 = BigDecimal.valueOf(1.00);
+
+    /** peak 2~3% 구간: 2차 trail after split drop 기준 */
+    @Column(name = "trail_after_drop_under_3", nullable = false, precision = 5, scale = 2)
+    private BigDecimal trailAfterDropUnder3 = BigDecimal.valueOf(1.20);
+
+    /** peak 3~5% 구간: 2차 trail after split drop 기준 */
+    @Column(name = "trail_after_drop_under_5", nullable = false, precision = 5, scale = 2)
+    private BigDecimal trailAfterDropUnder5 = BigDecimal.valueOf(1.50);
+
+    /** peak >= 5% 구간: 2차 trail after split drop 기준 */
+    @Column(name = "trail_after_drop_above_5", nullable = false, precision = 5, scale = 2)
+    private BigDecimal trailAfterDropAbove5 = BigDecimal.valueOf(2.00);
+
+    /** V130 ①: Trail Ladder 활성화. false=기존 단일값(split1stTrailDrop/trailDropAfterSplit) fallback */
+    @Column(name = "trail_ladder_enabled", nullable = false)
+    private boolean trailLadderEnabled = true;
+
+    // ── V130 ② L1 60s 지연 진입 ──
+    /** 시그널 후 N초 대기 후 현재가 >= 시그널가 확인 시 매수. 0=즉시(V129 동작). */
+    @Column(name = "l1_delay_sec", nullable = false)
+    private int l1DelaySec = 60;
+
+    // ── V130 ④ SPLIT_1ST roi 하한선 ──
+    /** SPLIT_1ST 발동 시 current_roi >= 이 값이어야 매도. 0.0=비활성(V129 동작). */
+    @Column(name = "split_1st_roi_floor_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal split1stRoiFloorPct = BigDecimal.valueOf(0.30);
+
+    public BigDecimal getSplit1stDropUnder2() { return split1stDropUnder2; }
+    public void setSplit1stDropUnder2(BigDecimal v) { this.split1stDropUnder2 = v != null ? v : BigDecimal.valueOf(0.50); }
+
+    public BigDecimal getSplit1stDropUnder3() { return split1stDropUnder3; }
+    public void setSplit1stDropUnder3(BigDecimal v) { this.split1stDropUnder3 = v != null ? v : BigDecimal.valueOf(1.00); }
+
+    public BigDecimal getSplit1stDropUnder5() { return split1stDropUnder5; }
+    public void setSplit1stDropUnder5(BigDecimal v) { this.split1stDropUnder5 = v != null ? v : BigDecimal.valueOf(1.50); }
+
+    public BigDecimal getSplit1stDropAbove5() { return split1stDropAbove5; }
+    public void setSplit1stDropAbove5(BigDecimal v) { this.split1stDropAbove5 = v != null ? v : BigDecimal.valueOf(2.00); }
+
+    public BigDecimal getTrailAfterDropUnder2() { return trailAfterDropUnder2; }
+    public void setTrailAfterDropUnder2(BigDecimal v) { this.trailAfterDropUnder2 = v != null ? v : BigDecimal.valueOf(1.00); }
+
+    public BigDecimal getTrailAfterDropUnder3() { return trailAfterDropUnder3; }
+    public void setTrailAfterDropUnder3(BigDecimal v) { this.trailAfterDropUnder3 = v != null ? v : BigDecimal.valueOf(1.20); }
+
+    public BigDecimal getTrailAfterDropUnder5() { return trailAfterDropUnder5; }
+    public void setTrailAfterDropUnder5(BigDecimal v) { this.trailAfterDropUnder5 = v != null ? v : BigDecimal.valueOf(1.50); }
+
+    public BigDecimal getTrailAfterDropAbove5() { return trailAfterDropAbove5; }
+    public void setTrailAfterDropAbove5(BigDecimal v) { this.trailAfterDropAbove5 = v != null ? v : BigDecimal.valueOf(2.00); }
+
+    public boolean isTrailLadderEnabled() { return trailLadderEnabled; }
+    public void setTrailLadderEnabled(boolean v) { this.trailLadderEnabled = v; }
+
+    public int getL1DelaySec() { return l1DelaySec; }
+    public void setL1DelaySec(int v) { this.l1DelaySec = Math.max(0, Math.min(300, v)); }
+
+    public BigDecimal getSplit1stRoiFloorPct() { return split1stRoiFloorPct; }
+    public void setSplit1stRoiFloorPct(BigDecimal v) { this.split1stRoiFloorPct = v != null ? v : BigDecimal.ZERO; }
+
+    /**
+     * V130 ①: peak% 구간에 따라 적용할 drop 임계값을 반환.
+     * trail_ladder_enabled=false이면 기존 단일값 fallback (호환성).
+     *
+     * @param peakPct  진입가 대비 peak 상승률(%)
+     * @param isAfterSplit  true=SPLIT_2ND_TRAIL용 trailAfterDrop, false=SPLIT_1ST용 split1stDrop
+     */
+    public BigDecimal getDropForPeak(double peakPct, boolean isAfterSplit) {
+        if (!trailLadderEnabled) {
+            return isAfterSplit ? trailDropAfterSplit : split1stTrailDrop;
+        }
+        if (isAfterSplit) {
+            if (peakPct < 2) return trailAfterDropUnder2;
+            if (peakPct < 3) return trailAfterDropUnder3;
+            if (peakPct < 5) return trailAfterDropUnder5;
+            return trailAfterDropAbove5;
+        } else {
+            if (peakPct < 2) return split1stDropUnder2;
+            if (peakPct < 3) return split1stDropUnder3;
+            if (peakPct < 5) return split1stDropUnder5;
+            return split1stDropAbove5;
+        }
+    }
+
     /** 제외 마켓 목록을 Set으로 반환 (CSV 파싱) */
     public java.util.Set<String> getExcludeMarketsSet() {
         java.util.Set<String> set = new java.util.HashSet<String>();

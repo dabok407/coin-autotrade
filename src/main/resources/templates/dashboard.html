@@ -341,34 +341,51 @@
     </div>
   </div>
 
-  <!-- Order Guard (hidden) -->
-  <div class="trades-card" style="margin-bottom:16px;display:none">
+  <!-- Decision Guard (매수/매도 차단 사유 로그) -->
+  <div class="trades-card" style="margin-bottom:16px">
     <div class="trades-header">
-      <div class="trades-title">Order Guard <span class="badge" id="guardBadge" style="margin-left:8px">-</span></div>
-      <div class="trades-filter">
+      <div class="trades-title">매수/매도 차단 사유 (Decision Guard) <span class="badge" id="guardBadge" style="margin-left:8px">-</span></div>
+      <div class="trades-filter" style="display:flex;gap:8px;align-items:center">
+        <select id="guardSourceFilter" style="padding:4px 8px;font-size:12px">
+          <option value="ALL">전체</option>
+          <option value="MAIN">메인봇</option>
+          <option value="OPENING">오프닝</option>
+          <option value="MORNING">모닝러쉬</option>
+          <option value="ALLDAY">종일</option>
+        </select>
+        <select id="guardResultFilter" style="padding:4px 8px;font-size:12px">
+          <option value="ALL">결과 전체</option>
+          <option value="SKIPPED">SKIPPED</option>
+          <option value="BLOCKED">BLOCKED</option>
+          <option value="EXECUTED">EXECUTED</option>
+          <option value="ERROR">ERROR</option>
+        </select>
         <button class="header-btn" id="guardRefreshBtn" style="width:28px;height:28px;font-size:14px" title="Refresh guard logs">&#x21bb;</button>
       </div>
     </div>
     <div style="padding:12px 20px;border-bottom:1px solid var(--border-subtle)">
-      <div style="display:flex;gap:24px;font-size:13px">
+      <div style="display:flex;gap:24px;font-size:13px;flex-wrap:wrap">
         <div><span style="color:var(--text-muted)">Status:</span> <span style="font-weight:600" id="guardSummary">-</span></div>
         <div><span style="color:var(--text-muted)">Recent:</span> <span style="font-weight:600" id="guardRecent">-</span></div>
+        <div><span style="color:var(--text-muted)">Total:</span> <span style="font-weight:600" id="guardTotalCount">0</span></div>
       </div>
     </div>
-    <table class="trades-table" id="guardTable">
-      <colgroup>
-        <col style="width:22%"><col style="width:16%"><col style="width:14%"><col style="width:14%"><col style="width:34%">
-      </colgroup>
-      <thead>
-        <tr>
-          <th data-guardsort="tsEpochMs" class="sortable">Time <span class="sort-btn" title="Sort">&#8645;</span></th>
-          <th>Market</th><th>Action</th><th>Result</th><th>Reason</th>
-        </tr>
-      </thead>
-      <tbody id="guardTbody">
-        <tr><td colspan="5" style="color:var(--text-muted);padding:16px">Loading...</td></tr>
-      </tbody>
-    </table>
+    <div style="max-height:420px;overflow-y:auto">
+      <table class="trades-table" id="guardTable">
+        <colgroup>
+          <col style="width:16%"><col style="width:10%"><col style="width:14%"><col style="width:10%"><col style="width:12%"><col style="width:38%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th data-guardsort="tsEpochMs" class="sortable">Time <span class="sort-btn" title="Sort">&#8645;</span></th>
+            <th>Source</th><th>Market</th><th>Action</th><th>Result</th><th>Reason</th>
+          </tr>
+        </thead>
+        <tbody id="guardTbody">
+          <tr><td colspan="6" style="color:var(--text-muted);padding:16px">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Trade Logs -->

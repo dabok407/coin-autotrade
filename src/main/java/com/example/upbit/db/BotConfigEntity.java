@@ -88,6 +88,20 @@ public class BotConfigEntity {
     @Column(name="auto_start_enabled", nullable=false)
     private boolean autoStartEnabled = false;
 
+    // ── V130 ③ 스캐너 간 동일종목 재진입 차단 ──
+    /** true이면 (a) 다른 스캐너 보유 종목 진입 차단, (b) 당일 손실 청산 후 N분 차단 */
+    @Column(name="cross_scanner_lock_enabled", nullable=false)
+    private boolean crossScannerLockEnabled = true;
+
+    /** 당일 동일 종목 손실 청산 후 재진입 차단 시간 (분). 기본 360 = 6시간. */
+    @Column(name="same_market_loss_cooldown_min", nullable=false)
+    private int sameMarketLossCooldownMin = 360;
+
+    // ── V130 ⑤ Dust 보유 판단 제외 ──
+    /** 평가금액(qty*avgPrice) < 이 값(KRW)이면 dust로 간주 = 보유 아님. 0=비활성(V129 동작). 기본 5000. */
+    @Column(name="dust_holding_threshold_krw", nullable=false)
+    private int dustHoldingThresholdKrw = 5000;
+
     public Long getId() { return id; }
 
     public String getMode() { return mode; }
@@ -157,6 +171,17 @@ public class BotConfigEntity {
 
     public boolean isAutoStartEnabled() { return autoStartEnabled; }
     public void setAutoStartEnabled(boolean autoStartEnabled) { this.autoStartEnabled = autoStartEnabled; }
+
+    // V130 ③
+    public boolean isCrossScannerLockEnabled() { return crossScannerLockEnabled; }
+    public void setCrossScannerLockEnabled(boolean v) { this.crossScannerLockEnabled = v; }
+
+    public int getSameMarketLossCooldownMin() { return sameMarketLossCooldownMin; }
+    public void setSameMarketLossCooldownMin(int v) { this.sameMarketLossCooldownMin = Math.max(0, v); }
+
+    // V130 ⑤
+    public int getDustHoldingThresholdKrw() { return dustHoldingThresholdKrw; }
+    public void setDustHoldingThresholdKrw(int v) { this.dustHoldingThresholdKrw = Math.max(0, v); }
 
     /**
      * 전략별 유효 인터벌을 계산합니다.

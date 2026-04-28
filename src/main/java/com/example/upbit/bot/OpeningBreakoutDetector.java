@@ -102,6 +102,20 @@ public class OpeningBreakoutDetector {
     private final ConcurrentHashMap<String, Long> split1stExecutedAtMap = new ConcurrentHashMap<String, Long>();
     private volatile long cachedSplit1stCooldownMs = 60_000L;
 
+    // V130 ①: Trail Ladder A — peak% 구간별 차등 drop
+    private volatile boolean trailLadderEnabled = true;
+    private volatile double split1stDropUnder2 = 0.50;
+    private volatile double split1stDropUnder3 = 1.00;
+    private volatile double split1stDropUnder5 = 1.50;
+    private volatile double split1stDropAbove5 = 2.00;
+    private volatile double trailAfterDropUnder2 = 1.00;
+    private volatile double trailAfterDropUnder3 = 1.20;
+    private volatile double trailAfterDropUnder5 = 1.50;
+    private volatile double trailAfterDropAbove5 = 2.00;
+
+    // V130 ④: SPLIT_1ST roi 하한선. 0=비활성(V129 동작).
+    private volatile double split1stRoiFloorPct = 0.30;
+
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
     }
@@ -133,6 +147,46 @@ public class OpeningBreakoutDetector {
     public void setSplit1stCooldownSec(int sec) {
         int clamped = Math.max(0, Math.min(600, sec));
         this.cachedSplit1stCooldownMs = clamped * 1000L;
+    }
+
+    /** V130 ①: Trail Ladder 설정 일괄 갱신 (OpeningScannerService tick()에서 호출) */
+    public void setTrailLadder(boolean enabled,
+                                double s1Under2, double s1Under3, double s1Under5, double s1Above5,
+                                double taUnder2, double taUnder3, double taUnder5, double taAbove5) {
+        this.trailLadderEnabled = enabled;
+        this.split1stDropUnder2 = s1Under2;
+        this.split1stDropUnder3 = s1Under3;
+        this.split1stDropUnder5 = s1Under5;
+        this.split1stDropAbove5 = s1Above5;
+        this.trailAfterDropUnder2 = taUnder2;
+        this.trailAfterDropUnder3 = taUnder3;
+        this.trailAfterDropUnder5 = taUnder5;
+        this.trailAfterDropAbove5 = taAbove5;
+    }
+
+    /** V130 ④: SPLIT_1ST roi 하한선 설정. 0=비활성. */
+    public void setSplit1stRoiFloorPct(double pct) { this.split1stRoiFloorPct = pct; }
+
+    /**
+     * V130 ①: peak% 구간별 drop 임계값 반환.
+     * trailLadderEnabled=false이면 기존 단일값 fallback.
+     */
+    private double getDropForPeak(double avgPrice, double peakPrice, boolean isAfterSplit) {
+        if (!trailLadderEnabled) {
+            return isAfterSplit ? trailDropAfterSplit : split1stTrailDropPct;
+        }
+        double peakPct = avgPrice > 0 ? (peakPrice - avgPrice) / avgPrice * 100.0 : 0;
+        if (isAfterSplit) {
+            if (peakPct < 2) return trailAfterDropUnder2;
+            if (peakPct < 3) return trailAfterDropUnder3;
+            if (peakPct < 5) return trailAfterDropUnder5;
+            return trailAfterDropAbove5;
+        } else {
+            if (peakPct < 2) return split1stDropUnder2;
+            if (peakPct < 3) return split1stDropUnder3;
+            if (peakPct < 5) return split1stDropUnder5;
+            return split1stDropAbove5;
+        }
     }
     public int getSplitPhase(String market) {
         Integer phase = splitPhaseMap.get(market);
@@ -596,12 +650,19 @@ public class OpeningBreakoutDetector {
                         String.format(java.util.Locale.ROOT, "%.2f", peak));
             } else if (armed && peak > avgPrice) {
                 double dropFromPeak = (peak - price) / peak * 100.0;
-                if (dropFromPeak >= split1stTrailDropPct) {
+                // V130 ①: Trail Ladder A — peak% 구간별 drop 임계값
+                double dropThreshold1st = getDropForPeak(avgPrice, peak, false);
+                // V130 ④: roi 하한선 — current_roi < floor이면 SPLIT_1ST 차단
+                boolean roiFloorOk = (split1stRoiFloorPct <= 0) || (pnlPct >= split1stRoiFloorPct);
+                if (dropFromPeak >= dropThreshold1st && roiFloorOk) {
                     double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
                     sellType = "SPLIT_1ST";
                     reason = String.format(java.util.Locale.ROOT,
                             "SPLIT_1ST_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=+%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                            avgPrice, peak, price, dropFromPeak, split1stTrailDropPct, pnlPct, splitRatio * 100, trough, troughPnl);
+                            avgPrice, peak, price, dropFromPeak, dropThreshold1st, pnlPct, splitRatio * 100, trough, troughPnl);
+                } else if (!roiFloorOk) {
+                    log.debug("[BreakoutDetector] SPLIT_1ST roi_floor blocked: {} pnl={}% < floor={}%",
+                            market, String.format(java.util.Locale.ROOT, "%.2f", pnlPct), split1stRoiFloorPct);
                 }
             }
         }
@@ -621,15 +682,16 @@ public class OpeningBreakoutDetector {
 
             if (!cooldownActive) {
                 // V129: SPLIT_2ND_BEV(pnlPct<=0 본전 매도) 제거 — 꼬리 본전매도 후 반등 놓침 원인
-                // 2차 매도는 TP_TRAIL(trailDropAfterSplit) 조건만으로 판정; 급락은 상위 SL_TIGHT/WIDE가 처리
+                // V130 ①: Trail Ladder A — 2차도 peak% 구간별 drop 임계값 적용
                 if (peak > avgPrice) {
                     double dropFromPeak = (peak - price) / peak * 100.0;
-                    if (dropFromPeak >= trailDropAfterSplit) {
+                    double dropThreshold2nd = getDropForPeak(avgPrice, peak, true);
+                    if (dropFromPeak >= dropThreshold2nd) {
                         double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
                         sellType = "SPLIT_2ND_TRAIL";
                         reason = String.format(java.util.Locale.ROOT,
                                 "SPLIT_2ND_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                                avgPrice, peak, price, dropFromPeak, trailDropAfterSplit, pnlPct, trough, troughPnl);
+                                avgPrice, peak, price, dropFromPeak, dropThreshold2nd, pnlPct, trough, troughPnl);
                     }
                 }
             }

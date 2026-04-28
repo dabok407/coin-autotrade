@@ -69,12 +69,14 @@ public class OpeningOptionBE2ETest {
     @BeforeEach
     public void setUp() throws Exception {
         sharedThrottle = new SharedTradeThrottle();
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
                 new OpeningBreakoutDetector(mock(SharedPriceService.class)),
                 sharedThrottle,
-                null
+                null,
+                scannerLockService
         );
         // running=true 강제
         setField("running", new AtomicBoolean(true));
@@ -352,6 +354,7 @@ public class OpeningOptionBE2ETest {
         cfg.setSessionEndMin(59);
         cfg.setExcludeMarkets("");
         cfg.setVol3RatioThreshold(BigDecimal.valueOf(1.5)); // V127: 기존 테스트 데이터 호환 (시나리오는 필터 아닌 경로 검증)
+        cfg.setL1DelaySec(0); // V130: L1 지연 비활성화 (테스트에서는 즉시 매수 경로로 검증)
         return cfg;
     }
 }

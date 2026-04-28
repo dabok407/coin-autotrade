@@ -50,6 +50,22 @@
           Global Settings
         </div>
       </div>
+      <!-- V130 ③⑤: 글로벌 스캐너 설정 -->
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:16px">V130 스캐너 글로벌 설정</div>
+      <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+        <div class="config-field">
+          <label>Cross Scanner Lock <span class="help-icon" data-tooltip="ON: 다른 스캐너가 보유 중인 종목은 재진입 차단&#10;당일 손실 청산 후 N분간 동일 종목 재진입도 차단" aria-label="Cross scanner lock help"></span></label>
+          <select class="select" id="globalCrossScannerLock"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+        </div>
+        <div class="config-field">
+          <label>손실 쿨다운 (분) <span class="help-icon" data-tooltip="당일 동일 종목 손실 청산 후 재진입 차단 시간 (분)&#10;기본 360분(6시간). 0=비활성." aria-label="Loss cooldown help"></span></label>
+          <input class="input" type="number" id="globalLossCooldownMin" value="360" step="30" min="0"/>
+        </div>
+        <div class="config-field">
+          <label>Dust 임계 (KRW) <span class="help-icon" data-tooltip="평가금액 < 이 값(KRW)이면 dust(잔여물)로 간주 = 보유 아님&#10;5000 권장: 업비트 최소 주문 미만 잔여 코인 무시 (1원 잔여 매수 차단 회피)&#10;0=비활성" aria-label="Dust threshold help"></span></label>
+          <input class="input" type="number" id="globalDustThreshold" value="5000" step="500" min="0"/>
+        </div>
+      </div>
       <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr">
         <div class="config-field">
           <label>Mode <span class="help-icon" data-tooltip="PAPER: 모의투자 모드 (실제 주문 없음, 슬리피지 0.1% + 수수료 0.05% 시뮬레이션)&#10;LIVE: 실거래 모드 (실제 업비트 주문 실행)" aria-label="Mode help"></span></label>
@@ -317,6 +333,63 @@
             <input class="input" type="number" id="scVol3RatioThreshold" value="2.5" step="0.1" min="1.0" max="5.0"/>
           </div>
         </div>
+
+        <!-- V130 ①: Trail Ladder -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:8px">Trail Ladder (peak 구간별 차등)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+          <div class="config-field">
+            <label>Trail Ladder 사용 <span class="help-icon" data-tooltip="ON: peak% 구간별 차등 drop 적용 (백테 V129 -13K → Ladder A +28K)&#10;OFF: 기존 단일 1차/2차 trail drop 값 사용" aria-label="Trail Ladder help"></span></label>
+            <select class="select" id="scTrailLadderEnabled"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+          </div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">peak 구간</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">1차 매도 drop (%)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">구간</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">2차 trail drop (%)</div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak &lt; 2%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scSplit1stDropUnder2" value="0.50" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak &lt; 2%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scTrailAfterDropUnder2" value="1.00" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak 2~3%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scSplit1stDropUnder3" value="1.00" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak 2~3%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scTrailAfterDropUnder3" value="1.20" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak 3~5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scSplit1stDropUnder5" value="1.50" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak 3~5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scTrailAfterDropUnder5" value="1.50" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field"><label>peak &ge; 5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scSplit1stDropAbove5" value="2.00" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak &ge; 5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="scTrailAfterDropAbove5" value="2.00" step="0.05" min="0.1" max="5"/></div>
+        </div>
+
+        <!-- V130 ②: L1 지연 진입 -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">L1 지연 진입 (꼬리 매수 차단)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>L1 대기 (sec) <span class="help-icon" data-tooltip="시그널 후 N초 close 확인 후 매수. 0=즉시(V129). 60초 권장.&#10;백테스트: -13K → +13K (8일 1분봉 실가격)" aria-label="L1 delay help"></span></label>
+            <input class="input" type="number" id="scL1DelaySec" value="60" step="5" min="0" max="300"/>
+          </div>
+        </div>
+
+        <!-- V130 ④: SPLIT_1ST roi 하한 -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">SPLIT_1ST ROI 하한 (손실 1차 매도 차단)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>ROI 하한 (%) <span class="help-icon" data-tooltip="1차 매도 시 최소 +N% 수익권 확인. 0=비활성.&#10;0.30 권장: BIRB/SOON 손실 1차 매도 차단" aria-label="ROI floor help"></span></label>
+            <input class="input" type="number" id="scSplit1stRoiFloorPct" value="0.30" step="0.05" min="0" max="5"/>
+          </div>
+        </div>
       </div>
     </div>
     </div><!-- /settingsTabOpening -->
@@ -485,6 +558,63 @@
           <div class="config-field">
             <label>1차후 쿨다운 (초) <span class="help-icon" data-tooltip="V129: SPLIT_1ST 체결 후 SPLIT_2ND_TRAIL 쿨다운(초).&#10;쿨다운 동안 2차 TRAIL 매도는 차단, SL은 허용." aria-label="Split 1st cooldown help"></span></label>
             <input class="input" type="number" id="adSplit1stCooldownSec" value="60" step="5" min="0" max="600"/>
+          </div>
+        </div>
+
+        <!-- V130 ①: Trail Ladder -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:8px">Trail Ladder (peak 구간별 차등)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+          <div class="config-field">
+            <label>Trail Ladder 사용 <span class="help-icon" data-tooltip="ON: peak% 구간별 차등 drop 적용&#10;OFF: 기존 단일 1차/2차 trail drop 값 사용" aria-label="Trail Ladder help"></span></label>
+            <select class="select" id="adTrailLadderEnabled"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+          </div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">peak 구간</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">1차 매도 drop (%)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">구간</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">2차 trail drop (%)</div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak &lt; 2%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adSplit1stDropUnder2" value="0.50" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak &lt; 2%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adTrailAfterDropUnder2" value="1.00" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak 2~3%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adSplit1stDropUnder3" value="1.00" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak 2~3%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adTrailAfterDropUnder3" value="1.20" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak 3~5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adSplit1stDropUnder5" value="1.50" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak 3~5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adTrailAfterDropUnder5" value="1.50" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field"><label>peak &ge; 5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adSplit1stDropAbove5" value="2.00" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak &ge; 5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="adTrailAfterDropAbove5" value="2.00" step="0.05" min="0.1" max="5"/></div>
+        </div>
+
+        <!-- V130 ②: L1 지연 진입 -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">L1 지연 진입 (꼬리 매수 차단)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>L1 대기 (sec) <span class="help-icon" data-tooltip="시그널 후 N초 close 확인 후 매수. 0=즉시. 60초 권장." aria-label="L1 delay help"></span></label>
+            <input class="input" type="number" id="adL1DelaySec" value="60" step="5" min="0" max="300"/>
+          </div>
+        </div>
+
+        <!-- V130 ④: SPLIT_1ST roi 하한 -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">SPLIT_1ST ROI 하한 (손실 1차 매도 차단)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>ROI 하한 (%) <span class="help-icon" data-tooltip="1차 매도 시 최소 +N% 수익권 확인. 0=비활성. 0.30 권장." aria-label="ROI floor help"></span></label>
+            <input class="input" type="number" id="adSplit1stRoiFloorPct" value="0.30" step="0.05" min="0" max="5"/>
           </div>
         </div>
 
@@ -703,6 +833,63 @@
           <div class="config-field">
             <label>1차후 쿨다운 (초) <span class="help-icon" data-tooltip="V129: SPLIT_1ST 체결 후 SPLIT_2ND_TRAIL 쿨다운(초).&#10;쿨다운 동안 2차 TRAIL 매도는 차단, SL은 허용." aria-label="MR Split 1st cooldown help"></span></label>
             <input class="input" type="number" id="mrSplit1stCooldownSec" value="60" step="5" min="0" max="600"/>
+          </div>
+        </div>
+
+        <!-- V130 ①: Trail Ladder -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:8px">Trail Ladder (peak 구간별 차등)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+          <div class="config-field">
+            <label>Trail Ladder 사용 <span class="help-icon" data-tooltip="ON: peak% 구간별 차등 drop 적용&#10;OFF: 기존 단일 1차/2차 trail drop 값 사용" aria-label="MR Trail Ladder help"></span></label>
+            <select class="select" id="mrTrailLadderEnabled"><option value="true" selected>ON</option><option value="false">OFF</option></select>
+          </div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">peak 구간</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">1차 매도 drop (%)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">구간</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0">2차 trail drop (%)</div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak &lt; 2%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrSplit1stDropUnder2" value="0.50" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak &lt; 2%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrTrailAfterDropUnder2" value="1.00" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak 2~3%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrSplit1stDropUnder3" value="1.00" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak 2~3%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrTrailAfterDropUnder3" value="1.20" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:4px">
+          <div class="config-field"><label>peak 3~5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrSplit1stDropUnder5" value="1.50" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak 3~5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrTrailAfterDropUnder5" value="1.50" step="0.05" min="0.1" max="5"/></div>
+        </div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+          <div class="config-field"><label>peak &ge; 5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrSplit1stDropAbove5" value="2.00" step="0.05" min="0.1" max="5"/></div>
+          <div class="config-field"><label>peak &ge; 5%</label></div>
+          <div class="config-field"><input class="input" type="number" id="mrTrailAfterDropAbove5" value="2.00" step="0.05" min="0.1" max="5"/></div>
+        </div>
+
+        <!-- V130 ②: L1 지연 진입 -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">L1 지연 진입 (꼬리 매수 차단)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>L1 대기 (sec) <span class="help-icon" data-tooltip="시그널 후 N초 close 확인 후 매수. 0=즉시. 60초 권장." aria-label="MR L1 delay help"></span></label>
+            <input class="input" type="number" id="mrL1DelaySec" value="60" step="5" min="0" max="300"/>
+          </div>
+        </div>
+
+        <!-- V130 ④: SPLIT_1ST roi 하한 -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">SPLIT_1ST ROI 하한 (손실 1차 매도 차단)</div>
+        <div class="config-bar" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <div class="config-field">
+            <label>ROI 하한 (%) <span class="help-icon" data-tooltip="1차 매도 시 최소 +N% 수익권 확인. 0=비활성. 0.30 권장." aria-label="MR ROI floor help"></span></label>
+            <input class="input" type="number" id="mrSplit1stRoiFloorPct" value="0.30" step="0.05" min="0" max="5"/>
           </div>
         </div>
       </div>

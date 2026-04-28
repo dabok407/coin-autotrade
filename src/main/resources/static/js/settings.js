@@ -759,6 +759,7 @@
       await saveScannerConfig();
       await saveAlldayConfig();
       await saveMorningRushConfig();
+      await saveGlobalSettings();
 
       if (result && result.success) {
         showToast('Settings applied! (' + result.groupCount + ' groups + scanners)', 'success');
@@ -898,6 +899,20 @@
       if (el('scSplit1stTrailDrop')) el('scSplit1stTrailDrop').value = cfg.split1stTrailDrop || 0.5;
       if (el('scSplit1stCooldownSec')) el('scSplit1stCooldownSec').value = (cfg.split1stCooldownSec != null) ? cfg.split1stCooldownSec : 60;
       if (el('scVol3RatioThreshold')) el('scVol3RatioThreshold').value = (cfg.vol3RatioThreshold != null) ? cfg.vol3RatioThreshold : 2.5;
+      // V130 ①: Trail Ladder
+      if (el('scTrailLadderEnabled')) el('scTrailLadderEnabled').value = String(cfg.trailLadderEnabled !== false);
+      if (el('scSplit1stDropUnder2')) el('scSplit1stDropUnder2').value = (cfg.split1stDropUnder2 != null) ? cfg.split1stDropUnder2 : 0.50;
+      if (el('scSplit1stDropUnder3')) el('scSplit1stDropUnder3').value = (cfg.split1stDropUnder3 != null) ? cfg.split1stDropUnder3 : 1.00;
+      if (el('scSplit1stDropUnder5')) el('scSplit1stDropUnder5').value = (cfg.split1stDropUnder5 != null) ? cfg.split1stDropUnder5 : 1.50;
+      if (el('scSplit1stDropAbove5')) el('scSplit1stDropAbove5').value = (cfg.split1stDropAbove5 != null) ? cfg.split1stDropAbove5 : 2.00;
+      if (el('scTrailAfterDropUnder2')) el('scTrailAfterDropUnder2').value = (cfg.trailAfterDropUnder2 != null) ? cfg.trailAfterDropUnder2 : 1.00;
+      if (el('scTrailAfterDropUnder3')) el('scTrailAfterDropUnder3').value = (cfg.trailAfterDropUnder3 != null) ? cfg.trailAfterDropUnder3 : 1.20;
+      if (el('scTrailAfterDropUnder5')) el('scTrailAfterDropUnder5').value = (cfg.trailAfterDropUnder5 != null) ? cfg.trailAfterDropUnder5 : 1.50;
+      if (el('scTrailAfterDropAbove5')) el('scTrailAfterDropAbove5').value = (cfg.trailAfterDropAbove5 != null) ? cfg.trailAfterDropAbove5 : 2.00;
+      // V130 ②: L1 지연
+      if (el('scL1DelaySec')) el('scL1DelaySec').value = (cfg.l1DelaySec != null) ? cfg.l1DelaySec : 60;
+      // V130 ④: ROI 하한
+      if (el('scSplit1stRoiFloorPct')) el('scSplit1stRoiFloorPct').value = (cfg.split1stRoiFloorPct != null) ? cfg.split1stRoiFloorPct : 0.30;
     } catch(e) {
       console.warn('Scanner config load failed:', e);
     }
@@ -953,7 +968,21 @@
       trailDropAfterSplit: parseFloat(el('scTrailDropAfterSplit') ? el('scTrailDropAfterSplit').value : '1.2') || 1.2,
       split1stTrailDrop: parseFloat(el('scSplit1stTrailDrop') ? el('scSplit1stTrailDrop').value : '0.5') || 0.5,
       split1stCooldownSec: parseInt(el('scSplit1stCooldownSec') ? el('scSplit1stCooldownSec').value : '60', 10) || 0,
-      vol3RatioThreshold: parseFloat(el('scVol3RatioThreshold') ? el('scVol3RatioThreshold').value : '2.5') || 2.5
+      vol3RatioThreshold: parseFloat(el('scVol3RatioThreshold') ? el('scVol3RatioThreshold').value : '2.5') || 2.5,
+      // V130 ①: Trail Ladder
+      trailLadderEnabled: (el('scTrailLadderEnabled') ? el('scTrailLadderEnabled').value : 'true') === 'true',
+      split1stDropUnder2: parseFloat(el('scSplit1stDropUnder2') ? el('scSplit1stDropUnder2').value : '0.50') || 0.50,
+      split1stDropUnder3: parseFloat(el('scSplit1stDropUnder3') ? el('scSplit1stDropUnder3').value : '1.00') || 1.00,
+      split1stDropUnder5: parseFloat(el('scSplit1stDropUnder5') ? el('scSplit1stDropUnder5').value : '1.50') || 1.50,
+      split1stDropAbove5: parseFloat(el('scSplit1stDropAbove5') ? el('scSplit1stDropAbove5').value : '2.00') || 2.00,
+      trailAfterDropUnder2: parseFloat(el('scTrailAfterDropUnder2') ? el('scTrailAfterDropUnder2').value : '1.00') || 1.00,
+      trailAfterDropUnder3: parseFloat(el('scTrailAfterDropUnder3') ? el('scTrailAfterDropUnder3').value : '1.20') || 1.20,
+      trailAfterDropUnder5: parseFloat(el('scTrailAfterDropUnder5') ? el('scTrailAfterDropUnder5').value : '1.50') || 1.50,
+      trailAfterDropAbove5: parseFloat(el('scTrailAfterDropAbove5') ? el('scTrailAfterDropAbove5').value : '2.00') || 2.00,
+      // V130 ②: L1 지연
+      l1DelaySec: parseInt(el('scL1DelaySec') ? el('scL1DelaySec').value : '60') || 0,
+      // V130 ④: ROI 하한
+      split1stRoiFloorPct: parseFloat(el('scSplit1stRoiFloorPct') ? el('scSplit1stRoiFloorPct').value : '0.30') || 0
     };
 
     await req('/api/scanner/config', { method: 'POST', body: JSON.stringify(body) });
@@ -1030,6 +1059,20 @@
       if (el('adTrailDropAfterSplit')) el('adTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.2;
       if (el('adSplit1stTrailDrop')) el('adSplit1stTrailDrop').value = cfg.split1stTrailDrop || 0.5;
       if (el('adSplit1stCooldownSec')) el('adSplit1stCooldownSec').value = (cfg.split1stCooldownSec != null) ? cfg.split1stCooldownSec : 60;
+      // V130 ①: Trail Ladder
+      if (el('adTrailLadderEnabled')) el('adTrailLadderEnabled').value = String(cfg.trailLadderEnabled !== false);
+      if (el('adSplit1stDropUnder2')) el('adSplit1stDropUnder2').value = (cfg.split1stDropUnder2 != null) ? cfg.split1stDropUnder2 : 0.50;
+      if (el('adSplit1stDropUnder3')) el('adSplit1stDropUnder3').value = (cfg.split1stDropUnder3 != null) ? cfg.split1stDropUnder3 : 1.00;
+      if (el('adSplit1stDropUnder5')) el('adSplit1stDropUnder5').value = (cfg.split1stDropUnder5 != null) ? cfg.split1stDropUnder5 : 1.50;
+      if (el('adSplit1stDropAbove5')) el('adSplit1stDropAbove5').value = (cfg.split1stDropAbove5 != null) ? cfg.split1stDropAbove5 : 2.00;
+      if (el('adTrailAfterDropUnder2')) el('adTrailAfterDropUnder2').value = (cfg.trailAfterDropUnder2 != null) ? cfg.trailAfterDropUnder2 : 1.00;
+      if (el('adTrailAfterDropUnder3')) el('adTrailAfterDropUnder3').value = (cfg.trailAfterDropUnder3 != null) ? cfg.trailAfterDropUnder3 : 1.20;
+      if (el('adTrailAfterDropUnder5')) el('adTrailAfterDropUnder5').value = (cfg.trailAfterDropUnder5 != null) ? cfg.trailAfterDropUnder5 : 1.50;
+      if (el('adTrailAfterDropAbove5')) el('adTrailAfterDropAbove5').value = (cfg.trailAfterDropAbove5 != null) ? cfg.trailAfterDropAbove5 : 2.00;
+      // V130 ②: L1 지연
+      if (el('adL1DelaySec')) el('adL1DelaySec').value = (cfg.l1DelaySec != null) ? cfg.l1DelaySec : 60;
+      // V130 ④: ROI 하한
+      if (el('adSplit1stRoiFloorPct')) el('adSplit1stRoiFloorPct').value = (cfg.split1stRoiFloorPct != null) ? cfg.split1stRoiFloorPct : 0.30;
     } catch(e) {
       console.warn('AllDay Scanner config load failed:', e);
     }
@@ -1080,7 +1123,21 @@
       splitRatio: parseFloat(el('adSplitRatio') ? el('adSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('adTrailDropAfterSplit') ? el('adTrailDropAfterSplit').value : '1.2') || 1.2,
       split1stTrailDrop: parseFloat(el('adSplit1stTrailDrop') ? el('adSplit1stTrailDrop').value : '0.5') || 0.5,
-      split1stCooldownSec: parseInt(el('adSplit1stCooldownSec') ? el('adSplit1stCooldownSec').value : '60', 10) || 0
+      split1stCooldownSec: parseInt(el('adSplit1stCooldownSec') ? el('adSplit1stCooldownSec').value : '60', 10) || 0,
+      // V130 ①: Trail Ladder
+      trailLadderEnabled: (el('adTrailLadderEnabled') ? el('adTrailLadderEnabled').value : 'true') === 'true',
+      split1stDropUnder2: parseFloat(el('adSplit1stDropUnder2') ? el('adSplit1stDropUnder2').value : '0.50') || 0.50,
+      split1stDropUnder3: parseFloat(el('adSplit1stDropUnder3') ? el('adSplit1stDropUnder3').value : '1.00') || 1.00,
+      split1stDropUnder5: parseFloat(el('adSplit1stDropUnder5') ? el('adSplit1stDropUnder5').value : '1.50') || 1.50,
+      split1stDropAbove5: parseFloat(el('adSplit1stDropAbove5') ? el('adSplit1stDropAbove5').value : '2.00') || 2.00,
+      trailAfterDropUnder2: parseFloat(el('adTrailAfterDropUnder2') ? el('adTrailAfterDropUnder2').value : '1.00') || 1.00,
+      trailAfterDropUnder3: parseFloat(el('adTrailAfterDropUnder3') ? el('adTrailAfterDropUnder3').value : '1.20') || 1.20,
+      trailAfterDropUnder5: parseFloat(el('adTrailAfterDropUnder5') ? el('adTrailAfterDropUnder5').value : '1.50') || 1.50,
+      trailAfterDropAbove5: parseFloat(el('adTrailAfterDropAbove5') ? el('adTrailAfterDropAbove5').value : '2.00') || 2.00,
+      // V130 ②: L1 지연
+      l1DelaySec: parseInt(el('adL1DelaySec') ? el('adL1DelaySec').value : '60') || 0,
+      // V130 ④: ROI 하한
+      split1stRoiFloorPct: parseFloat(el('adSplit1stRoiFloorPct') ? el('adSplit1stRoiFloorPct').value : '0.30') || 0
     };
 
     await req('/api/allday-scanner/config', { method: 'POST', body: JSON.stringify(body) });
@@ -1138,7 +1195,7 @@
       if (el('mrSessionEnd')) el('mrSessionEnd').value = fmtHHMM(cfg.sessionEndHour, cfg.sessionEndMin);
       if (el('mrTopN')) el('mrTopN').value = cfg.topN || 30;
       if (el('mrMaxPos')) el('mrMaxPos').value = cfg.maxPositions || 2;
-      if (el('mrMinTradeAmount')) el('mrMinTradeAmount').value = cfg.minTradeAmountBillion || 10;
+      if (el('mrMinTradeAmount')) el('mrMinTradeAmount').value = cfg.minTradeAmount != null ? Math.round(cfg.minTradeAmount / 100000000) : 10;
       if (el('mrMinPrice')) el('mrMinPrice').value = cfg.minPriceKrw != null ? cfg.minPriceKrw : 20;
       if (el('mrExcludeMarkets')) el('mrExcludeMarkets').value = cfg.excludeMarkets || '';
       // TP_TRAIL
@@ -1150,6 +1207,20 @@
       if (el('mrTrailDropAfterSplit')) el('mrTrailDropAfterSplit').value = cfg.trailDropAfterSplit || 1.2;
       if (el('mrSplit1stTrailDrop')) el('mrSplit1stTrailDrop').value = cfg.split1stTrailDrop || 0.5;
       if (el('mrSplit1stCooldownSec')) el('mrSplit1stCooldownSec').value = (cfg.split1stCooldownSec != null) ? cfg.split1stCooldownSec : 60;
+      // V130 ①: Trail Ladder
+      if (el('mrTrailLadderEnabled')) el('mrTrailLadderEnabled').value = String(cfg.trailLadderEnabled !== false);
+      if (el('mrSplit1stDropUnder2')) el('mrSplit1stDropUnder2').value = (cfg.split1stDropUnder2 != null) ? cfg.split1stDropUnder2 : 0.50;
+      if (el('mrSplit1stDropUnder3')) el('mrSplit1stDropUnder3').value = (cfg.split1stDropUnder3 != null) ? cfg.split1stDropUnder3 : 1.00;
+      if (el('mrSplit1stDropUnder5')) el('mrSplit1stDropUnder5').value = (cfg.split1stDropUnder5 != null) ? cfg.split1stDropUnder5 : 1.50;
+      if (el('mrSplit1stDropAbove5')) el('mrSplit1stDropAbove5').value = (cfg.split1stDropAbove5 != null) ? cfg.split1stDropAbove5 : 2.00;
+      if (el('mrTrailAfterDropUnder2')) el('mrTrailAfterDropUnder2').value = (cfg.trailAfterDropUnder2 != null) ? cfg.trailAfterDropUnder2 : 1.00;
+      if (el('mrTrailAfterDropUnder3')) el('mrTrailAfterDropUnder3').value = (cfg.trailAfterDropUnder3 != null) ? cfg.trailAfterDropUnder3 : 1.20;
+      if (el('mrTrailAfterDropUnder5')) el('mrTrailAfterDropUnder5').value = (cfg.trailAfterDropUnder5 != null) ? cfg.trailAfterDropUnder5 : 1.50;
+      if (el('mrTrailAfterDropAbove5')) el('mrTrailAfterDropAbove5').value = (cfg.trailAfterDropAbove5 != null) ? cfg.trailAfterDropAbove5 : 2.00;
+      // V130 ②: L1 지연
+      if (el('mrL1DelaySec')) el('mrL1DelaySec').value = (cfg.l1DelaySec != null) ? cfg.l1DelaySec : 60;
+      // V130 ④: ROI 하한
+      if (el('mrSplit1stRoiFloorPct')) el('mrSplit1stRoiFloorPct').value = (cfg.split1stRoiFloorPct != null) ? cfg.split1stRoiFloorPct : 0.30;
     } catch(e) {
       console.warn('Morning Rush config load failed:', e);
     }
@@ -1182,7 +1253,7 @@
       sessionEndHour: se[0], sessionEndMin: se[1],
       topN: parseInt(el('mrTopN') ? el('mrTopN').value : '30') || 30,
       maxPositions: parseInt(el('mrMaxPos') ? el('mrMaxPos').value : '2') || 2,
-      minTradeAmountBillion: parseInt(el('mrMinTradeAmount') ? el('mrMinTradeAmount').value : '10') || 10,
+      minTradeAmount: (parseInt(el('mrMinTradeAmount') ? el('mrMinTradeAmount').value : '10') || 10) * 100000000,
       minPriceKrw: parseInt(el('mrMinPrice') ? el('mrMinPrice').value : '20') || 0,
       excludeMarkets: el('mrExcludeMarkets') ? el('mrExcludeMarkets').value.trim() : '',
       // TP_TRAIL
@@ -1193,7 +1264,21 @@
       splitRatio: parseFloat(el('mrSplitRatio') ? el('mrSplitRatio').value : '0.50') || 0.50,
       trailDropAfterSplit: parseFloat(el('mrTrailDropAfterSplit') ? el('mrTrailDropAfterSplit').value : '1.2') || 1.2,
       split1stTrailDrop: parseFloat(el('mrSplit1stTrailDrop') ? el('mrSplit1stTrailDrop').value : '0.5') || 0.5,
-      split1stCooldownSec: parseInt(el('mrSplit1stCooldownSec') ? el('mrSplit1stCooldownSec').value : '60', 10) || 0
+      split1stCooldownSec: parseInt(el('mrSplit1stCooldownSec') ? el('mrSplit1stCooldownSec').value : '60', 10) || 0,
+      // V130 ①: Trail Ladder
+      trailLadderEnabled: (el('mrTrailLadderEnabled') ? el('mrTrailLadderEnabled').value : 'true') === 'true',
+      split1stDropUnder2: parseFloat(el('mrSplit1stDropUnder2') ? el('mrSplit1stDropUnder2').value : '0.50') || 0.50,
+      split1stDropUnder3: parseFloat(el('mrSplit1stDropUnder3') ? el('mrSplit1stDropUnder3').value : '1.00') || 1.00,
+      split1stDropUnder5: parseFloat(el('mrSplit1stDropUnder5') ? el('mrSplit1stDropUnder5').value : '1.50') || 1.50,
+      split1stDropAbove5: parseFloat(el('mrSplit1stDropAbove5') ? el('mrSplit1stDropAbove5').value : '2.00') || 2.00,
+      trailAfterDropUnder2: parseFloat(el('mrTrailAfterDropUnder2') ? el('mrTrailAfterDropUnder2').value : '1.00') || 1.00,
+      trailAfterDropUnder3: parseFloat(el('mrTrailAfterDropUnder3') ? el('mrTrailAfterDropUnder3').value : '1.20') || 1.20,
+      trailAfterDropUnder5: parseFloat(el('mrTrailAfterDropUnder5') ? el('mrTrailAfterDropUnder5').value : '1.50') || 1.50,
+      trailAfterDropAbove5: parseFloat(el('mrTrailAfterDropAbove5') ? el('mrTrailAfterDropAbove5').value : '2.00') || 2.00,
+      // V130 ②: L1 지연
+      l1DelaySec: parseInt(el('mrL1DelaySec') ? el('mrL1DelaySec').value : '60') || 0,
+      // V130 ④: ROI 하한
+      split1stRoiFloorPct: parseFloat(el('mrSplit1stRoiFloorPct') ? el('mrSplit1stRoiFloorPct').value : '0.30') || 0
     };
 
     await req('/api/morning-rush/config', { method: 'POST', body: JSON.stringify(body) });
@@ -1201,6 +1286,34 @@
 
   // Load morning rush config on page load
   loadMorningRushConfig();
+
+  // ═══════════════════════════════════════════
+  //  V130 Global Settings (Cross Scanner Lock, Loss Cooldown, Dust Threshold)
+  // ═══════════════════════════════════════════
+
+  async function loadGlobalSettings() {
+    try {
+      var cfg = await req('/api/bot/global-settings', { method: 'GET' });
+      var el = function(id) { return document.getElementById(id); };
+      if (el('globalCrossScannerLock')) el('globalCrossScannerLock').value = String(cfg.crossScannerLockEnabled !== false);
+      if (el('globalLossCooldownMin')) el('globalLossCooldownMin').value = (cfg.sameMarketLossCooldownMin != null) ? cfg.sameMarketLossCooldownMin : 360;
+      if (el('globalDustThreshold')) el('globalDustThreshold').value = (cfg.dustHoldingThresholdKrw != null) ? cfg.dustHoldingThresholdKrw : 5000;
+    } catch(e) {
+      console.warn('Global settings load failed:', e);
+    }
+  }
+
+  async function saveGlobalSettings() {
+    var el = function(id) { return document.getElementById(id); };
+    var body = {
+      crossScannerLockEnabled: (el('globalCrossScannerLock') ? el('globalCrossScannerLock').value : 'true') === 'true',
+      sameMarketLossCooldownMin: parseInt(el('globalLossCooldownMin') ? el('globalLossCooldownMin').value : '360') || 0,
+      dustHoldingThresholdKrw: parseInt(el('globalDustThreshold') ? el('globalDustThreshold').value : '5000') || 0
+    };
+    await req('/api/bot/global-settings', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  loadGlobalSettings();
 
   // ── SSO Partner Button ──
   (function() {

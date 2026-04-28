@@ -183,7 +183,20 @@ public class OpeningScannerService {
 
     private final OpeningBreakoutDetector breakoutDetector;
     private final SharedPriceService sharedPriceService;
+    private final ScannerLockService scannerLockService;
     private volatile NewMarketListener newMarketListener;
+
+    // V130 ②: L1 지연 진입용 단일 스레드 스케줄러 (지연 후 현재가 확인 → executeBuy)
+    private final ScheduledExecutorService l1DelayScheduler = Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "op-l1-delay");
+                    t.setDaemon(true);
+                    return t;
+                }
+            }
+    );
 
     // 레인지 고점 맵 (range 수집 후 저장, detector에 전달)
     private final ConcurrentHashMap<String, Double> rangeHighCache = new ConcurrentHashMap<String, Double>();
@@ -207,7 +220,8 @@ public class OpeningScannerService {
                                   TransactionTemplate txTemplate,
                                   OpeningBreakoutDetector breakoutDetector,
                                   SharedTradeThrottle hourlyThrottle,
-                                  SharedPriceService sharedPriceService) {
+                                  SharedPriceService sharedPriceService,
+                                  ScannerLockService scannerLockService) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -220,6 +234,7 @@ public class OpeningScannerService {
         this.breakoutDetector = breakoutDetector;
         this.hourlyThrottle = hourlyThrottle;
         this.sharedPriceService = sharedPriceService;
+        this.scannerLockService = scannerLockService;
     }
 
     // ========== Decision Log ==========
@@ -520,6 +535,20 @@ public class OpeningScannerService {
         breakoutDetector.setTrailDropAfterSplit(cfg.getTrailDropAfterSplit().doubleValue());
         breakoutDetector.setSplit1stTrailDropPct(cfg.getSplit1stTrailDrop().doubleValue());  // V115
         breakoutDetector.setSplit1stCooldownSec(cfg.getSplit1stCooldownSec());  // V126
+        // V130 ①: Trail Ladder A — detector 캐시 갱신
+        breakoutDetector.setTrailLadder(
+                cfg.isTrailLadderEnabled(),
+                cfg.getSplit1stDropUnder2().doubleValue(),
+                cfg.getSplit1stDropUnder3().doubleValue(),
+                cfg.getSplit1stDropUnder5().doubleValue(),
+                cfg.getSplit1stDropAbove5().doubleValue(),
+                cfg.getTrailAfterDropUnder2().doubleValue(),
+                cfg.getTrailAfterDropUnder3().doubleValue(),
+                cfg.getTrailAfterDropUnder5().doubleValue(),
+                cfg.getTrailAfterDropAbove5().doubleValue()
+        );
+        // V130 ④: SPLIT_1ST roi 하한선
+        breakoutDetector.setSplit1stRoiFloorPct(cfg.getSplit1stRoiFloorPct().doubleValue());
 
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
@@ -580,11 +609,12 @@ public class OpeningScannerService {
         int candleUnit = cfg.getCandleUnitMin();
 
         // 기존 보유 코인 제외 (entry_strategy != SCALP_OPENING_BREAK)
+        // V130 ⑤: dust 포지션은 보유로 간주하지 않음
         Set<String> ownedMarkets = new HashSet<String>();
         List<PositionEntity> allPositions = positionRepo.findAll();
         int scannerPosCount = 0;
         for (PositionEntity pe : allPositions) {
-            if (pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+            if (!scannerLockService.isDustPosition(pe) && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                 if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())) {
                     scannerPosCount++;
                 } else {
@@ -665,6 +695,7 @@ public class OpeningScannerService {
             List<String> posMarkets = new ArrayList<String>();
             for (PositionEntity pe : allPositions) {
                 if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())
+                        && !scannerLockService.isDustPosition(pe)
                         && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                     posMarkets.add(pe.getMarket());
                 }
@@ -868,8 +899,8 @@ public class OpeningScannerService {
             for (String market : topMarkets) {
                 boolean alreadyHas = false;
                 for (PositionEntity pe : allPositions) {
-                    if (market.equals(pe.getMarket()) && pe.getQty() != null
-                            && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                    if (market.equals(pe.getMarket()) && !scannerLockService.isDustPosition(pe)
+                            && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                         alreadyHas = true;
                         break;
                     }
@@ -987,6 +1018,13 @@ public class OpeningScannerService {
                     orderKrw = BigDecimal.valueOf(remainingBudget2).setScale(0, RoundingMode.DOWN);
                 }
 
+                // 결함 4: throttle 소모 전 canEnter 사전 차단 (throttle 낭비 방지)
+                if (!scannerLockService.canEnter(bs.market, "OP")) {
+                    addDecision(bs.market, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
+                            "다른 스캐너 보유 또는 손실 후 쿨다운 (tick 사전 차단)");
+                    continue;
+                }
+
                 // ★ atomic throttle claim (race fix)
                 if (!hourlyThrottle.tryClaim(bs.market)) {
                     addDecision(bs.market, "BUY", "BLOCKED", "HOURLY_LIMIT",
@@ -994,22 +1032,66 @@ public class OpeningScannerService {
                     continue;
                 }
 
-                try {
-                    executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                // 결함 2: tick path L1 지연 진입 (delaySec초 후 현재가 >= 시그널가 확인)
+                int opL1Sec = cfg.getL1DelaySec();
+                if (opL1Sec > 0) {
+                    final String fMarket = bs.market;
+                    final double fSignalPrice = bs.candle.trade_price;
+                    final UpbitCandle fCandle = bs.candle;
+                    final Signal fSignal = bs.signal;
+                    final OpeningScannerConfigEntity fCfg = cfg;
+                    addDecision(bs.market, "BUY", "PENDING", "L1_DELAY",
+                            String.format(Locale.ROOT, "L1 지연 %d초 후 가격 재확인 (tick)", opL1Sec));
+                    l1DelayScheduler.schedule(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Double currentPrice = sharedPriceService.getPrice(fMarket);
+                                if (currentPrice == null || currentPrice < fSignalPrice) {
+                                    addDecision(fMarket, "BUY", "BLOCKED", "L1_NO_MOMENTUM",
+                                            String.format(Locale.ROOT, "L1 지연 후 현재가 %s < 시그널가 %.2f — tick 꼬리매수 회피",
+                                                    currentPrice != null ? String.format(Locale.ROOT, "%.2f", currentPrice) : "null", fSignalPrice));
+                                    hourlyThrottle.releaseClaim(fMarket);
+                                    return;
+                                }
+                                log.info("[OpeningScanner] tick L1_OK: {} currentPrice={} >= signalPrice={}",
+                                        fMarket, currentPrice, fSignalPrice);
+                                try {
+                                    executeBuy(fMarket, fCandle, fSignal, fCfg);
+                                    addDecision(fMarket, "BUY", "EXECUTED", "SIGNAL", fSignal.reason);
+                                } catch (Exception e) {
+                                    hourlyThrottle.releaseClaim(fMarket);
+                                    log.error("[OpeningScanner] tick L1 delayed buy failed for {}", fMarket, e);
+                                    addDecision(fMarket, "BUY", "ERROR", "EXECUTION_FAIL",
+                                            "tick L1 매수 오류: " + e.getMessage());
+                                }
+                            } catch (Exception e) {
+                                log.warn("[OpeningScanner] tick L1 스케줄러 오류 {}: {}", fMarket, e.getMessage());
+                                hourlyThrottle.releaseClaim(fMarket);
+                            }
+                        }
+                    }, opL1Sec, TimeUnit.SECONDS);
                     spentKrw += orderKrw.doubleValue();
                     scannerPosCount++;
                     entrySuccess++;
-                    // 실시간 TP/SL 종합안 캐시에 등록 (openedAt = 현재, volumeRank 포함)
-                    int volumeRank = breakoutDetector.getSharedPriceService() != null
-                            ? breakoutDetector.getSharedPriceService().getVolumeRank(bs.market) : 999;
-                    breakoutDetector.addPosition(bs.market, bs.candle.trade_price, System.currentTimeMillis(), volumeRank);
-                    addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
-                } catch (Exception e) {
-                    // 실패 시 throttle 권한 반환
-                    hourlyThrottle.releaseClaim(bs.market);
-                    log.error("[OpeningScanner] buy execution failed for {}", bs.market, e);
-                    addDecision(bs.market, "BUY", "ERROR", "EXECUTION_FAIL",
-                            "매수 실행 오류: " + e.getMessage());
+                } else {
+                    try {
+                        executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                        spentKrw += orderKrw.doubleValue();
+                        scannerPosCount++;
+                        entrySuccess++;
+                        // 실시간 TP/SL 종합안 캐시에 등록 (openedAt = 현재, volumeRank 포함)
+                        int volumeRank = breakoutDetector.getSharedPriceService() != null
+                                ? breakoutDetector.getSharedPriceService().getVolumeRank(bs.market) : 999;
+                        breakoutDetector.addPosition(bs.market, bs.candle.trade_price, System.currentTimeMillis(), volumeRank);
+                        addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
+                    } catch (Exception e) {
+                        // 실패 시 throttle 권한 반환
+                        hourlyThrottle.releaseClaim(bs.market);
+                        log.error("[OpeningScanner] buy execution failed for {}", bs.market, e);
+                        addDecision(bs.market, "BUY", "ERROR", "EXECUTION_FAIL",
+                                "매수 실행 오류: " + e.getMessage());
+                    }
                 }
             }
 
@@ -1049,11 +1131,18 @@ public class OpeningScannerService {
             return;
         }
 
+        // V130 ③: 스캐너 간 동일종목 재진입 차단 (dust 제외, 손실 쿨다운)
+        if (!scannerLockService.canEnter(market, "OP")) {
+            addDecision(market, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
+                    "크로스 스캐너 락: 다른 스캐너 보유 또는 손실 쿨다운 중");
+            return;
+        }
+
         // 사전 중복 포지션 차단 (KRW-TREE orphan 사고 재발 방지)
         // 다른 스캐너가 이미 매수한 코인인지 DB에서 한 번 더 확인
         PositionEntity existing = positionRepo.findById(market).orElse(null);
-        if (existing != null && existing.getQty() != null
-                && existing.getQty().compareTo(BigDecimal.ZERO) > 0) {
+        if (existing != null && !scannerLockService.isDustPosition(existing)
+                && existing.getQty() != null && existing.getQty().compareTo(BigDecimal.ZERO) > 0) {
             log.warn("[OpeningScanner] DUPLICATE_POSITION blocked: {} already held by {} qty={}",
                     market, existing.getEntryStrategy(), existing.getQty());
             addDecision(market, "BUY", "BLOCKED", "DUPLICATE_POSITION",
@@ -1858,16 +1947,17 @@ public class OpeningScannerService {
 
             boolean throttleClaimed = false;
 
-            // 활성 마켓 카운트 (이미 보유 중이면 스킵)
+            // 활성 마켓 카운트 (이미 보유 중이면 스킵) — V130 ⑤ dust 제외
             List<PositionEntity> allPos = positionRepo.findAll();
             int rushPosCount = 0;
             for (PositionEntity pe : allPos) {
                 if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())
+                        && !scannerLockService.isDustPosition(pe)
                         && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                     rushPosCount++;
                 }
-                if (market.equals(pe.getMarket()) && pe.getQty() != null
-                        && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                if (market.equals(pe.getMarket()) && !scannerLockService.isDustPosition(pe)
+                        && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                     log.debug("[OpeningScanner] {} already held, skip WS buy", market);
                     return;
                 }
@@ -1902,22 +1992,9 @@ public class OpeningScannerService {
             }
 
             // 빠른 필터 검사 (1분봉 기반)
-            // ★ 2026-04-09 변경: vol 필터 제거 (KRW-FLOCK 09:05:25 vol 0.2x 차단 사고)
-            // 1분봉 단일 vol은 시간 가중 무시한 부정확한 측정. 시그널 직후 부분 vol이라 누적 부족.
             // BreakoutDetector가 이미 +1.0% 돌파 + 3 tick confirm으로 강한 신호 검증함.
-            // 양봉/RSI<83/EMA20 위 3개 필터로 충분.
-            //
-            // 또한 SKIP 분기마다 breakoutDetector.releaseMarket() 호출 추가 (2026-04-09):
-            // 한 번 SKIP된 마켓이 confirmedMarkets에 영원히 남아서 옵션 B 재시도 불가했던 문제 fix.
+            // SKIP 분기마다 breakoutDetector.releaseMarket() 호출로 재시도 가능 (옵션 B)
             UpbitCandle last = candles.get(candles.size() - 1);
-
-            // 1. 양봉 (마지막 1분봉)
-            if (last.trade_price <= last.opening_price) {
-                addDecision(market, "BUY", "SKIPPED", "BEARISH_LAST_1MIN",
-                        "직전 1분봉 음봉");
-                breakoutDetector.releaseMarket(market);  // 다음 WS update에 재시도 가능
-                return;
-            }
 
             // 2. RSI 과매수 차단
             double rsi = Indicators.rsi(candles, 14);
@@ -1998,6 +2075,14 @@ public class OpeningScannerService {
                 return;
             }
 
+            // 결함 4 WS path: throttle 소모 전 canEnter 사전 차단 (throttle 낭비 방지)
+            if (!scannerLockService.canEnter(market, "OP")) {
+                addDecision(market, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
+                        "다른 스캐너 보유 또는 손실 후 쿨다운 (WS 사전 차단)");
+                breakoutDetector.releaseMarket(market);
+                return;
+            }
+
             // ★ atomic throttle claim — 모든 필터 통과 후, executeBuy 직전 (race fix)
             // 위치를 여기로 둔 이유: 위쪽 차단 분기들이 throttle을 잘못 기록하는 것 방지
             if (!hourlyThrottle.tryClaim(market)) {
@@ -2008,17 +2093,18 @@ public class OpeningScannerService {
             }
             throttleClaimed = true;
 
-            // 모든 필터 통과 → 즉시 매수
+            // 모든 필터 통과
             double logVol = (candleSize >= 23) ? vol3Ratio : volRatio;
-            log.info("[OpeningScanner] WS_BREAKOUT BUY: {} price={} bo=+{}% vol={}x rsi={} qs={}",
-                    market, wsPrice,
-                    String.format(Locale.ROOT, "%.2f", breakoutPctActual),
-                    String.format(Locale.ROOT, "%.1f", logVol),
-                    String.format(Locale.ROOT, "%.0f", rsi),
-                    String.format(Locale.ROOT, "%.1f", quickScore));
+            final String fReason = String.format(Locale.ROOT,
+                    "WS_BREAK price=%.2f rH=%.2f bo=+%.2f%% vol=%.1fx rsi=%.0f qs=%.1f (1min)",
+                    wsPrice, rangeHigh, breakoutPctActual, logVol, rsi, quickScore);
+            final Signal fSig = Signal.of(SignalAction.BUY, StrategyType.SCALP_OPENING_BREAK, fReason, 9.0);
 
-            // executeBuy 재사용 위해 가짜 candle/signal 생성
-            UpbitCandle synth = new UpbitCandle();
+            // V130 ②: L1 지연 진입 — delaySec 후 현재가 >= 시그널가 확인 시 매수
+            int delaySec = cfg.getL1DelaySec();
+
+            // executeBuy 재사용 위해 가짜 candle/signal 생성 (L1 경로에서도 사용)
+            final UpbitCandle synth = new UpbitCandle();
             synth.market = market;
             synth.trade_price = wsPrice;
             synth.opening_price = wsPrice * 0.999;
@@ -2027,13 +2113,62 @@ public class OpeningScannerService {
             synth.candle_acc_trade_volume = curVol;
             synth.candle_date_time_utc = last.candle_date_time_utc;
 
-            String reason = String.format(Locale.ROOT,
-                    "WS_BREAK price=%.2f rH=%.2f bo=+%.2f%% vol=%.1fx rsi=%.0f qs=%.1f (1min)",
-                    wsPrice, rangeHigh, breakoutPctActual, logVol, rsi, quickScore);
-            Signal sig = Signal.of(SignalAction.BUY, StrategyType.SCALP_OPENING_BREAK, reason, 9.0);
+            final double fSignalPrice = wsPrice;
+            final OpeningScannerConfigEntity fCfg = cfg;
+            final String fMarket = market;
+            final boolean fThrottleClaimed = throttleClaimed;
+
+            if (delaySec > 0) {
+                // L1 지연: delaySec 후 현재가 확인 후 매수
+                log.info("[OpeningScanner] WS_BREAKOUT L1_DELAY: {} price={} bo=+{}% vol={}x rsi={} qs={} delay={}s",
+                        market, wsPrice,
+                        String.format(Locale.ROOT, "%.2f", breakoutPctActual),
+                        String.format(Locale.ROOT, "%.1f", logVol),
+                        String.format(Locale.ROOT, "%.0f", rsi),
+                        String.format(Locale.ROOT, "%.1f", quickScore), delaySec);
+                l1DelayScheduler.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Double currentPrice = sharedPriceService.getPrice(fMarket);
+                            if (currentPrice == null || currentPrice < fSignalPrice) {
+                                addDecision(fMarket, "BUY", "BLOCKED", "L1_NO_MOMENTUM",
+                                        String.format(Locale.ROOT, "L1 지연 후 현재가 %.2f < 시그널가 %.2f — 꼬리매수 회피",
+                                                currentPrice != null ? currentPrice : 0.0, fSignalPrice));
+                                if (fThrottleClaimed) hourlyThrottle.releaseClaim(fMarket);
+                                wsBreakoutProcessing.remove(fMarket);
+                                return;
+                            }
+                            log.info("[OpeningScanner] WS_BREAKOUT L1_OK: {} currentPrice={} >= signalPrice={}",
+                                    fMarket, currentPrice, fSignalPrice);
+                            // 현재가로 synth 갱신
+                            synth.trade_price = currentPrice;
+                            synth.high_price = currentPrice;
+                            try {
+                                executeBuy(fMarket, synth, fSig, fCfg);
+                            } catch (Exception e) {
+                                if (fThrottleClaimed) hourlyThrottle.releaseClaim(fMarket);
+                                log.error("[OpeningScanner] L1 delayed buy failed for {}", fMarket, e);
+                            }
+                        } finally {
+                            wsBreakoutProcessing.remove(fMarket);
+                        }
+                    }
+                }, delaySec, TimeUnit.SECONDS);
+                // L1 경로는 스케줄러가 wsBreakoutProcessing.remove()를 담당
+                // finally 블록에서 중복 제거 방지를 위해 return
+                return;
+            }
+
+            log.info("[OpeningScanner] WS_BREAKOUT BUY: {} price={} bo=+{}% vol={}x rsi={} qs={}",
+                    market, wsPrice,
+                    String.format(Locale.ROOT, "%.2f", breakoutPctActual),
+                    String.format(Locale.ROOT, "%.1f", logVol),
+                    String.format(Locale.ROOT, "%.0f", rsi),
+                    String.format(Locale.ROOT, "%.1f", quickScore));
 
             try {
-                executeBuy(market, synth, sig, cfg);
+                executeBuy(market, synth, fSig, cfg);
                 // WS 경로 positionCache 등록 — tick 경로(line 995)와 대칭. executeBuy는 void이지만
                 // 성공 시 DB에 포지션 저장됨. DB 재조회로 실패 경로(ORDER_NOT_FILLED 등)에서
                 // phantom cache 생기는 것 방지.

@@ -55,12 +55,14 @@ public class CapitalManagementTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
                 new OpeningBreakoutDetector(mock(SharedPriceService.class)),
                 new SharedTradeThrottle(),
-                null
+                null,
+                scannerLockService
         );
         // Set running=true so tick() doesn't return early
         java.lang.reflect.Field runningField = OpeningScannerService.class.getDeclaredField("running");

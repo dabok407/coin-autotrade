@@ -262,32 +262,51 @@
     return s;
   }
 
+  // Filter state
+  let guardSourceFilterVal = 'ALL';
+  let guardResultFilterVal = 'ALL';
+
+  function applyGuardFilters(arr){
+    return arr.filter(x => {
+      if(guardSourceFilterVal !== 'ALL' && x.source !== guardSourceFilterVal) return false;
+      if(guardResultFilterVal !== 'ALL' && String(x.result||'').toUpperCase() !== guardResultFilterVal) return false;
+      return true;
+    });
+  }
+
   function renderGuardLogs(items){
     guardLogs = Array.isArray(items) ? items : [];
-    const arr = sortGuardLogs(guardLogs);
+    const filtered = applyGuardFilters(guardLogs);
+    const arr = sortGuardLogs(filtered);
     if(!guardTbody) return;
 
+    const totalEl = document.getElementById('guardTotalCount');
+    if(totalEl) totalEl.textContent = String(arr.length);
+
     if(arr.length === 0){
-      guardTbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted)">No guard logs</td></tr>`;
+      guardTbody.innerHTML = `<tr><td colspan="6" style="color:var(--muted);padding:16px">No guard logs</td></tr>`;
       if(guardBadge){ guardBadge.className = 'badge'; guardBadge.textContent = 'OK'; }
       if(guardSummary) guardSummary.textContent = '정상';
       if(guardRecent) guardRecent.textContent = '-';
       return;
     }
 
-    // Summary: if any BLOCKED in top 10 -> ENTRY BLOCKED else INFO
-    const top = arr.slice(0,10);
-    const hasBlocked = top.some(x => x && String(x.result||'').toUpperCase()==='BLOCKED');
-    const hasInfo = top.some(x => x && String(x.result||'').toUpperCase()==='INFO');
+    // Summary: if any BLOCKED/SKIPPED in top 20 -> ENTRY BLOCKED
+    const top = arr.slice(0, 100);
+    const top20 = arr.slice(0, 20);
+    const hasBlocked = top20.some(x => x && String(x.result||'').toUpperCase()==='BLOCKED');
+    const hasSkipped = top20.some(x => x && String(x.result||'').toUpperCase()==='SKIPPED');
+    const hasInfo = top20.some(x => x && String(x.result||'').toUpperCase()==='INFO');
 
     if(guardBadge){
-      guardBadge.className = 'badge ' + (hasBlocked ? 'stopped' : (hasInfo ? 'warn' : ''));
-      guardBadge.textContent = hasBlocked ? 'ENTRY BLOCKED' : (hasInfo ? 'INFO' : 'OK');
+      guardBadge.className = 'badge ' + (hasBlocked ? 'stopped' : ((hasSkipped||hasInfo) ? 'warn' : ''));
+      guardBadge.textContent = hasBlocked ? 'ENTRY BLOCKED' : (hasSkipped ? 'FILTERED' : (hasInfo ? 'INFO' : 'OK'));
     }
     if(guardSummary){
       guardSummary.textContent = hasBlocked
         ? '매수/추가매수 차단 상태(안전장치 발동)'
-        : (hasInfo ? '일시 경고/복구 처리 중' : '정상');
+        : (hasSkipped ? '시그널 필터 차단 다수 — 조건 확인 필요'
+          : (hasInfo ? '일시 경고/복구 처리 중' : '정상'));
     }
     if(guardRecent){
       const first = arr[0];
@@ -295,14 +314,21 @@
       guardRecent.textContent = ko;
     }
 
+    const srcBadge = (s) => {
+      const m = { MAIN:'#6b7280', OPENING:'#2563eb', MORNING:'#16a34a', ALLDAY:'#d97706' };
+      const color = m[s] || '#6b7280';
+      return `<span style="background:${color};color:white;padding:2px 6px;border-radius:4px;font-size:11px">${s||'-'}</span>`;
+    };
+
     guardTbody.innerHTML = top.map((x, idx) => {
       const time = fmtTime(x.tsEpochMs);
       const market = x.market || '-';
-      const act = x.signalAction || '-';
+      const act = x.signalAction || x.action || '-';
       const result = x.result || '-';
       const reason = x.reasonKo || x.reasonCode || '-';
       return `<tr class="clickable" data-gi="${idx}">
         <td>${time}</td>
+        <td>${srcBadge(x.source)}</td>
         <td>${market}</td>
         <td>${act}</td>
         <td>${result}</td>
@@ -320,14 +346,37 @@
     });
   }
 
+  async function fetchOneSource(url, source){
+    try{
+      const res = await req(url, { method:'GET' });
+      if(!Array.isArray(res)) return [];
+      return res.map(x => {
+        const y = Object.assign({}, x);
+        y.source = source;
+        // normalize action field (main bot uses signalAction, scanners use action)
+        if(!y.signalAction && y.action) y.signalAction = y.action;
+        return y;
+      });
+    }catch(e){
+      console.warn('guard fetch fail:', source, e);
+      return [];
+    }
+  }
+
   let guardInFlight = false;
   async function fetchGuardLogs(silent){
     if(guardInFlight) return;
     guardInFlight = true;
     if(guardRefreshBtn) guardRefreshBtn.disabled = true;
     try{
-      const res = await req('/api/dashboard/decision-logs', { method:'GET' });
-      renderGuardLogs(res);
+      const [main, opening, morning, allday] = await Promise.all([
+        fetchOneSource('/api/dashboard/decision-logs', 'MAIN'),
+        fetchOneSource('/api/scanner/decisions?limit=200', 'OPENING'),
+        fetchOneSource('/api/morning-rush/decisions?limit=200', 'MORNING'),
+        fetchOneSource('/api/allday-scanner/decisions?limit=200', 'ALLDAY')
+      ]);
+      const merged = [].concat(main, opening, morning, allday);
+      renderGuardLogs(merged);
     }catch(e){
       console.error(e);
       if(!silent) showToast(e.message || '가드 로그 조회 실패', 'error');
@@ -336,6 +385,24 @@
       if(guardRefreshBtn) guardRefreshBtn.disabled = false;
     }
   }
+
+  // Wire filter selects (after DOM ready)
+  setTimeout(() => {
+    const srcSel = document.getElementById('guardSourceFilter');
+    const resSel = document.getElementById('guardResultFilter');
+    if(srcSel){
+      srcSel.addEventListener('change', (e) => {
+        guardSourceFilterVal = e.target.value;
+        renderGuardLogs(guardLogs);
+      });
+    }
+    if(resSel){
+      resSel.addEventListener('change', (e) => {
+        guardResultFilterVal = e.target.value;
+        renderGuardLogs(guardLogs);
+      });
+    }
+  }, 0);
 
   function labelAction(a){
     const x = String(a||'').toUpperCase();

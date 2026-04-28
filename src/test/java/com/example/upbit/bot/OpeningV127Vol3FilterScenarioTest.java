@@ -71,11 +71,13 @@ public class OpeningV127Vol3FilterScenarioTest {
         breakoutDetector = new OpeningBreakoutDetector(mock(SharedPriceService.class));
         breakoutDetector.setEntryWindow(-1, -1);
 
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
                 breakoutDetector, sharedThrottle,
-                null
+                null,
+                scannerLockService
         );
 
         Field running = OpeningScannerService.class.getDeclaredField("running");
@@ -294,6 +296,7 @@ public class OpeningV127Vol3FilterScenarioTest {
         cfg.setSessionEndMin(59);
         cfg.setExcludeMarkets("");
         // 기본값 2.5 — 개별 테스트에서 setVol3RatioThreshold로 덮어씀
+        cfg.setL1DelaySec(0); // V130: L1 지연 비활성화 (테스트에서는 즉시 매수 경로로 검증)
         return cfg;
     }
 }

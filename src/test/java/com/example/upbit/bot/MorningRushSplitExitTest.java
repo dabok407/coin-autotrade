@@ -68,10 +68,11 @@ public class MorningRushSplitExitTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new MorningRushScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 liveOrders, privateClient, txTemplate, catalogService, tickerService,
-                sharedPriceService, new SharedTradeThrottle()
+                sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField("running", new AtomicBoolean(true));
 
@@ -89,6 +90,10 @@ public class MorningRushSplitExitTest {
         setField("cachedSplitRatio", 0.60);
         setField("cachedTrailDropAfterSplit", 1.0);
         setField("cachedSplit1stTrailDrop", 0.5);  // V115: 1차 TRAIL drop 0.5%
+        // V130: Trail Ladder 비활성 (기존 단일값 테스트 유지)
+        setField("cachedTrailLadderEnabled", false);
+        // V130: roi 하한선 비활성 (음수 roi에서도 SPLIT_1ST 동작하는 기존 테스트 유지)
+        setField("cachedSplit1stRoiFloorPct", 0.0);
 
         // txTemplate mock
         when(txTemplate.execute(any())).thenAnswer(new Answer<Object>() {

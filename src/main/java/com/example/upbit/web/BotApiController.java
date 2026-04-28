@@ -60,6 +60,55 @@ public class BotApiController {
         return bot.getStatus();
     }
 
+    /** V130 ③⑤: 글로벌 스캐너 설정 조회 (cross_scanner_lock, cooldown, dust) */
+    @GetMapping("/api/bot/global-settings")
+    public Map<String, Object> getGlobalSettings() {
+        BotConfigEntity bc = botConfigRepo.findAll().stream().findFirst().orElse(null);
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        if (bc != null) {
+            result.put("crossScannerLockEnabled", bc.isCrossScannerLockEnabled());
+            result.put("sameMarketLossCooldownMin", bc.getSameMarketLossCooldownMin());
+            result.put("dustHoldingThresholdKrw", bc.getDustHoldingThresholdKrw());
+        } else {
+            result.put("crossScannerLockEnabled", true);
+            result.put("sameMarketLossCooldownMin", 360);
+            result.put("dustHoldingThresholdKrw", 5000);
+        }
+        return result;
+    }
+
+    /** V130 ③⑤: 글로벌 스캐너 설정 저장 (cross_scanner_lock, cooldown, dust) */
+    @PostMapping("/api/bot/global-settings")
+    public Map<String, Object> saveGlobalSettings(@RequestBody Map<String, Object> body) {
+        List<BotConfigEntity> bcs = botConfigRepo.findAll();
+        if (bcs.isEmpty()) throw new IllegalStateException("bot_config 없음");
+        BotConfigEntity bc = bcs.get(0);
+        if (body.containsKey("crossScannerLockEnabled")) {
+            bc.setCrossScannerLockEnabled(Boolean.TRUE.equals(body.get("crossScannerLockEnabled")));
+        }
+        if (body.containsKey("sameMarketLossCooldownMin")) {
+            Object v = body.get("sameMarketLossCooldownMin");
+            int val = 360;
+            if (v instanceof Number) val = ((Number) v).intValue();
+            else { try { val = Integer.parseInt(String.valueOf(v)); } catch (Exception ignore) {} }
+            bc.setSameMarketLossCooldownMin(val);
+        }
+        if (body.containsKey("dustHoldingThresholdKrw")) {
+            Object v = body.get("dustHoldingThresholdKrw");
+            int val = 5000;
+            if (v instanceof Number) val = ((Number) v).intValue();
+            else { try { val = Integer.parseInt(String.valueOf(v)); } catch (Exception ignore) {} }
+            bc.setDustHoldingThresholdKrw(val);
+        }
+        botConfigRepo.save(bc);
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("success", true);
+        result.put("crossScannerLockEnabled", bc.isCrossScannerLockEnabled());
+        result.put("sameMarketLossCooldownMin", bc.getSameMarketLossCooldownMin());
+        result.put("dustHoldingThresholdKrw", bc.getDustHoldingThresholdKrw());
+        return result;
+    }
+
     /** Auto-Start 토글: 서버 재시작 시 봇/스캐너 자동 시작 여부 */
     @PostMapping("/api/bot/auto-start")
     public Map<String, Object> toggleAutoStart(@RequestBody Map<String, Object> body) {

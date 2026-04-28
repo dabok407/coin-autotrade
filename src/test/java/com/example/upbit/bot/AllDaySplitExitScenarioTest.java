@@ -75,10 +75,11 @@ public class AllDaySplitExitScenarioTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new AllDayScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService, sharedPriceService, new SharedTradeThrottle()
+                tickerService, sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField("running", new AtomicBoolean(true));
 
@@ -99,6 +100,10 @@ public class AllDaySplitExitScenarioTest {
         setField("cachedSplitRatio", 0.60);
         setField("cachedTrailDropAfterSplit", 1.0);
         setField("cachedSplit1stTrailDrop", 0.5);  // V115
+        // V130: Trail Ladder 비활성 (기존 단일값 테스트 유지)
+        setField("cachedTrailLadderEnabled", false);
+        // V130: roi 하한선 비활성 (음수 roi에서도 SPLIT_1ST 동작하는 기존 테스트 유지)
+        setField("cachedSplit1stRoiFloorPct", 0.0);
 
         // Split-Exit 설정이 포함된 config
         splitCfg = buildSplitConfig();

@@ -86,13 +86,6 @@ public class EmaRsiTrendStrategy implements TradingStrategy {
         // close > EMA21 (가격이 중기 평균 위)
         if (close <= emaSlow) return Signal.none();
 
-        // 직전 캔들이 큰 음봉이면 차단 (반전 직후 진입 방지)
-        double prevRange = prev.high_price - prev.low_price;
-        double prevBody = Math.abs(prev.trade_price - prev.opening_price);
-        boolean prevBigBear = prev.trade_price < prev.opening_price
-                && prevRange > 0 && (prevBody / prevRange) > 0.6;
-        if (prevBigBear) return Signal.none();
-
         // 모멘텀 확인: 최근 3봉 중 2봉 이상 양봉 (상승 모멘텀)
         if (n >= 4) {
             UpbitCandle c2 = candles.get(n - 3);

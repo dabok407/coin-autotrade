@@ -149,6 +149,36 @@ public class MorningRushScannerService {
     private volatile long cachedSplit1stCooldownMs = 60_000L;
     // V129: SPLIT_1ST 체결 시점 in-memory 맵 (market → epochMs). 재시작 시 DB에서 복원.
     private final ConcurrentHashMap<String, Long> split1stExecutedAtMap = new ConcurrentHashMap<String, Long>();
+
+    // V130 ①: Trail Ladder cached 변수 (WebSocket 스레드에서 읽기)
+    private volatile boolean cachedTrailLadderEnabled = true;
+    private volatile double cachedSplit1stDropUnder2 = 0.50;
+    private volatile double cachedSplit1stDropUnder3 = 1.00;
+    private volatile double cachedSplit1stDropUnder5 = 1.50;
+    private volatile double cachedSplit1stDropAbove5 = 2.00;
+    private volatile double cachedTrailAfterDropUnder2 = 1.00;
+    private volatile double cachedTrailAfterDropUnder3 = 1.20;
+    private volatile double cachedTrailAfterDropUnder5 = 1.50;
+    private volatile double cachedTrailAfterDropAbove5 = 2.00;
+
+    // V130 ④: SPLIT_1ST roi 하한선 (0=비활성)
+    private volatile double cachedSplit1stRoiFloorPct = 0.30;
+
+    // V130 ②: L1 지연 진입용 단일 스레드 스케줄러
+    private final ScheduledExecutorService l1DelayScheduler = Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "mr-l1-delay");
+                    t.setDaemon(true);
+                    return t;
+                }
+            }
+    );
+
+    // V130 ③: 스캐너 간 동일종목 재진입 차단
+    private ScannerLockService scannerLockService;
+
     private volatile String cachedMode = "PAPER";
     private volatile double cachedGapPct = 2.0;
     private volatile double cachedSurgePct = 3.0;
@@ -195,7 +225,8 @@ public class MorningRushScannerService {
                                       UpbitMarketCatalogService catalogService,
                                       TickerService tickerService,
                                       SharedPriceService sharedPriceService,
-                                      SharedTradeThrottle hourlyThrottle) {
+                                      SharedTradeThrottle hourlyThrottle,
+                                      ScannerLockService scannerLockService) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -207,6 +238,7 @@ public class MorningRushScannerService {
         this.tickerService = tickerService;
         this.sharedPriceService = sharedPriceService;
         this.hourlyThrottle = hourlyThrottle;
+        this.scannerLockService = scannerLockService;
     }
 
     // ========== Lifecycle ==========
@@ -475,16 +507,17 @@ public class MorningRushScannerService {
                         String mode = cfg.getMode();
                         boolean isLive = "LIVE".equalsIgnoreCase(mode);
 
-                        // 포지션 수 체크
+                        // 포지션 수 체크 (V130 ⑤: dust 포지션은 보유로 간주하지 않음)
                         int rushPosCount = 0;
                         List<PositionEntity> allPos = positionRepo.findAll();
                         for (PositionEntity pe : allPos) {
                             if (ENTRY_STRATEGY.equals(pe.getEntryStrategy())
+                                    && !scannerLockService.isDustPosition(pe)
                                     && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                                 rushPosCount++;
                             }
-                            if (fCode.equals(pe.getMarket()) && pe.getQty() != null
-                                    && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+                            if (fCode.equals(pe.getMarket()) && !scannerLockService.isDustPosition(pe)
+                                    && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                                 log.info("[MorningRush] realtime skip: {} already held", fCode);
                                 return;
                             }
@@ -496,6 +529,13 @@ public class MorningRushScannerService {
                             return;
                         }
 
+                        // V130 ③: 스캐너 간 동일종목 재진입 차단
+                        if (!scannerLockService.canEnter(fCode, "MR")) {
+                            addDecision(fCode, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
+                                    "타 스캐너 보유 또는 손실 쿨다운 (realtime)");
+                            return;
+                        }
+
                         BigDecimal orderKrw = calcOrderSize(cfg);
                         // ★ 2차 race 방어: tryClaim atomic (canBuy + recordBuy를 synchronized로 한 번에)
                         if (!hourlyThrottle.tryClaim(fCode)) {
@@ -504,6 +544,29 @@ public class MorningRushScannerService {
                             return;
                         }
                         throttleClaimed = true;
+                        // V130 ②: L1 지연 진입 (delaySec초 후 가격 재확인)
+                        int l1Sec = cfg.getL1DelaySec();
+                        if (l1Sec > 0) {
+                            addDecision(fCode, "BUY", "PENDING", "L1_DELAY",
+                                    String.format(Locale.ROOT, "L1 지연 %d초 후 가격 재확인 (realtime)", l1Sec));
+                            try {
+                                Thread.sleep((long) l1Sec * 1000L);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                hourlyThrottle.releaseClaim(fCode);
+                                throttleClaimed = false;
+                                return;
+                            }
+                            Double currentPriceL1 = sharedPriceService.getPrice(fCode);
+                            if (currentPriceL1 == null || currentPriceL1 < fPrice) {
+                                addDecision(fCode, "BUY", "BLOCKED", "L1_NO_MOMENTUM",
+                                        String.format(Locale.ROOT, "L1 가격 하락 — 시그널가=%.2f 현재가=%s",
+                                                fPrice, currentPriceL1 == null ? "null" : String.format(Locale.ROOT, "%.2f", currentPriceL1)));
+                                hourlyThrottle.releaseClaim(fCode);
+                                throttleClaimed = false;
+                                return;
+                            }
+                        }
                         try {
                             executeBuy(fCode, fPrice, reason, cfg, orderKrw, isLive);
                             // 2026-04-19 P0 root fix: executeBuy는 void이지만 DB에 포지션 저장함.
@@ -561,6 +624,33 @@ public class MorningRushScannerService {
      *    · 60s~5분:  SL 5% (흔들기 보호)
      *    · 5분 이후: SL 3% (타이트닝)
      */
+
+    /**
+     * V130 ①: Trail Ladder — peak% 구간별 drop 임계값 반환.
+     * trailLadderEnabled=false이면 기존 V129 단일값 사용.
+     *
+     * @param avgPrice   진입 평균가
+     * @param peakPrice  현재까지의 최고가
+     * @param isAfterSplit true=SPLIT_2ND_TRAIL, false=SPLIT_1ST
+     */
+    private double getDropForPeak(double avgPrice, double peakPrice, boolean isAfterSplit) {
+        if (!cachedTrailLadderEnabled) {
+            return isAfterSplit ? cachedTrailDropAfterSplit : cachedSplit1stTrailDrop;
+        }
+        double peakPct = (avgPrice > 0) ? ((peakPrice - avgPrice) / avgPrice * 100.0) : 0;
+        if (isAfterSplit) {
+            if (peakPct < 2) return cachedTrailAfterDropUnder2;
+            if (peakPct < 3) return cachedTrailAfterDropUnder3;
+            if (peakPct < 5) return cachedTrailAfterDropUnder5;
+            return cachedTrailAfterDropAbove5;
+        } else {
+            if (peakPct < 2) return cachedSplit1stDropUnder2;
+            if (peakPct < 3) return cachedSplit1stDropUnder3;
+            if (peakPct < 5) return cachedSplit1stDropUnder5;
+            return cachedSplit1stDropAbove5;
+        }
+    }
+
     private void checkRealtimeTpSl(String market, double price) {
         if (!running.get()) return;
 
@@ -613,14 +703,21 @@ public class MorningRushScannerService {
                         String.format(Locale.ROOT, "%.2f", peakPrice));
             } else if (armed && peakPrice > avgPrice) {
                 double dropFromPeakPct = (peakPrice - price) / peakPrice * 100.0;
-                if (dropFromPeakPct >= cachedSplit1stTrailDrop) {
+                // V130 ①: Trail Ladder A — peak% 구간별 drop 임계값
+                double dropThreshold1st = getDropForPeak(avgPrice, peakPrice, false);
+                // V130 ④: roi 하한선 — current_roi < floor이면 SPLIT_1ST 차단
+                boolean roiFloorOk = (cachedSplit1stRoiFloorPct <= 0) || (pnlPct >= cachedSplit1stRoiFloorPct);
+                if (dropFromPeakPct >= dropThreshold1st && roiFloorOk) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SPLIT_1ST";
                     isSplitFirst = true;
                     reason = String.format(Locale.ROOT,
                             "SPLIT_1ST_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=+%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                            avgPrice, peakPrice, price, dropFromPeakPct, cachedSplit1stTrailDrop,
+                            avgPrice, peakPrice, price, dropFromPeakPct, dropThreshold1st,
                             pnlPct, cachedSplitRatio * 100, troughPrice, troughPnl);
+                } else if (!roiFloorOk) {
+                    log.debug("[MorningRush] SPLIT_1ST roi_floor blocked: {} pnl={}% < floor={}%",
+                            market, String.format(Locale.ROOT, "%.2f", pnlPct), cachedSplit1stRoiFloorPct);
                 }
             }
         }
@@ -639,12 +736,14 @@ public class MorningRushScannerService {
             }
             if (!cooldownActive && peakPrice > avgPrice) {
                 double dropFromPeakPct = (peakPrice - price) / peakPrice * 100.0;
-                if (dropFromPeakPct >= cachedTrailDropAfterSplit) {
+                // V130 ①: Trail Ladder A — 2차도 peak% 구간별 drop 임계값 적용
+                double dropThreshold2nd = getDropForPeak(avgPrice, peakPrice, true);
+                if (dropFromPeakPct >= dropThreshold2nd) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SPLIT_2ND_TRAIL";
                     reason = String.format(Locale.ROOT,
                             "SPLIT_2ND_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                            avgPrice, peakPrice, price, dropFromPeakPct, cachedTrailDropAfterSplit, pnlPct, troughPrice, troughPnl);
+                            avgPrice, peakPrice, price, dropFromPeakPct, dropThreshold2nd, pnlPct, troughPrice, troughPnl);
                 }
             }
         }
@@ -755,6 +854,18 @@ public class MorningRushScannerService {
         cachedWidePeriodMs = cfg.getWidePeriodMin() * 60_000L;
         cachedWideSlPct = cfg.getWideSlPct().doubleValue();
         cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
+        // V130 ①: Trail Ladder 캐시 갱신 (Hold phase에서도 갱신 필요)
+        cachedTrailLadderEnabled = cfg.isTrailLadderEnabled();
+        cachedSplit1stDropUnder2 = cfg.getSplit1stDropUnder2().doubleValue();
+        cachedSplit1stDropUnder3 = cfg.getSplit1stDropUnder3().doubleValue();
+        cachedSplit1stDropUnder5 = cfg.getSplit1stDropUnder5().doubleValue();
+        cachedSplit1stDropAbove5 = cfg.getSplit1stDropAbove5().doubleValue();
+        cachedTrailAfterDropUnder2 = cfg.getTrailAfterDropUnder2().doubleValue();
+        cachedTrailAfterDropUnder3 = cfg.getTrailAfterDropUnder3().doubleValue();
+        cachedTrailAfterDropUnder5 = cfg.getTrailAfterDropUnder5().doubleValue();
+        cachedTrailAfterDropAbove5 = cfg.getTrailAfterDropAbove5().doubleValue();
+        // V130 ④: SPLIT_1ST roi 하한선
+        cachedSplit1stRoiFloorPct = cfg.getSplit1stRoiFloorPct().doubleValue();
         cachedMode = cfg.getMode();
 
         // V118: positionCache.clear() 제거 — WebSocket 스레드가 pos[3](peak)/pos[6](armed)을
@@ -928,6 +1039,18 @@ public class MorningRushScannerService {
         cachedTrailDropAfterSplit = cfg.getTrailDropAfterSplit().doubleValue();
         cachedSplit1stTrailDrop = cfg.getSplit1stTrailDrop().doubleValue();  // V115
         cachedSplit1stCooldownMs = cfg.getSplit1stCooldownSec() * 1000L;  // V129
+        // V130 ①: Trail Ladder 캐시 갱신
+        cachedTrailLadderEnabled = cfg.isTrailLadderEnabled();
+        cachedSplit1stDropUnder2 = cfg.getSplit1stDropUnder2().doubleValue();
+        cachedSplit1stDropUnder3 = cfg.getSplit1stDropUnder3().doubleValue();
+        cachedSplit1stDropUnder5 = cfg.getSplit1stDropUnder5().doubleValue();
+        cachedSplit1stDropAbove5 = cfg.getSplit1stDropAbove5().doubleValue();
+        cachedTrailAfterDropUnder2 = cfg.getTrailAfterDropUnder2().doubleValue();
+        cachedTrailAfterDropUnder3 = cfg.getTrailAfterDropUnder3().doubleValue();
+        cachedTrailAfterDropUnder5 = cfg.getTrailAfterDropUnder5().doubleValue();
+        cachedTrailAfterDropAbove5 = cfg.getTrailAfterDropAbove5().doubleValue();
+        // V130 ④: SPLIT_1ST roi 하한선
+        cachedSplit1stRoiFloorPct = cfg.getSplit1stRoiFloorPct().doubleValue();
         cachedGapPct = cfg.getGapThresholdPct().doubleValue();
         cachedSurgePct = cfg.getSurgeThresholdPct().doubleValue();
         cachedSurgeWindowSec = cfg.getSurgeWindowSec();
@@ -951,11 +1074,12 @@ public class MorningRushScannerService {
         boolean isHoldPhase = (nowMinOfDay >= cachedEntryEndMin) && (nowMinOfDay < sessionEndMin);
         boolean isSessionEnd = (nowMinOfDay >= sessionEndMin);
 
-        // Update active position count
+        // Update active position count (V130 ⑤: dust 포지션은 보유로 간주하지 않음)
         int rushPosCount = 0;
         List<PositionEntity> allPos = positionRepo.findAll();
         for (PositionEntity pe : allPos) {
             if (ENTRY_STRATEGY.equals(pe.getEntryStrategy())
+                    && !scannerLockService.isDustPosition(pe)
                     && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                 rushPosCount++;
             }
@@ -1118,12 +1242,13 @@ public class MorningRushScannerService {
             return;
         }
 
-        // Count existing morning rush positions
+        // Count existing morning rush positions (V130 ⑤: dust 포지션은 보유로 간주하지 않음)
         int rushPosCount = 0;
         Set<String> ownedMarkets = new HashSet<String>();
         List<PositionEntity> allPos = positionRepo.findAll();
         for (PositionEntity pe : allPos) {
-            if (pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
+            if (!scannerLockService.isDustPosition(pe)
+                    && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                 ownedMarkets.add(pe.getMarket());
                 if (ENTRY_STRATEGY.equals(pe.getEntryStrategy())) {
                     rushPosCount++;
@@ -1304,40 +1429,109 @@ public class MorningRushScannerService {
                         continue;
                     }
 
-                    try {
-                        executeBuy(market, price, reason, cfg, orderKrw, isLive);
-                        hourlyThrottle.recordBuy(market);
-                        rushPosCount++;
-                        // P0 fix 2026-04-19: executeBuy는 void이지만 DB에 포지션 저장함.
-                        // DB에서 실제 qty/avgPrice 읽어와 캐시 확정 (qty=0으로 put하면
-                        // WS realtime checkRealtimeTpSl의 qty<=0 가드에 막혀 영구 무효화됨)
-                        long openedAtMs = System.currentTimeMillis();
-                        double cacheAvg = price;
-                        double cacheQty = 0;
-                        try {
-                            PositionEntity savedPe = positionRepo.findById(market).orElse(null);
-                            if (savedPe != null && savedPe.getQty() != null
-                                    && savedPe.getQty().signum() > 0
-                                    && savedPe.getAvgPrice() != null
-                                    && savedPe.getAvgPrice().signum() > 0) {
-                                cacheAvg = savedPe.getAvgPrice().doubleValue();
-                                cacheQty = savedPe.getQty().doubleValue();
-                                if (savedPe.getOpenedAt() != null) {
-                                    openedAtMs = savedPe.getOpenedAt().toEpochMilli();
+                    // V130 ③: 스캐너 간 동일종목 재진입 차단
+                    if (!scannerLockService.canEnter(market, "MR")) {
+                        addDecision(market, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
+                                "타 스캐너 보유 또는 손실 쿨다운");
+                        confirmCounts.remove(market);
+                        priceHistory.remove(market);
+                        continue;
+                    }
+
+                    // V130 ②: tick path L1 지연 진입 (delaySec초 후 현재가 >= 시그널가 확인)
+                    int l1SecTick = cfg.getL1DelaySec();
+                    if (l1SecTick > 0) {
+                        final String fMarket = market;
+                        final double fPrice = price;
+                        final String fReason = reason;
+                        final MorningRushConfigEntity fCfg = cfg;
+                        final BigDecimal fOrderKrw = orderKrw;
+                        final boolean fIsLive = isLive;
+                        addDecision(market, "BUY", "PENDING", "L1_DELAY",
+                                String.format(Locale.ROOT, "L1 지연 %d초 후 가격 재확인 (tick)", l1SecTick));
+                        l1DelayScheduler.schedule(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    Double currentPriceL1 = sharedPriceService.getPrice(fMarket);
+                                    if (currentPriceL1 == null || currentPriceL1 < fPrice) {
+                                        addDecision(fMarket, "BUY", "BLOCKED", "L1_NO_MOMENTUM",
+                                                String.format(Locale.ROOT, "L1 가격 하락 — 시그널가=%.2f 현재가=%s (tick)",
+                                                        fPrice, currentPriceL1 == null ? "null" : String.format(Locale.ROOT, "%.2f", currentPriceL1)));
+                                        return;
+                                    }
+                                    try {
+                                        executeBuy(fMarket, fPrice, fReason, fCfg, fOrderKrw, fIsLive);
+                                        hourlyThrottle.recordBuy(fMarket);
+                                        // P0 fix: DB에서 실제 qty/avgPrice 읽어와 캐시 확정
+                                        long openedAtMs = System.currentTimeMillis();
+                                        double cacheAvg = fPrice;
+                                        double cacheQty = 0;
+                                        try {
+                                            PositionEntity savedPe = positionRepo.findById(fMarket).orElse(null);
+                                            if (savedPe != null && savedPe.getQty() != null
+                                                    && savedPe.getQty().signum() > 0
+                                                    && savedPe.getAvgPrice() != null
+                                                    && savedPe.getAvgPrice().signum() > 0) {
+                                                cacheAvg = savedPe.getAvgPrice().doubleValue();
+                                                cacheQty = savedPe.getQty().doubleValue();
+                                                if (savedPe.getOpenedAt() != null) {
+                                                    openedAtMs = savedPe.getOpenedAt().toEpochMilli();
+                                                }
+                                            }
+                                        } catch (Exception dbEx) {
+                                            log.warn("[MorningRush] L1 BUY 직후 DB 재조회 실패 {}: {}", fMarket, dbEx.getMessage());
+                                        }
+                                        positionCache.put(fMarket, new double[]{cacheAvg, cacheQty, openedAtMs, cacheAvg, cacheAvg, 0, 0});
+                                        cachedTpPct = fCfg.getTpPct().doubleValue();
+                                        cachedSlPct = fCfg.getSlPct().doubleValue();
+                                        cachedTpTrailDropPct = fCfg.getTpTrailDropPct().doubleValue();
+                                        addDecision(fMarket, "BUY", "EXECUTED", fReason);
+                                    } catch (Exception e) {
+                                        log.error("[MorningRush] L1 tick buy failed for {}", fMarket, e);
+                                        addDecision(fMarket, "BUY", "ERROR", "L1 tick 매수 오류: " + e.getMessage());
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("[MorningRush] L1 tick 스케줄러 오류 {}: {}", fMarket, e.getMessage());
                                 }
                             }
-                        } catch (Exception dbEx) {
-                            log.warn("[MorningRush] BUY 직후 DB 재조회 실패 {}: {}", market, dbEx.getMessage());
+                        }, l1SecTick, TimeUnit.SECONDS);
+                    } else {
+                        try {
+                            executeBuy(market, price, reason, cfg, orderKrw, isLive);
+                            hourlyThrottle.recordBuy(market);
+                            rushPosCount++;
+                            // P0 fix 2026-04-19: executeBuy는 void이지만 DB에 포지션 저장함.
+                            // DB에서 실제 qty/avgPrice 읽어와 캐시 확정 (qty=0으로 put하면
+                            // WS realtime checkRealtimeTpSl의 qty<=0 가드에 막혀 영구 무효화됨)
+                            long openedAtMs = System.currentTimeMillis();
+                            double cacheAvg = price;
+                            double cacheQty = 0;
+                            try {
+                                PositionEntity savedPe = positionRepo.findById(market).orElse(null);
+                                if (savedPe != null && savedPe.getQty() != null
+                                        && savedPe.getQty().signum() > 0
+                                        && savedPe.getAvgPrice() != null
+                                        && savedPe.getAvgPrice().signum() > 0) {
+                                    cacheAvg = savedPe.getAvgPrice().doubleValue();
+                                    cacheQty = savedPe.getQty().doubleValue();
+                                    if (savedPe.getOpenedAt() != null) {
+                                        openedAtMs = savedPe.getOpenedAt().toEpochMilli();
+                                    }
+                                }
+                            } catch (Exception dbEx) {
+                                log.warn("[MorningRush] BUY 직후 DB 재조회 실패 {}: {}", market, dbEx.getMessage());
+                            }
+                            // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
+                            positionCache.put(market, new double[]{cacheAvg, cacheQty, openedAtMs, cacheAvg, cacheAvg, 0, 0});
+                            cachedTpPct = cfg.getTpPct().doubleValue();
+                            cachedSlPct = cfg.getSlPct().doubleValue();
+                            cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
+                            addDecision(market, "BUY", "EXECUTED", reason);
+                        } catch (Exception e) {
+                            log.error("[MorningRush] buy execution failed for {}", market, e);
+                            addDecision(market, "BUY", "ERROR", "매수 실행 오류: " + e.getMessage());
                         }
-                        // [avgPrice, qty, openedAtMs, peakPrice, troughPrice, splitPhase, split1stTrailArmed]
-                        positionCache.put(market, new double[]{cacheAvg, cacheQty, openedAtMs, cacheAvg, cacheAvg, 0, 0});
-                        cachedTpPct = cfg.getTpPct().doubleValue();
-                        cachedSlPct = cfg.getSlPct().doubleValue();
-                        cachedTpTrailDropPct = cfg.getTpTrailDropPct().doubleValue();  // V110
-                        addDecision(market, "BUY", "EXECUTED", reason);
-                    } catch (Exception e) {
-                        log.error("[MorningRush] buy execution failed for {}", market, e);
-                        addDecision(market, "BUY", "ERROR", "매수 실행 오류: " + e.getMessage());
                     }
 
                     // Remove from tracking to prevent duplicate entries
@@ -1547,11 +1741,18 @@ public class MorningRushScannerService {
             return;
         }
 
+        // V130 ③: 스캐너 간 동일종목 재진입 차단 (executeBuy 최종 방어선)
+        if (!scannerLockService.canEnter(market, "MR")) {
+            addDecision(market, "BUY", "BLOCKED",
+                    "타 스캐너 보유 또는 손실 쿨다운 — 중복 매수 차단");
+            return;
+        }
+
         // 사전 중복 포지션 차단 (KRW-TREE orphan 사고 재발 방지)
-        // 다른 스캐너가 이미 매수한 코인인지 DB에서 한 번 더 확인
+        // V130 ⑤: dust 포지션은 보유로 간주하지 않음
         PositionEntity existing = positionRepo.findById(market).orElse(null);
-        if (existing != null && existing.getQty() != null
-                && existing.getQty().compareTo(BigDecimal.ZERO) > 0) {
+        if (existing != null && !scannerLockService.isDustPosition(existing)
+                && existing.getQty() != null && existing.getQty().compareTo(BigDecimal.ZERO) > 0) {
             log.warn("[MorningRush] DUPLICATE_POSITION blocked: {} already held by {} qty={}",
                     market, existing.getEntryStrategy(), existing.getQty());
             addDecision(market, "BUY", "BLOCKED",

@@ -59,10 +59,11 @@ public class OpeningSplitExitServiceTest {
     @BeforeEach
     public void setUp() throws Exception {
         breakoutDetector = new OpeningBreakoutDetector(mock(SharedPriceService.class));
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new OpeningScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                breakoutDetector, new SharedTradeThrottle(), null
+                breakoutDetector, new SharedTradeThrottle(), null, scannerLockService
         );
 
         Field running = OpeningScannerService.class.getDeclaredField("running");

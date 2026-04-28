@@ -71,10 +71,11 @@ public class Grace60TrailScenarioTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         mr = new MorningRushScannerService(
                 mrConfigRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 liveOrders, privateClient, txTemplate, catalogService, tickerService,
-                sharedPriceService, new SharedTradeThrottle()
+                sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField(mr, "running", new AtomicBoolean(true));
         setField(mr, "cachedTpPct", 2.3);

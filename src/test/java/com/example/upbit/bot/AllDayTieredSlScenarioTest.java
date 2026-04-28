@@ -67,10 +67,11 @@ public class AllDayTieredSlScenarioTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new AllDayScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService, sharedPriceService, new SharedTradeThrottle()
+                tickerService, sharedPriceService, new SharedTradeThrottle(), scannerLockService
         );
         setField("running", new AtomicBoolean(true));
 

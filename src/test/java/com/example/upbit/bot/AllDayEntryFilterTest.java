@@ -65,10 +65,11 @@ public class AllDayEntryFilterTest {
     @BeforeEach
     public void setUp() throws Exception {
         throttle = new SharedTradeThrottle();
+        ScannerLockService scannerLockService = new ScannerLockService(botConfigRepo, positionRepo, tradeLogRepo);
         scanner = new AllDayScannerService(
                 configRepo, botConfigRepo, positionRepo, tradeLogRepo,
                 candleService, catalogService, liveOrders, privateClient, txTemplate,
-                tickerService, sharedPriceService, throttle
+                tickerService, sharedPriceService, throttle, scannerLockService
         );
         setField("running", new AtomicBoolean(true));
         ScheduledExecutorService sched = Executors.newSingleThreadScheduledExecutor();
