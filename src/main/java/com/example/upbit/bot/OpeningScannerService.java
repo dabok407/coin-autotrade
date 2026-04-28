@@ -1057,8 +1057,11 @@ public class OpeningScannerService {
                                 log.info("[OpeningScanner] tick L1_OK: {} currentPrice={} >= signalPrice={}",
                                         fMarket, currentPrice, fSignalPrice);
                                 try {
-                                    executeBuy(fMarket, fCandle, fSignal, fCfg);
-                                    addDecision(fMarket, "BUY", "EXECUTED", "SIGNAL", fSignal.reason);
+                                    // V131: fillPrice 반환 → breakoutDetector.addPosition에 실 체결가 전달
+                                    double opFillPrice = executeBuy(fMarket, fCandle, fSignal, fCfg);
+                                    if (opFillPrice > 0) {
+                                        addDecision(fMarket, "BUY", "EXECUTED", "SIGNAL", fSignal.reason);
+                                    }
                                 } catch (Exception e) {
                                     hourlyThrottle.releaseClaim(fMarket);
                                     log.error("[OpeningScanner] tick L1 delayed buy failed for {}", fMarket, e);
@@ -1076,15 +1079,20 @@ public class OpeningScannerService {
                     entrySuccess++;
                 } else {
                     try {
-                        executeBuy(bs.market, bs.candle, bs.signal, cfg);
-                        spentKrw += orderKrw.doubleValue();
-                        scannerPosCount++;
-                        entrySuccess++;
-                        // 실시간 TP/SL 종합안 캐시에 등록 (openedAt = 현재, volumeRank 포함)
-                        int volumeRank = breakoutDetector.getSharedPriceService() != null
-                                ? breakoutDetector.getSharedPriceService().getVolumeRank(bs.market) : 999;
-                        breakoutDetector.addPosition(bs.market, bs.candle.trade_price, System.currentTimeMillis(), volumeRank);
-                        addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
+                        // V131: fillPrice 반환 → breakoutDetector.addPosition에 실 체결가 전달
+                        double opFillPrice = executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                        if (opFillPrice > 0) {
+                            spentKrw += orderKrw.doubleValue();
+                            scannerPosCount++;
+                            entrySuccess++;
+                            // 실시간 TP/SL 종합안 캐시에 등록 (openedAt = 현재, volumeRank 포함)
+                            int volumeRank = breakoutDetector.getSharedPriceService() != null
+                                    ? breakoutDetector.getSharedPriceService().getVolumeRank(bs.market) : 999;
+                            breakoutDetector.addPosition(bs.market, opFillPrice, System.currentTimeMillis(), volumeRank);
+                            addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
+                        } else {
+                            hourlyThrottle.releaseClaim(bs.market);
+                        }
                     } catch (Exception e) {
                         // 실패 시 throttle 권한 반환
                         hourlyThrottle.releaseClaim(bs.market);
@@ -1106,21 +1114,23 @@ public class OpeningScannerService {
 
     // ========== Order Execution ==========
 
-    private void executeBuy(String market, UpbitCandle candle, Signal signal,
-                             OpeningScannerConfigEntity cfg) {
+    /** @return fillPrice (실 체결가). 매수 미실행 시 -1.0 */
+    private double executeBuy(String market, UpbitCandle candle, Signal signal,
+                               OpeningScannerConfigEntity cfg) {
         // ★ race 방어: in-flight 매수 차단 (KRW-CBK 사고 패턴 재발 방지)
         if (!buyingMarkets.add(market)) {
             log.info("[OpeningScanner] BUY in progress, skip duplicate: {}", market);
-            return;
+            return -1.0;
         }
         try {
-            executeBuyInner(market, candle, signal, cfg);
+            return executeBuyInner(market, candle, signal, cfg);
         } finally {
             buyingMarkets.remove(market);
         }
     }
 
-    private void executeBuyInner(String market, UpbitCandle candle, Signal signal,
+    /** @return fillPrice (실 체결가). 매수 미실행/실패 시 -1.0 */
+    private double executeBuyInner(String market, UpbitCandle candle, Signal signal,
                                   OpeningScannerConfigEntity cfg) {
         double price = candle.trade_price;
         BigDecimal orderKrw = calcOrderSize(cfg);
@@ -1128,14 +1138,14 @@ public class OpeningScannerService {
             log.warn("[OpeningScanner] order too small: {} KRW for {}", orderKrw, market);
             addDecision(market, "BUY", "BLOCKED", "ORDER_TOO_SMALL",
                     String.format("주문 금액 %s원이 최소 5,000원 미만", orderKrw.toPlainString()));
-            return;
+            return -1.0;
         }
 
         // V130 ③: 스캐너 간 동일종목 재진입 차단 (dust 제외, 손실 쿨다운)
         if (!scannerLockService.canEnter(market, "OP")) {
             addDecision(market, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
                     "크로스 스캐너 락: 다른 스캐너 보유 또는 손실 쿨다운 중");
-            return;
+            return -1.0;
         }
 
         // 사전 중복 포지션 차단 (KRW-TREE orphan 사고 재발 방지)
@@ -1148,7 +1158,7 @@ public class OpeningScannerService {
             addDecision(market, "BUY", "BLOCKED", "DUPLICATE_POSITION",
                     String.format("이미 보유 중 (전략=%s qty=%s) — 중복 매수 차단",
                             existing.getEntryStrategy(), existing.getQty().toPlainString()));
-            return;
+            return -1.0;
         }
 
         boolean isPaper = "PAPER".equalsIgnoreCase(cfg.getMode());
@@ -1166,7 +1176,7 @@ public class OpeningScannerService {
                 log.error("[OpeningScanner] LIVE 모드인데 업비트 키가 없습니다. market={}", market);
                 addDecision(market, "BUY", "BLOCKED", "API_KEY_MISSING",
                         "LIVE 모드 API 키 미설정");
-                return;
+                return -1.0;
             }
             try {
                 LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw.doubleValue());
@@ -1192,7 +1202,7 @@ public class OpeningScannerService {
                     tradeLogRepo.save(pendingLog);
                     addDecision(market, "BUY", "ERROR", "ORDER_NOT_FILLED",
                             String.format("주문 미체결 state=%s vol=%.8f", r.state, r.executedVolume));
-                    return;
+                    return -1.0;
                 }
                 fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
                 qty = r.executedVolume;
@@ -1205,7 +1215,7 @@ public class OpeningScannerService {
                     log.warn("[OpeningScanner] LIVE buy executedVolume=0 for {}", market);
                     addDecision(market, "BUY", "ERROR", "ZERO_VOLUME",
                             "체결 수량 0");
-                    return;
+                    return -1.0;
                 }
                 log.info("[OpeningScanner] LIVE buy filled: market={} state={} price={} qty={}",
                         market, r.state, fillPrice, qty);
@@ -1213,7 +1223,7 @@ public class OpeningScannerService {
                 log.error("[OpeningScanner] LIVE buy order failed for {}", market, e);
                 addDecision(market, "BUY", "ERROR", "ORDER_EXCEPTION",
                         "주문 실패: " + e.getMessage());
-                return;
+                return -1.0;
             }
         }
 
@@ -1253,6 +1263,7 @@ public class OpeningScannerService {
 
         log.info("[OpeningScanner] BUY {} mode={} price={} qty={} conf={} reason={}",
                 market, cfg.getMode(), fillPrice, qty, signal.confidence, signal.reason);
+        return fillPrice;
     }
 
     private void executeSell(PositionEntity pe, UpbitCandle candle, Signal signal,

@@ -1048,9 +1048,12 @@ public class AllDayScannerService {
                                 log.info("[AllDayScanner] tick L1_OK: {} currentPrice={} >= signalPrice={}",
                                         fMarket, currentPrice, fSignalPrice);
                                 try {
-                                    executeBuy(fMarket, fCandle, fSignal, fCfg);
-                                    tpPositionCache.put(fMarket, new double[]{fSignalPrice, fSignalPrice, 0, fSignalPrice, System.currentTimeMillis(), 0, 0});
-                                    addDecision(fMarket, "BUY", "EXECUTED", "SIGNAL", fSignal.reason);
+                                    // V131: fillPrice 반환 → cache pos[0] 실 체결가 기준으로 통일
+                                    double adFillPrice = executeBuy(fMarket, fCandle, fSignal, fCfg);
+                                    if (adFillPrice > 0) {
+                                        tpPositionCache.put(fMarket, new double[]{adFillPrice, adFillPrice, 0, adFillPrice, System.currentTimeMillis(), 0, 0});
+                                        addDecision(fMarket, "BUY", "EXECUTED", "SIGNAL", fSignal.reason);
+                                    }
                                 } catch (Exception e) {
                                     hourlyThrottle.releaseClaim(fMarket);
                                     log.error("[AllDayScanner] tick L1 delayed buy failed for {}", fMarket, e);
@@ -1068,13 +1071,18 @@ public class AllDayScannerService {
                     entrySuccess++;
                 } else {
                     try {
-                        executeBuy(bs.market, bs.candle, bs.signal, cfg);
-                        spentKrw += orderKrw.doubleValue();
-                        scannerPosCount++;
-                        entrySuccess++;
-                        // 실시간 TP_TRAIL 캐시에 즉시 등록 [avgPrice, peakPrice, activated, troughPrice, openedAtMs, splitPhase, split1stTrailArmed]
-                        tpPositionCache.put(bs.market, new double[]{bs.candle.trade_price, bs.candle.trade_price, 0, bs.candle.trade_price, System.currentTimeMillis(), 0, 0});
-                        addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
+                        // V131: fillPrice 반환 → cache pos[0] 실 체결가 기준으로 통일
+                        double adFillPrice = executeBuy(bs.market, bs.candle, bs.signal, cfg);
+                        if (adFillPrice > 0) {
+                            spentKrw += orderKrw.doubleValue();
+                            scannerPosCount++;
+                            entrySuccess++;
+                            // 실시간 TP_TRAIL 캐시에 즉시 등록 [avgPrice, peakPrice, activated, troughPrice, openedAtMs, splitPhase, split1stTrailArmed]
+                            tpPositionCache.put(bs.market, new double[]{adFillPrice, adFillPrice, 0, adFillPrice, System.currentTimeMillis(), 0, 0});
+                            addDecision(bs.market, "BUY", "EXECUTED", "SIGNAL", bs.signal.reason);
+                        } else {
+                            hourlyThrottle.releaseClaim(bs.market);
+                        }
                     } catch (Exception e) {
                         // 매수 실패 → throttle 권한 반환
                         hourlyThrottle.releaseClaim(bs.market);
@@ -1096,36 +1104,38 @@ public class AllDayScannerService {
 
     // ========== Order Execution ==========
 
-    private void executeBuy(String market, UpbitCandle candle, Signal signal,
-                             AllDayScannerConfigEntity cfg) {
+    /** @return fillPrice (실 체결가). 매수 미실행 시 -1.0 */
+    private double executeBuy(String market, UpbitCandle candle, Signal signal,
+                              AllDayScannerConfigEntity cfg) {
         // ★ race 방어: in-flight 매수 차단
         if (!buyingMarkets.add(market)) {
             log.info("[AllDayScanner] BUY in progress, skip duplicate: {}", market);
-            return;
+            return -1.0;
         }
         try {
-            executeBuyInner(market, candle, signal, cfg);
+            return executeBuyInner(market, candle, signal, cfg);
         } finally {
             buyingMarkets.remove(market);
         }
     }
 
-    private void executeBuyInner(String market, UpbitCandle candle, Signal signal,
-                                  AllDayScannerConfigEntity cfg) {
+    /** @return fillPrice (실 체결가). 매수 미실행/실패 시 -1.0 */
+    private double executeBuyInner(String market, UpbitCandle candle, Signal signal,
+                                   AllDayScannerConfigEntity cfg) {
         double price = candle.trade_price;
         BigDecimal orderKrw = calcOrderSize(cfg);
         if (orderKrw.compareTo(BigDecimal.valueOf(5000)) < 0) {
             log.warn("[AllDayScanner] order too small: {} KRW for {}", orderKrw, market);
             addDecision(market, "BUY", "BLOCKED", "ORDER_TOO_SMALL",
                     String.format("주문 금액 %s원이 최소 5,000원 미만", orderKrw.toPlainString()));
-            return;
+            return -1.0;
         }
 
         // V130 ③: 스캐너 간 동일종목 재진입 차단 (executeBuyInner 최종 방어선)
         if (!scannerLockService.canEnter(market, "AD")) {
             addDecision(market, "BUY", "BLOCKED", "CROSS_SCANNER_COOLDOWN",
                     "타 스캐너 보유 또는 손실 쿨다운 — 중복 매수 차단");
-            return;
+            return -1.0;
         }
 
         // 사전 중복 포지션 차단 (KRW-TREE orphan 사고 재발 방지)
@@ -1138,7 +1148,7 @@ public class AllDayScannerService {
             addDecision(market, "BUY", "BLOCKED", "DUPLICATE_POSITION",
                     String.format("이미 보유 중 (전략=%s qty=%s) — 중복 매수 차단",
                             existing.getEntryStrategy(), existing.getQty().toPlainString()));
-            return;
+            return -1.0;
         }
 
         boolean isPaper = "PAPER".equalsIgnoreCase(cfg.getMode());
@@ -1156,7 +1166,7 @@ public class AllDayScannerService {
                 log.error("[AllDayScanner] LIVE 모드인데 업비트 키가 없습니다. market={}", market);
                 addDecision(market, "BUY", "BLOCKED", "API_KEY_MISSING",
                         "LIVE 모드 API 키 미설정");
-                return;
+                return -1.0;
             }
             try {
                 LiveOrderService.OrderResult r = liveOrders.placeBidPriceOrder(market, orderKrw.doubleValue());
@@ -1179,7 +1189,7 @@ public class AllDayScannerService {
                     tradeLogRepo.save(pendingLog);
                     addDecision(market, "BUY", "ERROR", "ORDER_NOT_FILLED",
                             String.format("주문 미체결 state=%s vol=%.8f", r.state, r.executedVolume));
-                    return;
+                    return -1.0;
                 }
                 fillPrice = r.avgPrice > 0 ? r.avgPrice : price;
                 qty = r.executedVolume;
@@ -1192,7 +1202,7 @@ public class AllDayScannerService {
                     log.warn("[AllDayScanner] LIVE buy executedVolume=0 for {}", market);
                     addDecision(market, "BUY", "ERROR", "ZERO_VOLUME",
                             "체결 수량 0");
-                    return;
+                    return -1.0;
                 }
                 log.info("[AllDayScanner] LIVE buy filled: market={} state={} price={} qty={}",
                         market, r.state, fillPrice, qty);
@@ -1200,7 +1210,7 @@ public class AllDayScannerService {
                 log.error("[AllDayScanner] LIVE buy order failed for {}", market, e);
                 addDecision(market, "BUY", "ERROR", "ORDER_EXCEPTION",
                         "주문 실패: " + e.getMessage());
-                return;
+                return -1.0;
             }
         }
 
@@ -1239,6 +1249,7 @@ public class AllDayScannerService {
 
         log.info("[AllDayScanner] BUY {} mode={} price={} qty={} conf={} reason={}",
                 market, cfg.getMode(), fillPrice, qty, signal.confidence, signal.reason);
+        return fillPrice;
     }
 
     private void executeSell(PositionEntity pe, UpbitCandle candle, Signal signal,
@@ -2046,11 +2057,14 @@ public class AllDayScannerService {
                         String.format(Locale.ROOT, "%.0f", rsi14),
                         String.format(Locale.ROOT, "%.1f", volRatio),
                         fSignal.reason);
-                executeBuy(market, fLastC, fSignal, cfg);
-                bought = true;
-                // V109: TP/SL 캐시 즉시 등록 [avgPrice, peakPrice, activated, troughPrice, openedAtMs, splitPhase, split1stTrailArmed]
-                tpPositionCache.put(market, new double[]{fWsPrice, fWsPrice, 0, fWsPrice, System.currentTimeMillis(), 0, 0});
-                addDecision(market, "BUY", "EXECUTED", "WS_SURGE_HCB", fSignal.reason);
+                // V131: fillPrice 반환 → cache pos[0] 실 체결가 기준으로 통일
+                double wsHcbFillPrice = executeBuy(market, fLastC, fSignal, cfg);
+                if (wsHcbFillPrice > 0) {
+                    bought = true;
+                    // V109: TP/SL 캐시 즉시 등록 [avgPrice, peakPrice, activated, troughPrice, openedAtMs, splitPhase, split1stTrailArmed]
+                    tpPositionCache.put(market, new double[]{wsHcbFillPrice, wsHcbFillPrice, 0, wsHcbFillPrice, System.currentTimeMillis(), 0, 0});
+                    addDecision(market, "BUY", "EXECUTED", "WS_SURGE_HCB", fSignal.reason);
+                }
             }
 
             // 6. Mode 2 Surge Catcher (HCB 미통과 시) — V109: RSI/EMA 필터 동일 적용
@@ -2132,10 +2146,13 @@ public class AllDayScannerService {
                                     return;
                                 }
                             }
-                            executeBuy(market, lastCandle, surgeSignal, cfg);
-                            bought = true;
-                            tpPositionCache.put(market, new double[]{wsPrice, wsPrice, 0, wsPrice, System.currentTimeMillis(), 0, 0});
-                            addDecision(market, "BUY", "EXECUTED", "WS_M2_SURGE", surgeReason);
+                            // V131: fillPrice 반환 → cache pos[0] 실 체결가 기준으로 통일
+                            double wsM2FillPrice = executeBuy(market, lastCandle, surgeSignal, cfg);
+                            if (wsM2FillPrice > 0) {
+                                bought = true;
+                                tpPositionCache.put(market, new double[]{wsM2FillPrice, wsM2FillPrice, 0, wsM2FillPrice, System.currentTimeMillis(), 0, 0});
+                                addDecision(market, "BUY", "EXECUTED", "WS_M2_SURGE", surgeReason);
+                            }
                         }
                     }
                 }
