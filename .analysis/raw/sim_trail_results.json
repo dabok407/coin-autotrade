@@ -1,0 +1,954 @@
+{
+  "V129": {
+    "name": "V129 (current)",
+    "total": 34069,
+    "wins": 15,
+    "n": 23,
+    "cases": [
+      {
+        "mkt": "BIRB",
+        "date": "04-22",
+        "peak": 1.89,
+        "real_avg": -0.71,
+        "real_pnl": -2247,
+        "sim_roi": -0.25,
+        "sim_pnl": -397,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-23",
+        "peak": 1.12,
+        "real_avg": -0.56,
+        "real_pnl": -1797,
+        "sim_roi": -1.01,
+        "sim_pnl": -1616,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "PIEVERSE",
+        "date": "04-25",
+        "peak": 0.25,
+        "real_avg": -0.96,
+        "real_pnl": -2954,
+        "sim_roi": -1.86,
+        "sim_pnl": -2848,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-25",
+        "peak": 1.47,
+        "real_avg": -0.18,
+        "real_pnl": -1044,
+        "sim_roi": -0.66,
+        "sim_pnl": -1009,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "RAY",
+        "date": "04-26",
+        "peak": 0.66,
+        "real_avg": -0.52,
+        "real_pnl": -1967,
+        "sim_roi": -1.45,
+        "sim_pnl": -2323,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "API3",
+        "date": "04-27",
+        "peak": 1.33,
+        "real_avg": -0.19,
+        "real_pnl": -1072,
+        "sim_roi": -0.8,
+        "sim_pnl": -1220,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "IN",
+        "date": "04-20",
+        "peak": 2.82,
+        "real_avg": 0.81,
+        "real_pnl": 1890,
+        "sim_roi": 0.67,
+        "sim_pnl": 1015,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-20",
+        "peak": 2.49,
+        "real_avg": 1.25,
+        "real_pnl": 2899,
+        "sim_roi": 0.34,
+        "sim_pnl": 546,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ZBT",
+        "date": "04-20",
+        "peak": 2.81,
+        "real_avg": 0.84,
+        "real_pnl": 1840,
+        "sim_roi": 0.65,
+        "sim_pnl": 1014,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-21",
+        "peak": 1.68,
+        "real_avg": 0.15,
+        "real_pnl": 150,
+        "sim_roi": -0.45,
+        "sim_pnl": -576,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "BIO",
+        "date": "04-21",
+        "peak": 1.92,
+        "real_avg": 1.08,
+        "real_pnl": 2272,
+        "sim_roi": -0.22,
+        "sim_pnl": -335,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SENT",
+        "date": "04-22",
+        "peak": 3.31,
+        "real_avg": 1.29,
+        "real_pnl": 3182,
+        "sim_roi": 1.14,
+        "sim_pnl": 1765,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "AXL",
+        "date": "04-23",
+        "peak": 3.41,
+        "real_avg": 1.17,
+        "real_pnl": 2642,
+        "sim_roi": 1.24,
+        "sim_pnl": 1962,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-23",
+        "peak": 3.61,
+        "real_avg": 1.29,
+        "real_pnl": 3185,
+        "sim_roi": 1.43,
+        "sim_pnl": 2186,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "CHIP",
+        "date": "04-23",
+        "peak": 6.69,
+        "real_avg": 2.25,
+        "real_pnl": 6052,
+        "sim_roi": 4.46,
+        "sim_pnl": 6794,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ENSO",
+        "date": "04-24",
+        "peak": 3.69,
+        "real_avg": 0.78,
+        "real_pnl": 2090,
+        "sim_roi": 1.52,
+        "sim_pnl": 2332,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "KAT",
+        "date": "04-24",
+        "peak": 7.28,
+        "real_avg": 4.57,
+        "real_pnl": 11285,
+        "sim_roi": 5.04,
+        "sim_pnl": 12514,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-24",
+        "peak": 2.32,
+        "real_avg": 0.78,
+        "real_pnl": 1425,
+        "sim_roi": 0.17,
+        "sim_pnl": 258,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SPK",
+        "date": "04-25",
+        "peak": 3.86,
+        "real_avg": 1.48,
+        "real_pnl": 3811,
+        "sim_roi": 1.68,
+        "sim_pnl": 2665,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "RVN",
+        "date": "04-26",
+        "peak": 2.49,
+        "real_avg": 1.14,
+        "real_pnl": 2263,
+        "sim_roi": 0.34,
+        "sim_pnl": 527,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SONIC",
+        "date": "04-26",
+        "peak": 4.92,
+        "real_avg": 1.75,
+        "real_pnl": 4768,
+        "sim_roi": 2.72,
+        "sim_pnl": 4200,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOMI",
+        "date": "04-27",
+        "peak": 3.53,
+        "real_avg": 1.95,
+        "real_pnl": 4820,
+        "sim_roi": 1.36,
+        "sim_pnl": 2166,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-27",
+        "peak": 5.11,
+        "real_avg": 2.92,
+        "real_pnl": 7170,
+        "sim_roi": 2.91,
+        "sim_pnl": 4449,
+        "branch": "ARM_SPLIT"
+      }
+    ]
+  },
+  "V115_legacy": {
+    "name": "V115 (drop1=0.5, drop2=1.2)",
+    "total": 77876,
+    "wins": 22,
+    "n": 23,
+    "cases": [
+      {
+        "mkt": "BIRB",
+        "date": "04-22",
+        "peak": 1.89,
+        "real_avg": -0.71,
+        "real_pnl": -2247,
+        "sim_roi": 0.85,
+        "sim_pnl": 1346,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-23",
+        "peak": 1.12,
+        "real_avg": -0.56,
+        "real_pnl": -1797,
+        "sim_roi": 0.51,
+        "sim_pnl": 818,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "PIEVERSE",
+        "date": "04-25",
+        "peak": 0.25,
+        "real_avg": -0.96,
+        "real_pnl": -2954,
+        "sim_roi": -0.35,
+        "sim_pnl": -539,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-25",
+        "peak": 1.47,
+        "real_avg": -0.18,
+        "real_pnl": -1044,
+        "sim_roi": 0.86,
+        "sim_pnl": 1322,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "RAY",
+        "date": "04-26",
+        "peak": 0.66,
+        "real_avg": -0.52,
+        "real_pnl": -1967,
+        "sim_roi": 0.06,
+        "sim_pnl": 93,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "API3",
+        "date": "04-27",
+        "peak": 1.33,
+        "real_avg": -0.19,
+        "real_pnl": -1072,
+        "sim_roi": 0.72,
+        "sim_pnl": 1095,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "IN",
+        "date": "04-20",
+        "peak": 2.82,
+        "real_avg": 0.81,
+        "real_pnl": 1890,
+        "sim_roi": 1.78,
+        "sim_pnl": 2706,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-20",
+        "peak": 2.49,
+        "real_avg": 1.25,
+        "real_pnl": 2899,
+        "sim_roi": 1.45,
+        "sim_pnl": 2319,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ZBT",
+        "date": "04-20",
+        "peak": 2.81,
+        "real_avg": 0.84,
+        "real_pnl": 1840,
+        "sim_roi": 1.76,
+        "sim_pnl": 2740,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-21",
+        "peak": 1.68,
+        "real_avg": 0.15,
+        "real_pnl": 150,
+        "sim_roi": 0.65,
+        "sim_pnl": 830,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "BIO",
+        "date": "04-21",
+        "peak": 1.92,
+        "real_avg": 1.08,
+        "real_pnl": 2272,
+        "sim_roi": 0.88,
+        "sim_pnl": 1342,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SENT",
+        "date": "04-22",
+        "peak": 3.31,
+        "real_avg": 1.29,
+        "real_pnl": 3182,
+        "sim_roi": 2.26,
+        "sim_pnl": 3489,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "AXL",
+        "date": "04-23",
+        "peak": 3.41,
+        "real_avg": 1.17,
+        "real_pnl": 2642,
+        "sim_roi": 2.36,
+        "sim_pnl": 3730,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-23",
+        "peak": 3.61,
+        "real_avg": 1.29,
+        "real_pnl": 3185,
+        "sim_roi": 2.55,
+        "sim_pnl": 3891,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "CHIP",
+        "date": "04-23",
+        "peak": 6.69,
+        "real_avg": 2.25,
+        "real_pnl": 6052,
+        "sim_roi": 5.61,
+        "sim_pnl": 8550,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ENSO",
+        "date": "04-24",
+        "peak": 3.69,
+        "real_avg": 0.78,
+        "real_pnl": 2090,
+        "sim_roi": 2.64,
+        "sim_pnl": 4050,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "KAT",
+        "date": "04-24",
+        "peak": 7.28,
+        "real_avg": 4.57,
+        "real_pnl": 11285,
+        "sim_roi": 6.19,
+        "sim_pnl": 15393,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-24",
+        "peak": 2.32,
+        "real_avg": 0.78,
+        "real_pnl": 1425,
+        "sim_roi": 1.27,
+        "sim_pnl": 1944,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SPK",
+        "date": "04-25",
+        "peak": 3.86,
+        "real_avg": 1.48,
+        "real_pnl": 3811,
+        "sim_roi": 2.81,
+        "sim_pnl": 4441,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "RVN",
+        "date": "04-26",
+        "peak": 2.49,
+        "real_avg": 1.14,
+        "real_pnl": 2263,
+        "sim_roi": 1.45,
+        "sim_pnl": 2240,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SONIC",
+        "date": "04-26",
+        "peak": 4.92,
+        "real_avg": 1.75,
+        "real_pnl": 4768,
+        "sim_roi": 3.85,
+        "sim_pnl": 5951,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOMI",
+        "date": "04-27",
+        "peak": 3.53,
+        "real_avg": 1.95,
+        "real_pnl": 4820,
+        "sim_roi": 2.48,
+        "sim_pnl": 3942,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-27",
+        "peak": 5.11,
+        "real_avg": 2.92,
+        "real_pnl": 7170,
+        "sim_roi": 4.05,
+        "sim_pnl": 6183,
+        "branch": "ARM_SPLIT"
+      }
+    ]
+  },
+  "ladder1": {
+    "name": "Ladder A (peak<2:0.5/<3:1.0/<5:1.5/>=5:2.0)",
+    "total": 63891,
+    "wins": 22,
+    "n": 23,
+    "cases": [
+      {
+        "mkt": "BIRB",
+        "date": "04-22",
+        "peak": 1.89,
+        "real_avg": -0.71,
+        "real_pnl": -2247,
+        "sim_roi": 0.97,
+        "sim_pnl": 1539,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-23",
+        "peak": 1.12,
+        "real_avg": -0.56,
+        "real_pnl": -1797,
+        "sim_roi": 0.51,
+        "sim_pnl": 818,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "PIEVERSE",
+        "date": "04-25",
+        "peak": 0.25,
+        "real_avg": -0.96,
+        "real_pnl": -2954,
+        "sim_roi": -0.35,
+        "sim_pnl": -539,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-25",
+        "peak": 1.47,
+        "real_avg": -0.18,
+        "real_pnl": -1044,
+        "sim_roi": 0.86,
+        "sim_pnl": 1322,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "RAY",
+        "date": "04-26",
+        "peak": 0.66,
+        "real_avg": -0.52,
+        "real_pnl": -1967,
+        "sim_roi": 0.06,
+        "sim_pnl": 93,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "API3",
+        "date": "04-27",
+        "peak": 1.33,
+        "real_avg": -0.19,
+        "real_pnl": -1072,
+        "sim_roi": 0.72,
+        "sim_pnl": 1095,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "IN",
+        "date": "04-20",
+        "peak": 2.82,
+        "real_avg": 0.81,
+        "real_pnl": 1890,
+        "sim_roi": 1.57,
+        "sim_pnl": 2393,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-20",
+        "peak": 2.49,
+        "real_avg": 1.25,
+        "real_pnl": 2899,
+        "sim_roi": 1.24,
+        "sim_pnl": 1990,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ZBT",
+        "date": "04-20",
+        "peak": 2.81,
+        "real_avg": 0.84,
+        "real_pnl": 1840,
+        "sim_roi": 1.56,
+        "sim_pnl": 2420,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-21",
+        "peak": 1.68,
+        "real_avg": 0.15,
+        "real_pnl": 150,
+        "sim_roi": 0.77,
+        "sim_pnl": 986,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "BIO",
+        "date": "04-21",
+        "peak": 1.92,
+        "real_avg": 1.08,
+        "real_pnl": 2272,
+        "sim_roi": 1,
+        "sim_pnl": 1529,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SENT",
+        "date": "04-22",
+        "peak": 3.31,
+        "real_avg": 1.29,
+        "real_pnl": 3182,
+        "sim_roi": 1.66,
+        "sim_pnl": 2563,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "AXL",
+        "date": "04-23",
+        "peak": 3.41,
+        "real_avg": 1.17,
+        "real_pnl": 2642,
+        "sim_roi": 1.76,
+        "sim_pnl": 2781,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-23",
+        "peak": 3.61,
+        "real_avg": 1.29,
+        "real_pnl": 3185,
+        "sim_roi": 1.95,
+        "sim_pnl": 2976,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "CHIP",
+        "date": "04-23",
+        "peak": 6.69,
+        "real_avg": 2.25,
+        "real_pnl": 6052,
+        "sim_roi": 4.46,
+        "sim_pnl": 6794,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ENSO",
+        "date": "04-24",
+        "peak": 3.69,
+        "real_avg": 0.78,
+        "real_pnl": 2090,
+        "sim_roi": 2.04,
+        "sim_pnl": 3127,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "KAT",
+        "date": "04-24",
+        "peak": 7.28,
+        "real_avg": 4.57,
+        "real_pnl": 11285,
+        "sim_roi": 5.04,
+        "sim_pnl": 12514,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-24",
+        "peak": 2.32,
+        "real_avg": 0.78,
+        "real_pnl": 1425,
+        "sim_roi": 1.07,
+        "sim_pnl": 1632,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SPK",
+        "date": "04-25",
+        "peak": 3.86,
+        "real_avg": 1.48,
+        "real_pnl": 3811,
+        "sim_roi": 2.2,
+        "sim_pnl": 3487,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "RVN",
+        "date": "04-26",
+        "peak": 2.49,
+        "real_avg": 1.14,
+        "real_pnl": 2263,
+        "sim_roi": 1.24,
+        "sim_pnl": 1923,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SONIC",
+        "date": "04-26",
+        "peak": 4.92,
+        "real_avg": 1.75,
+        "real_pnl": 4768,
+        "sim_roi": 3.24,
+        "sim_pnl": 5011,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOMI",
+        "date": "04-27",
+        "peak": 3.53,
+        "real_avg": 1.95,
+        "real_pnl": 4820,
+        "sim_roi": 1.88,
+        "sim_pnl": 2988,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-27",
+        "peak": 5.11,
+        "real_avg": 2.92,
+        "real_pnl": 7170,
+        "sim_roi": 2.91,
+        "sim_pnl": 4449,
+        "branch": "ARM_SPLIT"
+      }
+    ]
+  },
+  "ladder2": {
+    "name": "Ladder B (peak<2:0.4/<3:0.8/<5:1.2/>=5:1.6)",
+    "total": 72736,
+    "wins": 22,
+    "n": 23,
+    "cases": [
+      {
+        "mkt": "BIRB",
+        "date": "04-22",
+        "peak": 1.89,
+        "real_avg": -0.71,
+        "real_pnl": -2247,
+        "sim_roi": 1.13,
+        "sim_pnl": 1797,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-23",
+        "peak": 1.12,
+        "real_avg": -0.56,
+        "real_pnl": -1797,
+        "sim_roi": 0.61,
+        "sim_pnl": 980,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "PIEVERSE",
+        "date": "04-25",
+        "peak": 0.25,
+        "real_avg": -0.96,
+        "real_pnl": -2954,
+        "sim_roi": -0.25,
+        "sim_pnl": -386,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-25",
+        "peak": 1.47,
+        "real_avg": -0.18,
+        "real_pnl": -1044,
+        "sim_roi": 0.96,
+        "sim_pnl": 1478,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "RAY",
+        "date": "04-26",
+        "peak": 0.66,
+        "real_avg": -0.52,
+        "real_pnl": -1967,
+        "sim_roi": 0.16,
+        "sim_pnl": 254,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "API3",
+        "date": "04-27",
+        "peak": 1.33,
+        "real_avg": -0.19,
+        "real_pnl": -1072,
+        "sim_roi": 0.82,
+        "sim_pnl": 1250,
+        "branch": "NO_ARM_DROP_FULL"
+      },
+      {
+        "mkt": "IN",
+        "date": "04-20",
+        "peak": 2.82,
+        "real_avg": 0.81,
+        "real_pnl": 1890,
+        "sim_roi": 1.78,
+        "sim_pnl": 2706,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOON",
+        "date": "04-20",
+        "peak": 2.49,
+        "real_avg": 1.25,
+        "real_pnl": 2899,
+        "sim_roi": 1.45,
+        "sim_pnl": 2319,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ZBT",
+        "date": "04-20",
+        "peak": 2.81,
+        "real_avg": 0.84,
+        "real_pnl": 1840,
+        "sim_roi": 1.76,
+        "sim_pnl": 2740,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-21",
+        "peak": 1.68,
+        "real_avg": 0.15,
+        "real_pnl": 150,
+        "sim_roi": 0.93,
+        "sim_pnl": 1194,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "BIO",
+        "date": "04-21",
+        "peak": 1.92,
+        "real_avg": 1.08,
+        "real_pnl": 2272,
+        "sim_roi": 1.17,
+        "sim_pnl": 1777,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SENT",
+        "date": "04-22",
+        "peak": 3.31,
+        "real_avg": 1.29,
+        "real_pnl": 3182,
+        "sim_roi": 1.97,
+        "sim_pnl": 3042,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "AXL",
+        "date": "04-23",
+        "peak": 3.41,
+        "real_avg": 1.17,
+        "real_pnl": 2642,
+        "sim_roi": 2.07,
+        "sim_pnl": 3272,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "FLOCK",
+        "date": "04-23",
+        "peak": 3.61,
+        "real_avg": 1.29,
+        "real_pnl": 3185,
+        "sim_roi": 2.26,
+        "sim_pnl": 3449,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "CHIP",
+        "date": "04-23",
+        "peak": 6.69,
+        "real_avg": 2.25,
+        "real_pnl": 6052,
+        "sim_roi": 4.88,
+        "sim_pnl": 7445,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "ENSO",
+        "date": "04-24",
+        "peak": 3.69,
+        "real_avg": 0.78,
+        "real_pnl": 2090,
+        "sim_roi": 2.35,
+        "sim_pnl": 3604,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "KAT",
+        "date": "04-24",
+        "peak": 7.28,
+        "real_avg": 4.57,
+        "real_pnl": 11285,
+        "sim_roi": 5.47,
+        "sim_pnl": 13581,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-24",
+        "peak": 2.32,
+        "real_avg": 0.78,
+        "real_pnl": 1425,
+        "sim_roi": 1.27,
+        "sim_pnl": 1944,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SPK",
+        "date": "04-25",
+        "peak": 3.86,
+        "real_avg": 1.48,
+        "real_pnl": 3811,
+        "sim_roi": 2.51,
+        "sim_pnl": 3980,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "RVN",
+        "date": "04-26",
+        "peak": 2.49,
+        "real_avg": 1.14,
+        "real_pnl": 2263,
+        "sim_roi": 1.45,
+        "sim_pnl": 2240,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SONIC",
+        "date": "04-26",
+        "peak": 4.92,
+        "real_avg": 1.75,
+        "real_pnl": 4768,
+        "sim_roi": 3.56,
+        "sim_pnl": 5497,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "SOMI",
+        "date": "04-27",
+        "peak": 3.53,
+        "real_avg": 1.95,
+        "real_pnl": 4820,
+        "sim_roi": 2.19,
+        "sim_pnl": 3482,
+        "branch": "ARM_SPLIT"
+      },
+      {
+        "mkt": "PENGU",
+        "date": "04-27",
+        "peak": 5.11,
+        "real_avg": 2.92,
+        "real_pnl": 7170,
+        "sim_roi": 3.33,
+        "sim_pnl": 5091,
+        "branch": "ARM_SPLIT"
+      }
+    ]
+  }
+}

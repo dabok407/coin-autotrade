@@ -549,6 +549,10 @@ public class OpeningScannerService {
         );
         // V130 ④: SPLIT_1ST roi 하한선
         breakoutDetector.setSplit1stRoiFloorPct(cfg.getSplit1stRoiFloorPct().doubleValue());
+        // V131 Phase 1: L1 강제 익절 캡
+        breakoutDetector.setL1CapPct(cfg.getL1CapPct().doubleValue());
+        // V133 Phase 3: BEV 보장
+        breakoutDetector.setBevGuard(cfg.isBevGuardEnabled(), cfg.getBevTriggerPct().doubleValue());
 
         // KST 현재 시각 확인
         ZonedDateTime nowKst = ZonedDateTime.now(KST);
@@ -2078,10 +2082,22 @@ public class OpeningScannerService {
             else if (rsi >= 65 && rsi < 75) quickScore += 0.6;
             else if (rsi < 50) quickScore += 0.3;
 
-            if (quickScore < 2.0) {
+            // V131 Phase 1: 진입 필터 강화 (DRIFT/MANTRA류 차단)
+            // 기존 하드코딩 2.0 → DB cfg.minQsScore (기본 3.5)
+            double minQs = cfg.getMinQsScore().doubleValue();
+            if (quickScore < minQs) {
                 addDecision(market, "BUY", "SKIPPED", "LOW_QUICK_SCORE",
-                        String.format(Locale.ROOT, "quickScore=%.1f < 2.0 (bo=%.2f%% vol=%.1fx rsi=%.0f)",
-                                quickScore, breakoutPctActual, volForScore, rsi));
+                        String.format(Locale.ROOT, "quickScore=%.1f < %.1f (bo=%.2f%% vol=%.1fx rsi=%.0f)",
+                                quickScore, minQs, breakoutPctActual, volForScore, rsi));
+                breakoutDetector.releaseMarket(market);
+                return;
+            }
+            // V131 Phase 1: vol multiplier 별도 차단 (DRIFT 진입 직전봉 vol 낮음 패턴 방어)
+            double minVol = cfg.getMinVolMult().doubleValue();
+            if (minVol > 0 && volForScore < minVol) {
+                addDecision(market, "BUY", "SKIPPED", "LOW_VOL_MULT",
+                        String.format(Locale.ROOT, "vol=%.1fx < %.1fx (bo=%.2f%% qs=%.1f rsi=%.0f)",
+                                volForScore, minVol, breakoutPctActual, quickScore, rsi));
                 breakoutDetector.releaseMarket(market);
                 return;
             }

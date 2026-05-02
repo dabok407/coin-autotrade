@@ -164,6 +164,14 @@ public class MorningRushScannerService {
     // V130 ④: SPLIT_1ST roi 하한선 (0=비활성)
     private volatile double cachedSplit1stRoiFloorPct = 0.30;
 
+    // V131 Phase 1: L1 강제 익절 캡 (사용자 첫 의견, 0=비활성, V130 호환 default)
+    // 운영 DB는 V131 마이그레이션 UPDATE로 2.0%로 설정됨.
+    private volatile double cachedL1CapPct = 0.0;
+
+    // V133 Phase 3: BEV 보장 (큰추세 음전 차단, V130 호환 default 비활성)
+    private volatile boolean cachedBevGuardEnabled = false;
+    private volatile double cachedBevTriggerPct = 5.0;
+
     // V130 ②: L1 지연 진입용 단일 스레드 스케줄러
     private final ScheduledExecutorService l1DelayScheduler = Executors.newSingleThreadScheduledExecutor(
             new ThreadFactory() {
@@ -707,14 +715,18 @@ public class MorningRushScannerService {
                 double dropThreshold1st = getDropForPeak(avgPrice, peakPrice, false);
                 // V130 ④: roi 하한선 — current_roi < floor이면 SPLIT_1ST 차단
                 boolean roiFloorOk = (cachedSplit1stRoiFloorPct <= 0) || (pnlPct >= cachedSplit1stRoiFloorPct);
-                if (dropFromPeakPct >= dropThreshold1st && roiFloorOk) {
+                // V131 Phase 1: L1 강제 익절 캡 — armed 후 ROI 도달 시 강제 매도
+                boolean l1CapHit = (cachedL1CapPct > 0) && (pnlPct >= cachedL1CapPct);
+                boolean trailHit = dropFromPeakPct >= dropThreshold1st && roiFloorOk;
+                if (l1CapHit || trailHit) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SPLIT_1ST";
                     isSplitFirst = true;
+                    String reasonTag = l1CapHit ? "SPLIT_1ST_L1_CAP" : "SPLIT_1ST_TRAIL";
                     reason = String.format(Locale.ROOT,
-                            "SPLIT_1ST_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=+%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                            avgPrice, peakPrice, price, dropFromPeakPct, dropThreshold1st,
-                            pnlPct, cachedSplitRatio * 100, troughPrice, troughPnl);
+                            "%s avg=%.2f peak=%.2f now=%.2f drop=%.2f%% th=%.2f%% pnl=+%.2f%% cap=%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                            reasonTag, avgPrice, peakPrice, price, dropFromPeakPct, dropThreshold1st,
+                            pnlPct, cachedL1CapPct, cachedSplitRatio * 100, troughPrice, troughPnl);
                 } else if (!roiFloorOk) {
                     log.debug("[MorningRush] SPLIT_1ST roi_floor blocked: {} pnl={}% < floor={}%",
                             market, String.format(Locale.ROOT, "%.2f", pnlPct), cachedSplit1stRoiFloorPct);
@@ -761,6 +773,19 @@ public class MorningRushScannerService {
                             "TP_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% pnl=%.2f%% trough=%.2f troughPnl=%.2f%% (realtime)",
                             avgPrice, peakPrice, price, dropFromPeakPct, pnlPct, troughPrice, troughPnl);
                 }
+            }
+        }
+
+        // ━━━ V133 Phase 3: BEV 보장 — 큰추세(peak 5%+) 후 음전 시 즉시 매도 ━━━
+        // SL보다 우선. Trail이 넓어 ROI < 0으로 떨어지는 위험 차단.
+        if (sellType == null && cachedBevGuardEnabled && peakPrice > avgPrice && pnlPct < 0) {
+            double peakPnlPct = (peakPrice - avgPrice) / avgPrice * 100.0;
+            if (peakPnlPct >= cachedBevTriggerPct) {
+                double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
+                sellType = "BEV_GUARD";
+                reason = String.format(Locale.ROOT,
+                        "BEV_GUARD peakPnl=%.2f%% >= %.2f%% pnl=%.2f%% < 0 price=%.2f avg=%.2f peak=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                        peakPnlPct, cachedBevTriggerPct, pnlPct, price, avgPrice, peakPrice, troughPrice, troughPnl);
             }
         }
 
@@ -866,6 +891,11 @@ public class MorningRushScannerService {
         cachedTrailAfterDropAbove5 = cfg.getTrailAfterDropAbove5().doubleValue();
         // V130 ④: SPLIT_1ST roi 하한선
         cachedSplit1stRoiFloorPct = cfg.getSplit1stRoiFloorPct().doubleValue();
+        // V131 Phase 1: L1 강제 익절 캡
+        cachedL1CapPct = cfg.getL1CapPct().doubleValue();
+        // V133 Phase 3: BEV 보장
+        cachedBevGuardEnabled = cfg.isBevGuardEnabled();
+        cachedBevTriggerPct = cfg.getBevTriggerPct().doubleValue();
         cachedMode = cfg.getMode();
 
         // V118: positionCache.clear() 제거 — WebSocket 스레드가 pos[3](peak)/pos[6](armed)을
@@ -1051,6 +1081,11 @@ public class MorningRushScannerService {
         cachedTrailAfterDropAbove5 = cfg.getTrailAfterDropAbove5().doubleValue();
         // V130 ④: SPLIT_1ST roi 하한선
         cachedSplit1stRoiFloorPct = cfg.getSplit1stRoiFloorPct().doubleValue();
+        // V131 Phase 1: L1 강제 익절 캡
+        cachedL1CapPct = cfg.getL1CapPct().doubleValue();
+        // V133 Phase 3: BEV 보장
+        cachedBevGuardEnabled = cfg.isBevGuardEnabled();
+        cachedBevTriggerPct = cfg.getBevTriggerPct().doubleValue();
         cachedGapPct = cfg.getGapThresholdPct().doubleValue();
         cachedSurgePct = cfg.getSurgeThresholdPct().doubleValue();
         cachedSurgeWindowSec = cfg.getSurgeWindowSec();

@@ -1,0 +1,492 @@
+{
+  "meta": {
+    "generated": "2026-05-02T13:18:11.305Z",
+    "trades_n": 22,
+    "candles_fetched": 22
+  },
+  "l1_dist": {
+    "n": 12,
+    "avg": "1.467",
+    "max": "2.30",
+    "min": "0.97",
+    "median": "1.34",
+    "buckets": {
+      "<1%": 1,
+      "1-1.5%": 8,
+      "1.5-2%": 0,
+      "2-2.5%": 3,
+      "2.5%+": 0
+    }
+  },
+  "cap_sim": {
+    "NO_CAP": {
+      "cap": null,
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -10885,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 40641,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "CAP_1p8": {
+      "cap": 1.8,
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -8264,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 43262,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "CAP_2p0": {
+      "cap": 2,
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -6514,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 45012,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "CAP_2p1": {
+      "cap": 2.1,
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -8220,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 43306,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "CAP_2p4": {
+      "cap": 2.4,
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -10723,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 40803,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    }
+  },
+  "ladder_sim": {
+    "V130": {
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -10885,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 40641,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "LadderB": {
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -20784,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 30742,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "LadderC": {
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -23962,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 27564,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    },
+    "Hybrid": {
+      "n": 22,
+      "wins": 14,
+      "wr": "63.6",
+      "totalPnl": -16123,
+      "peak5plus": 0,
+      "tpTrailLike": 4,
+      "byReason": {
+        "SPLIT_2ND_TRAIL": {
+          "n": 13,
+          "pnl": 35403,
+          "wins": 13
+        },
+        "SL_TIGHT": {
+          "n": 8,
+          "pnl": -52000,
+          "wins": 0
+        },
+        "TIME_EXIT": {
+          "n": 1,
+          "pnl": 474,
+          "wins": 1
+        }
+      }
+    }
+  },
+  "hybrid_cap": {
+    "n": 22,
+    "wins": 14,
+    "wr": "63.6",
+    "totalPnl": -12151,
+    "peak5plus": 0,
+    "tpTrailLike": 4,
+    "byReason": {
+      "SPLIT_2ND_TRAIL": {
+        "n": 13,
+        "pnl": 39375,
+        "wins": 13
+      },
+      "SL_TIGHT": {
+        "n": 8,
+        "pnl": -52000,
+        "wins": 0
+      },
+      "TIME_EXIT": {
+        "n": 1,
+        "pnl": 474,
+        "wins": 1
+      }
+    }
+  },
+  "special_open": {
+    "V130": {
+      "market": "KRW-OPEN",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:26:10",
+      "entry_price": 405,
+      "peak": 423,
+      "peak_pct": 4.444444444444445,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 416.655,
+          "roi": 2.877777777777771,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 416.655,
+          "roi": 2.877777777777771
+        }
+      ],
+      "avg_roi": 2.777777777777771,
+      "pnl": 6944,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.877777777777771,
+      "split1_forced": false
+    },
+    "LadderB": {
+      "market": "KRW-OPEN",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:26:10",
+      "entry_price": 405,
+      "peak": 423,
+      "peak_pct": 4.444444444444445,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 414.54,
+          "roi": 2.3555555555555605,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 414.54,
+          "roi": 2.3555555555555605
+        }
+      ],
+      "avg_roi": 2.2555555555555604,
+      "pnl": 5639,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.3555555555555605,
+      "split1_forced": false
+    },
+    "LadderC": {
+      "market": "KRW-OPEN",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:26:10",
+      "entry_price": 405,
+      "peak": 423,
+      "peak_pct": 4.444444444444445,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 414.54,
+          "roi": 2.3555555555555605,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 414.54,
+          "roi": 2.3555555555555605
+        }
+      ],
+      "avg_roi": 2.2555555555555604,
+      "pnl": 5639,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.3555555555555605,
+      "split1_forced": false
+    },
+    "Hybrid": {
+      "market": "KRW-OPEN",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:26:10",
+      "entry_price": 405,
+      "peak": 423,
+      "peak_pct": 4.444444444444445,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 412.425,
+          "roi": 1.8333333333333361,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 412.425,
+          "roi": 1.8333333333333361
+        }
+      ],
+      "avg_roi": 1.733333333333336,
+      "pnl": 4333,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.8333333333333361,
+      "split1_forced": false
+    }
+  },
+  "special_enso": {
+    "V130": {
+      "market": "KRW-ENSO",
+      "scanner": "AD",
+      "entry_ts": "2026-04-26 13:22:25",
+      "entry_price": 1428,
+      "peak": 1530,
+      "peak_pct": 7.142857142857142,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 1473.56,
+          "roi": 3.1904761904761867,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 1499.3999999999999,
+          "roi": 4.99999999999999
+        }
+      ],
+      "avg_roi": 3.9952380952380886,
+      "pnl": 9988,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 3.1904761904761867,
+      "split1_forced": false
+    },
+    "LadderB": {
+      "market": "KRW-ENSO",
+      "scanner": "AD",
+      "entry_ts": "2026-04-26 13:22:25",
+      "entry_price": 1428,
+      "peak": 1530,
+      "peak_pct": 7.142857142857142,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 1466.08,
+          "roi": 2.6666666666666616,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 1491.75,
+          "roi": 4.464285714285714
+        }
+      ],
+      "avg_roi": 3.465476190476188,
+      "pnl": 8664,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.6666666666666616,
+      "split1_forced": false
+    },
+    "LadderC": {
+      "market": "KRW-ENSO",
+      "scanner": "AD",
+      "entry_ts": "2026-04-26 13:22:25",
+      "entry_price": 1428,
+      "peak": 1530,
+      "peak_pct": 7.142857142857142,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 1466.08,
+          "roi": 2.6666666666666616,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 1484.1,
+          "roi": 3.928571428571422
+        }
+      ],
+      "avg_roi": 3.197619047619042,
+      "pnl": 7994,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.6666666666666616,
+      "split1_forced": false
+    },
+    "Hybrid": {
+      "market": "KRW-ENSO",
+      "scanner": "AD",
+      "entry_ts": "2026-04-26 13:22:25",
+      "entry_price": 1428,
+      "peak": 1530,
+      "peak_pct": 7.142857142857142,
+      "segments": [
+        {
+          "ratio": 0.5,
+          "price": 1458.6,
+          "roi": 2.1428571428571366,
+          "forced_cap": false
+        },
+        {
+          "ratio": 0.5,
+          "price": 1491.75,
+          "roi": 4.464285714285714
+        }
+      ],
+      "avg_roi": 3.203571428571425,
+      "pnl": 8009,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.1428571428571366,
+      "split1_forced": false
+    }
+  }
+}

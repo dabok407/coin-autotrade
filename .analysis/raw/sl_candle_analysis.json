@@ -1,0 +1,250 @@
+[
+  {
+    "mkt": "KRW-ZAMA",
+    "ts": "2026-04-20 09:00:07",
+    "entry": 41.9,
+    "max_high_pct": -0.95,
+    "min_low_pct": -3.1,
+    "first5_trough_pct": -3.1,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ONT",
+    "ts": "2026-04-20 09:05:35",
+    "entry": 117,
+    "max_high_pct": 2.56,
+    "min_low_pct": -3.42,
+    "first5_trough_pct": -1.71,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ORDER",
+    "ts": "2026-04-20 09:29:55",
+    "entry": 79.74,
+    "max_high_pct": 0.08,
+    "min_low_pct": -3.19,
+    "first5_trough_pct": -2.31,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-CFG",
+    "ts": "2026-04-21 09:00:32",
+    "entry": 395,
+    "max_high_pct": -0.25,
+    "min_low_pct": -7.85,
+    "first5_trough_pct": -3.04,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-CPOOL",
+    "ts": "2026-04-22 09:04:13",
+    "entry": 41.7,
+    "max_high_pct": -0.96,
+    "min_low_pct": -4.08,
+    "first5_trough_pct": -2.88,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ZAMA",
+    "ts": "2026-04-23 09:00:20",
+    "entry": 44.04,
+    "max_high_pct": 0.82,
+    "min_low_pct": -3.5,
+    "first5_trough_pct": -3.5,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-AXL",
+    "ts": "2026-04-24 09:00:39",
+    "entry": 90.5,
+    "max_high_pct": -1.88,
+    "min_low_pct": -6.3,
+    "first5_trough_pct": -5.3,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-CPOOL",
+    "ts": "2026-04-24 09:05:05",
+    "entry": 44.3,
+    "max_high_pct": 0,
+    "min_low_pct": -4.29,
+    "first5_trough_pct": -3.39,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-MET2",
+    "ts": "2026-04-24 09:06:06",
+    "entry": 266,
+    "max_high_pct": 1.5,
+    "min_low_pct": -3.01,
+    "first5_trough_pct": -0.38,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ZAMA",
+    "ts": "2026-04-25 09:00:08",
+    "entry": 51.7,
+    "max_high_pct": 0.97,
+    "min_low_pct": -9.67,
+    "first5_trough_pct": -5.42,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-RED",
+    "ts": "2026-04-25 09:05:08",
+    "entry": 214,
+    "max_high_pct": 0.47,
+    "min_low_pct": -4.67,
+    "first5_trough_pct": -0.93,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ZBT",
+    "ts": "2026-04-25 09:12:53",
+    "entry": 222,
+    "max_high_pct": 10.36,
+    "min_low_pct": -4.95,
+    "first5_trough_pct": -4.95,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ZKP",
+    "ts": "2026-04-25 09:34:23",
+    "entry": 122,
+    "max_high_pct": 0,
+    "min_low_pct": -4.1,
+    "first5_trough_pct": -4.1,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-HYPER",
+    "ts": "2026-04-26 09:01:44",
+    "entry": 247,
+    "max_high_pct": -0.4,
+    "min_low_pct": -13.36,
+    "first5_trough_pct": -8.91,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-SAFE",
+    "ts": "2026-04-26 09:43:47",
+    "entry": 241,
+    "max_high_pct": -0.83,
+    "min_low_pct": -7.88,
+    "first5_trough_pct": -6.22,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ORCA",
+    "ts": "2026-04-26 09:49:03",
+    "entry": 2036,
+    "max_high_pct": -0.34,
+    "min_low_pct": -5.65,
+    "first5_trough_pct": -3.59,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ZBT",
+    "ts": "2026-04-26 09:55:24",
+    "entry": 259,
+    "max_high_pct": 6.56,
+    "min_low_pct": -9.65,
+    "first5_trough_pct": 0.39,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-ORCA",
+    "ts": "2026-04-27 09:01:09",
+    "entry": 2068,
+    "max_high_pct": -4.01,
+    "min_low_pct": -10.4,
+    "first5_trough_pct": -8.12,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-FLUID",
+    "ts": "2026-04-27 09:15:54",
+    "entry": 6750,
+    "max_high_pct": -61.91,
+    "min_low_pct": -63.29,
+    "first5_trough_pct": -62.37,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-SPK",
+    "ts": "2026-04-27 09:34:26",
+    "entry": 158,
+    "max_high_pct": -63.23,
+    "min_low_pct": -65.13,
+    "first5_trough_pct": -64.81,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-PIEVERSE",
+    "ts": "2026-04-21 09:27:11",
+    "entry": 1503,
+    "max_high_pct": 1.2,
+    "min_low_pct": -3.93,
+    "first5_trough_pct": -1.66,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-CPOOL",
+    "ts": "2026-04-23 09:16:53",
+    "entry": 44.8,
+    "max_high_pct": 0,
+    "min_low_pct": -4.02,
+    "first5_trough_pct": -2.01,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-PLUME",
+    "ts": "2026-04-24 09:31:18",
+    "entry": 21.1,
+    "max_high_pct": -0.47,
+    "min_low_pct": -1.9,
+    "first5_trough_pct": -1.9,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-MET2",
+    "ts": "2026-04-24 09:43:23",
+    "entry": 269,
+    "max_high_pct": 1.86,
+    "min_low_pct": -0.74,
+    "first5_trough_pct": -0.74,
+    "entry_candle_upper_wick_pct": null,
+    "entry_vs_close_pct": null
+  },
+  {
+    "mkt": "KRW-MIRA",
+    "ts": "2026-04-26 09:43:13",
+    "entry": null,
+    "exit": null,
+    "candles": null,
+    "note": "skip - no entry price"
+  }
+]

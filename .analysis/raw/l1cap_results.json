@@ -1,0 +1,534 @@
+{
+  "meta": {
+    "generated": "2026-05-02T14:38:27.225Z",
+    "trades_n": 22,
+    "candles_fetched": 22,
+    "candles_failed": 0,
+    "fee_pct": 0.1,
+    "sl_tight_pct": 2.5,
+    "armed_thr": 1.5,
+    "l1_roi_floor": 0.3,
+    "split_ratio": 0.5,
+    "cooldown_ms": 60000,
+    "note_drop2nd_under2": "1.0 (실코드 cachedTrailAfterDropUnder2 기본값)",
+    "note_peak_reset": "split1 체결 후 peakAfterSplit1 = split1.price (실코드 pos[3]=price 반영)"
+  },
+  "cap_matrix": {
+    "NO_CAP": {
+      "cap": null,
+      "agg": {
+        "n": 22,
+        "wins": 11,
+        "wr": 50,
+        "totalPnl": -34585,
+        "capHit": 0,
+        "split1Hit": 10,
+        "avgSplit1Roi": 1.591,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 11,
+            "pnl": -71500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 10,
+            "pnl": 36441,
+            "wins": 10
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 0
+    },
+    "CAP_1p8": {
+      "cap": 1.8,
+      "agg": {
+        "n": 22,
+        "wins": 13,
+        "wr": 59.1,
+        "totalPnl": -10966,
+        "capHit": 10,
+        "split1Hit": 12,
+        "avgSplit1Roi": 1.709,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 9,
+            "pnl": -58500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 12,
+            "pnl": 47060,
+            "wins": 12
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 23619
+    },
+    "CAP_2p0": {
+      "cap": 2,
+      "agg": {
+        "n": 22,
+        "wins": 12,
+        "wr": 54.5,
+        "totalPnl": -17945,
+        "capHit": 9,
+        "split1Hit": 11,
+        "avgSplit1Roi": 1.864,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 10,
+            "pnl": -65000,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 11,
+            "pnl": 46581,
+            "wins": 11
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 16640
+    },
+    "CAP_2p1": {
+      "cap": 2.1,
+      "agg": {
+        "n": 22,
+        "wins": 11,
+        "wr": 50,
+        "totalPnl": -28481,
+        "capHit": 7,
+        "split1Hit": 10,
+        "avgSplit1Roi": 1.827,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 11,
+            "pnl": -71500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 10,
+            "pnl": 42545,
+            "wins": 10
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 6104
+    },
+    "CAP_2p2": {
+      "cap": 2.2,
+      "agg": {
+        "n": 22,
+        "wins": 11,
+        "wr": 50,
+        "totalPnl": -30430,
+        "capHit": 6,
+        "split1Hit": 10,
+        "avgSplit1Roi": 1.787,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 11,
+            "pnl": -71500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 10,
+            "pnl": 40596,
+            "wins": 10
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 4155
+    },
+    "CAP_2p3": {
+      "cap": 2.3,
+      "agg": {
+        "n": 22,
+        "wins": 11,
+        "wr": 50,
+        "totalPnl": -29556,
+        "capHit": 6,
+        "split1Hit": 10,
+        "avgSplit1Roi": 1.847,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 11,
+            "pnl": -71500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 10,
+            "pnl": 41470,
+            "wins": 10
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 5029
+    },
+    "CAP_2p4": {
+      "cap": 2.4,
+      "agg": {
+        "n": 22,
+        "wins": 11,
+        "wr": 50,
+        "totalPnl": -31990,
+        "capHit": 5,
+        "split1Hit": 10,
+        "avgSplit1Roi": 1.8,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 11,
+            "pnl": -71500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 10,
+            "pnl": 39036,
+            "wins": 10
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 2595
+    },
+    "CAP_2p5": {
+      "cap": 2.5,
+      "agg": {
+        "n": 22,
+        "wins": 11,
+        "wr": 50,
+        "totalPnl": -31241,
+        "capHit": 5,
+        "split1Hit": 10,
+        "avgSplit1Roi": 1.85,
+        "byReason": {
+          "SL_TIGHT": {
+            "n": 11,
+            "pnl": -71500,
+            "wins": 0
+          },
+          "SPLIT_2ND_TRAIL": {
+            "n": 10,
+            "pnl": 39785,
+            "wins": 10
+          },
+          "TIME_EXIT": {
+            "n": 1,
+            "pnl": 474,
+            "wins": 1
+          }
+        }
+      },
+      "delta_vs_no_cap": 3344
+    }
+  },
+  "individual_no_cap": [
+    {
+      "market": "KRW-DKA",
+      "scanner": "MR",
+      "entry_ts": "2026-04-29 09:01:07",
+      "peak_pct": 1.6146393972012958,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -287,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-OPEN",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:26:10",
+      "peak_pct": 4.444444444444445,
+      "pnl": 7597,
+      "avg_roi": 3.039,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 2.878,
+      "actual_pnl": -865,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-SOON",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:30:27",
+      "peak_pct": 0.7604562737642585,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -6776,
+      "actual_exit": "SL_TIGHT"
+    },
+    {
+      "market": "KRW-XCN",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:38:47",
+      "peak_pct": 3.1215161649944183,
+      "pnl": 3641,
+      "avg_roi": 1.457,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.575,
+      "actual_pnl": 3385,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-CHZ",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 09:59:37",
+      "peak_pct": 0.5788712011577507,
+      "pnl": 474,
+      "avg_roi": 0.189,
+      "reason": "TIME_EXIT",
+      "split1_roi": null,
+      "actual_pnl": 960,
+      "actual_exit": "OPEN_TIME_EXIT"
+    },
+    {
+      "market": "KRW-HYPER",
+      "scanner": "OP",
+      "entry_ts": "2026-04-29 10:05:59",
+      "peak_pct": 1.06951871657754,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -5470,
+      "actual_exit": "SL_TIGHT"
+    },
+    {
+      "market": "KRW-DRIFT",
+      "scanner": "AD",
+      "entry_ts": "2026-04-29 10:33:10",
+      "peak_pct": 0.15810251955272106,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -7591,
+      "actual_exit": "?"
+    },
+    {
+      "market": "KRW-CHIP",
+      "scanner": "OP",
+      "entry_ts": "2026-04-30 09:07:49",
+      "peak_pct": 2.123356926188063,
+      "pnl": 1254,
+      "avg_roi": 0.502,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.102,
+      "actual_pnl": 1341,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-MOODENG",
+      "scanner": "OP",
+      "entry_ts": "2026-04-30 09:37:37",
+      "peak_pct": 2.078774617067824,
+      "pnl": 3626,
+      "avg_roi": 1.45,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.058,
+      "actual_pnl": 3811,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-ZBT",
+      "scanner": "OP",
+      "entry_ts": "2026-04-30 09:55:31",
+      "peak_pct": 1.7857142857142856,
+      "pnl": 3190,
+      "avg_roi": 1.276,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.277,
+      "actual_pnl": 2374,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-ENSO",
+      "scanner": "MR",
+      "entry_ts": "2026-05-01 09:01:38",
+      "peak_pct": 2.361199744735163,
+      "pnl": 2067,
+      "avg_roi": 0.827,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.338,
+      "actual_pnl": 2107,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-API3",
+      "scanner": "MR",
+      "entry_ts": "2026-05-01 09:03:28",
+      "peak_pct": 3.454231433506045,
+      "pnl": 4511,
+      "avg_roi": 1.805,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.902,
+      "actual_pnl": 943,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-RAY",
+      "scanner": "OP",
+      "entry_ts": "2026-05-01 09:08:22",
+      "peak_pct": 1.2195121951219512,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -7235,
+      "actual_exit": "SL_WIDE"
+    },
+    {
+      "market": "KRW-ZETA",
+      "scanner": "OP",
+      "entry_ts": "2026-05-01 09:30:07",
+      "peak_pct": 1.4460511679644017,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -6240,
+      "actual_exit": "SL_TIGHT"
+    },
+    {
+      "market": "KRW-TOKAMAK",
+      "scanner": "OP",
+      "entry_ts": "2026-05-01 09:42:28",
+      "peak_pct": 2.784503631961259,
+      "pnl": 3692,
+      "avg_roi": 1.477,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.757,
+      "actual_pnl": 2598,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-OPEN",
+      "scanner": "OP",
+      "entry_ts": "2026-05-01 09:43:58",
+      "peak_pct": 0.48426150121065376,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -6175,
+      "actual_exit": "SL_TIGHT"
+    },
+    {
+      "market": "KRW-DRIFT",
+      "scanner": "OP",
+      "entry_ts": "2026-05-01 09:52:18",
+      "peak_pct": 1.910828025477704,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -14714,
+      "actual_exit": "OPEN_SL_WIDE"
+    },
+    {
+      "market": "KRW-PRL",
+      "scanner": "MR",
+      "entry_ts": "2026-05-02 09:01:25",
+      "peak_pct": 2.8205128205128207,
+      "pnl": 4548,
+      "avg_roi": 1.819,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.792,
+      "actual_pnl": 2309,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-AXS",
+      "scanner": "OP",
+      "entry_ts": "2026-05-02 09:06:37",
+      "peak_pct": 2.0982741817919965,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -6050,
+      "actual_exit": "SL_TIGHT"
+    },
+    {
+      "market": "KRW-BLEND",
+      "scanner": "OP",
+      "entry_ts": "2026-05-02 09:07:17",
+      "peak_pct": 0,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": 4421,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-CHIP",
+      "scanner": "OP",
+      "entry_ts": "2026-05-02 09:32:57",
+      "peak_pct": 1.738241308793459,
+      "pnl": 2315,
+      "avg_roi": 0.926,
+      "reason": "SPLIT_2ND_TRAIL",
+      "split1_roi": 1.23,
+      "actual_pnl": 2124,
+      "actual_exit": "SPLIT_2ND_TRAIL"
+    },
+    {
+      "market": "KRW-MANTRA",
+      "scanner": "OP",
+      "entry_ts": "2026-05-02 09:54:29",
+      "peak_pct": 0,
+      "pnl": -6500,
+      "avg_roi": -2.6,
+      "reason": "SL_TIGHT",
+      "split1_roi": null,
+      "actual_pnl": -6573,
+      "actual_exit": "SL_TIGHT"
+    }
+  ],
+  "diff_analysis": {
+    "agent_b_v130_pnl": -10885,
+    "agent_b_cap20_pnl": -6514,
+    "agent_b_cap20_delta": 4371,
+    "agent_d_27trades_s0_pnl": 32227,
+    "agent_d_22trades_s0_pnl": -10885,
+    "agent_d_27trades_cap20_pnl": 24956,
+    "agent_d_27trades_cap20_delta": -7271,
+    "root_cause": "27건과 22건의 혼동: Agent D의 32,227은 V130전 대박5건 포함. 캡 방향 역전은 대박 거래에 캡이 걸린 것."
+  }
+}

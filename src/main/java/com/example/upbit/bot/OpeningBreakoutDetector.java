@@ -115,6 +115,11 @@ public class OpeningBreakoutDetector {
 
     // V130 ④: SPLIT_1ST roi 하한선. 0=비활성(V129 동작).
     private volatile double split1stRoiFloorPct = 0.30;
+    // V131 Phase 1: L1 강제 익절 캡 (사용자 첫 의견, V130 호환 default 0)
+    private volatile double l1CapPct = 0.0;
+    // V133 Phase 3: BEV 보장 (V130 호환 default 비활성)
+    private volatile boolean bevGuardEnabled = false;
+    private volatile double bevTriggerPct = 5.0;
 
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
@@ -166,6 +171,11 @@ public class OpeningBreakoutDetector {
 
     /** V130 ④: SPLIT_1ST roi 하한선 설정. 0=비활성. */
     public void setSplit1stRoiFloorPct(double pct) { this.split1stRoiFloorPct = pct; }
+    public void setL1CapPct(double pct) { this.l1CapPct = pct; }
+    public void setBevGuard(boolean enabled, double triggerPct) {
+        this.bevGuardEnabled = enabled;
+        this.bevTriggerPct = triggerPct;
+    }
 
     /**
      * V130 ①: peak% 구간별 drop 임계값 반환.
@@ -612,25 +622,39 @@ public class OpeningBreakoutDetector {
         String sellType = null;
         String reason = null;
 
-        // 1. SL 종합안 체크 (DB 설정값 + TOP-N 차등)
-        if (elapsedMs < cachedWidePeriodMs) {
-            // SL_WIDE — TOP-N 차등
-            double wideSlPct = getWideSlForRank(volumeRank);
-            if (pnlPct <= -wideSlPct) {
-                sellType = "SL_WIDE";
+        // V133 Phase 3: BEV 보장 — 큰추세(peak 5%+) 후 음전 시 즉시 매도 (SL보다 우선)
+        if (bevGuardEnabled && peak > avgPrice && pnlPct < 0) {
+            double peakPnlPct = (peak - avgPrice) / avgPrice * 100.0;
+            if (peakPnlPct >= bevTriggerPct) {
                 double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                sellType = "BEV_GUARD";
                 reason = String.format(java.util.Locale.ROOT,
-                        "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f rank=%d trough=%.2f troughPnl=%.2f%% (realtime)",
-                        pnlPct, wideSlPct, price, avgPrice, volumeRank, trough, troughPnl);
+                        "BEV_GUARD peakPnl=%.2f%% >= %.2f%% pnl=%.2f%% < 0 price=%.2f avg=%.2f peak=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                        peakPnlPct, bevTriggerPct, pnlPct, price, avgPrice, peak, trough, troughPnl);
             }
-        } else {
-            // SL_TIGHT — 단일
-            if (pnlPct <= -cachedTightSlPct) {
-                sellType = "SL_TIGHT";
-                double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
-                reason = String.format(java.util.Locale.ROOT,
-                        "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                        pnlPct, cachedTightSlPct, price, avgPrice, trough, troughPnl);
+        }
+
+        // 1. SL 종합안 체크 (DB 설정값 + TOP-N 차등) — sellType 미정 시만
+        if (sellType == null) {
+            if (elapsedMs < cachedWidePeriodMs) {
+                // SL_WIDE — TOP-N 차등
+                double wideSlPct = getWideSlForRank(volumeRank);
+                if (pnlPct <= -wideSlPct) {
+                    sellType = "SL_WIDE";
+                    double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                    reason = String.format(java.util.Locale.ROOT,
+                            "SL_WIDE pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f rank=%d trough=%.2f troughPnl=%.2f%% (realtime)",
+                            pnlPct, wideSlPct, price, avgPrice, volumeRank, trough, troughPnl);
+                }
+            } else {
+                // SL_TIGHT — 단일
+                if (pnlPct <= -cachedTightSlPct) {
+                    sellType = "SL_TIGHT";
+                    double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                    reason = String.format(java.util.Locale.ROOT,
+                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            pnlPct, cachedTightSlPct, price, avgPrice, trough, troughPnl);
+                }
             }
         }
 
@@ -654,12 +678,16 @@ public class OpeningBreakoutDetector {
                 double dropThreshold1st = getDropForPeak(avgPrice, peak, false);
                 // V130 ④: roi 하한선 — current_roi < floor이면 SPLIT_1ST 차단
                 boolean roiFloorOk = (split1stRoiFloorPct <= 0) || (pnlPct >= split1stRoiFloorPct);
-                if (dropFromPeak >= dropThreshold1st && roiFloorOk) {
+                // V131 Phase 1: L1 강제 익절 캡
+                boolean l1CapHit = (l1CapPct > 0) && (pnlPct >= l1CapPct);
+                boolean trailHit = dropFromPeak >= dropThreshold1st && roiFloorOk;
+                if (l1CapHit || trailHit) {
                     double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
                     sellType = "SPLIT_1ST";
+                    String reasonTag = l1CapHit ? "SPLIT_1ST_L1_CAP" : "SPLIT_1ST_TRAIL";
                     reason = String.format(java.util.Locale.ROOT,
-                            "SPLIT_1ST_TRAIL avg=%.2f peak=%.2f now=%.2f drop=%.2f%% >= %.2f%% pnl=+%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
-                            avgPrice, peak, price, dropFromPeak, dropThreshold1st, pnlPct, splitRatio * 100, trough, troughPnl);
+                            "%s avg=%.2f peak=%.2f now=%.2f drop=%.2f%% th=%.2f%% pnl=+%.2f%% cap=%.2f%% ratio=%.0f%% trough=%.2f troughPnl=%.2f%% (realtime)",
+                            reasonTag, avgPrice, peak, price, dropFromPeak, dropThreshold1st, pnlPct, l1CapPct, splitRatio * 100, trough, troughPnl);
                 } else if (!roiFloorOk) {
                     log.debug("[BreakoutDetector] SPLIT_1ST roi_floor blocked: {} pnl={}% < floor={}%",
                             market, String.format(java.util.Locale.ROOT, "%.2f", pnlPct), split1stRoiFloorPct);

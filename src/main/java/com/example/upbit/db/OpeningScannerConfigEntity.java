@@ -366,6 +366,45 @@ public class OpeningScannerConfigEntity {
     @Column(name = "split_1st_roi_floor_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal split1stRoiFloorPct = BigDecimal.valueOf(0.30);
 
+    // ── V131 Phase 1: OP 진입 필터 (DRIFT류 차단) ──
+    // Entity default는 V130 호환(2.0/0/0)으로 두고, V131 마이그레이션 UPDATE로 운영값(3.5/5.0/2.0) 적용.
+    // 이유: 기존 테스트가 V130 default 동작을 가정하므로 default 변경 시 회귀 발생.
+    /** quickScore가 이 값 미만이면 진입 차단. 기존 V130 하드코딩 2.0과 동일 default. 0=비활성. */
+    @Column(name = "min_qs_score", nullable = false, precision = 4, scale = 2)
+    private BigDecimal minQsScore = BigDecimal.valueOf(2.0);
+
+    /** vol multiplier(20봉 평균 대비)가 이 값 미만이면 진입 차단. default 0=비활성(V130 호환). */
+    @Column(name = "min_vol_mult", nullable = false, precision = 4, scale = 2)
+    private BigDecimal minVolMult = BigDecimal.valueOf(0.0);
+
+    /** V131 Phase 1: L1 강제 익절 캡 — armed 후 ROI 도달 시 강제 split1 매도. default 0=비활성(V130 호환). */
+    @Column(name = "l1_cap_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal l1CapPct = BigDecimal.valueOf(0.0);
+
+    // ── V132 Phase 2: 동적 ATR SL ──
+    // 진입 시점 ATR(14, 1분봉) → dynamic_sl_pct = clamp(atr_pct * mult, min, max)
+    // Entity default false=비활성(V130 호환). V132 마이그레이션에서 TRUE로 활성화.
+    @Column(name = "sl_atr_enabled", nullable = false)
+    private boolean slAtrEnabled = false;
+
+    @Column(name = "sl_atr_mult", nullable = false, precision = 4, scale = 2)
+    private BigDecimal slAtrMult = BigDecimal.valueOf(1.5);
+
+    @Column(name = "sl_atr_min_pct", nullable = false, precision = 4, scale = 2)
+    private BigDecimal slAtrMinPct = BigDecimal.valueOf(1.5);
+
+    @Column(name = "sl_atr_max_pct", nullable = false, precision = 4, scale = 2)
+    private BigDecimal slAtrMaxPct = BigDecimal.valueOf(3.5);
+
+    // ── V133 Phase 3: BEV 보장 (큰추세 음전 차단) ──
+    // peak가 bev_trigger_pct(default 5.0) 도달한 종목이 ROI < 0으로 가면 즉시 매도.
+    // Entity default false=비활성(V130 호환). V133 마이그레이션 UPDATE로 TRUE 활성화.
+    @Column(name = "bev_guard_enabled", nullable = false)
+    private boolean bevGuardEnabled = false;
+
+    @Column(name = "bev_trigger_pct", nullable = false, precision = 4, scale = 2)
+    private BigDecimal bevTriggerPct = BigDecimal.valueOf(5.0);
+
     public BigDecimal getSplit1stDropUnder2() { return split1stDropUnder2; }
     public void setSplit1stDropUnder2(BigDecimal v) { this.split1stDropUnder2 = v != null ? v : BigDecimal.valueOf(0.50); }
 
@@ -398,6 +437,53 @@ public class OpeningScannerConfigEntity {
 
     public BigDecimal getSplit1stRoiFloorPct() { return split1stRoiFloorPct; }
     public void setSplit1stRoiFloorPct(BigDecimal v) { this.split1stRoiFloorPct = v != null ? v : BigDecimal.ZERO; }
+
+    // ── V131 Phase 1: 진입 필터 getter/setter ──
+    public BigDecimal getMinQsScore() { return minQsScore; }
+    public void setMinQsScore(BigDecimal v) { this.minQsScore = v != null ? v : BigDecimal.valueOf(2.0); }
+
+    public BigDecimal getMinVolMult() { return minVolMult; }
+    public void setMinVolMult(BigDecimal v) { this.minVolMult = v != null ? v : BigDecimal.ZERO; }
+
+    public BigDecimal getL1CapPct() { return l1CapPct; }
+    public void setL1CapPct(BigDecimal v) { this.l1CapPct = v != null ? v : BigDecimal.ZERO; }
+
+    // ── V132 Phase 2: ATR SL getter/setter ──
+    public boolean isSlAtrEnabled() { return slAtrEnabled; }
+    public void setSlAtrEnabled(boolean v) { this.slAtrEnabled = v; }
+
+    public BigDecimal getSlAtrMult() { return slAtrMult; }
+    public void setSlAtrMult(BigDecimal v) { this.slAtrMult = v != null ? v : BigDecimal.valueOf(1.5); }
+
+    public BigDecimal getSlAtrMinPct() { return slAtrMinPct; }
+    public void setSlAtrMinPct(BigDecimal v) { this.slAtrMinPct = v != null ? v : BigDecimal.valueOf(1.5); }
+
+    public BigDecimal getSlAtrMaxPct() { return slAtrMaxPct; }
+    public void setSlAtrMaxPct(BigDecimal v) { this.slAtrMaxPct = v != null ? v : BigDecimal.valueOf(3.5); }
+
+    // ── V133 Phase 3: BEV 보장 getter/setter ──
+    public boolean isBevGuardEnabled() { return bevGuardEnabled; }
+    public void setBevGuardEnabled(boolean v) { this.bevGuardEnabled = v; }
+    public BigDecimal getBevTriggerPct() { return bevTriggerPct; }
+    public void setBevTriggerPct(BigDecimal v) { this.bevTriggerPct = v != null ? v : BigDecimal.valueOf(5.0); }
+
+    /**
+     * V132 Phase 2: 진입 시점 ATR%를 받아 동적 SL_TIGHT% 계산.
+     * sl_atr_enabled=false면 기존 cachedTightSlPct fallback (호환성).
+     * @param atrPct 진입가 대비 ATR(14, 1분봉) %
+     * @param fallbackSlPct sl_atr_enabled=false 또는 atrPct<=0이면 사용할 기존 SL
+     * @return 동적 SL_TIGHT %
+     */
+    public double computeDynamicSlPct(double atrPct, double fallbackSlPct) {
+        if (!slAtrEnabled || atrPct <= 0) return fallbackSlPct;
+        double mult = slAtrMult.doubleValue();
+        double min = slAtrMinPct.doubleValue();
+        double max = slAtrMaxPct.doubleValue();
+        double v = atrPct * mult;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        return v;
+    }
 
     /**
      * V130 ①: peak% 구간에 따라 적용할 drop 임계값을 반환.

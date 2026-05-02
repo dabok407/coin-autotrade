@@ -1,0 +1,8666 @@
+{
+  "by_date": {
+    "2026-04-29": [
+      {
+        "market": "KRW-WAXP",
+        "open": 10,
+        "high": 10.1,
+        "close": 9.91,
+        "intradayUpPct": 1,
+        "closeChgPct": -0.9
+      },
+      {
+        "market": "KRW-CARV",
+        "open": 87.1,
+        "high": 87.3,
+        "close": 84.5,
+        "intradayUpPct": 0.23,
+        "closeChgPct": -2.99
+      },
+      {
+        "market": "KRW-LSK",
+        "open": 194,
+        "high": 194,
+        "close": 188,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.09
+      },
+      {
+        "market": "KRW-0G",
+        "open": 825,
+        "high": 832,
+        "close": 825,
+        "intradayUpPct": 0.85,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-BORA",
+        "open": 54,
+        "high": 54.6,
+        "close": 53.9,
+        "intradayUpPct": 1.11,
+        "closeChgPct": -0.19
+      },
+      {
+        "market": "KRW-PUNDIX",
+        "open": 224,
+        "high": 227,
+        "close": 221,
+        "intradayUpPct": 1.34,
+        "closeChgPct": -1.34
+      },
+      {
+        "market": "KRW-USD1",
+        "open": 1489,
+        "high": 1500,
+        "close": 1496,
+        "intradayUpPct": 0.74,
+        "closeChgPct": 0.47
+      },
+      {
+        "market": "KRW-BAT",
+        "open": 149,
+        "high": 152,
+        "close": 147,
+        "intradayUpPct": 2.01,
+        "closeChgPct": -1.34
+      },
+      {
+        "market": "KRW-HUNT",
+        "open": 152,
+        "high": 154,
+        "close": 151,
+        "intradayUpPct": 1.32,
+        "closeChgPct": -0.66
+      },
+      {
+        "market": "KRW-PENGU",
+        "open": 15.2,
+        "high": 15.6,
+        "close": 14.6,
+        "intradayUpPct": 2.63,
+        "closeChgPct": -3.95
+      },
+      {
+        "market": "KRW-BEAM",
+        "open": 2.92,
+        "high": 2.92,
+        "close": 2.86,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.05
+      },
+      {
+        "market": "KRW-DOOD",
+        "open": 4.79,
+        "high": 5.11,
+        "close": 4.74,
+        "intradayUpPct": 6.68,
+        "closeChgPct": -1.04
+      },
+      {
+        "market": "KRW-WAVES",
+        "open": 614,
+        "high": 617,
+        "close": 610,
+        "intradayUpPct": 0.49,
+        "closeChgPct": -0.65
+      },
+      {
+        "market": "KRW-USDC",
+        "open": 1485,
+        "high": 1500,
+        "close": 1494,
+        "intradayUpPct": 1.01,
+        "closeChgPct": 0.61
+      },
+      {
+        "market": "KRW-MOVE",
+        "open": 26.5,
+        "high": 27,
+        "close": 25.9,
+        "intradayUpPct": 1.89,
+        "closeChgPct": -2.26
+      },
+      {
+        "market": "KRW-TREE",
+        "open": 105,
+        "high": 105,
+        "close": 102,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.86
+      },
+      {
+        "market": "KRW-USDE",
+        "open": 1481,
+        "high": 1502,
+        "close": 1497,
+        "intradayUpPct": 1.42,
+        "closeChgPct": 1.08
+      },
+      {
+        "market": "KRW-AERGO",
+        "open": 84.1,
+        "high": 86.5,
+        "close": 85.6,
+        "intradayUpPct": 2.85,
+        "closeChgPct": 1.78
+      },
+      {
+        "market": "KRW-WET",
+        "open": 143,
+        "high": 144,
+        "close": 141,
+        "intradayUpPct": 0.7,
+        "closeChgPct": -1.4
+      },
+      {
+        "market": "KRW-USDT",
+        "open": 1485,
+        "high": 1499,
+        "close": 1496,
+        "intradayUpPct": 0.94,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-2Z",
+        "open": 127,
+        "high": 129,
+        "close": 123,
+        "intradayUpPct": 1.57,
+        "closeChgPct": -3.15
+      },
+      {
+        "market": "KRW-BOUNTY",
+        "open": 31.3,
+        "high": 31.6,
+        "close": 31.1,
+        "intradayUpPct": 0.96,
+        "closeChgPct": -0.64
+      },
+      {
+        "market": "KRW-KAITO",
+        "open": 627,
+        "high": 659,
+        "close": 652,
+        "intradayUpPct": 5.1,
+        "closeChgPct": 3.99
+      },
+      {
+        "market": "KRW-LPT",
+        "open": 3159,
+        "high": 3219,
+        "close": 3121,
+        "intradayUpPct": 1.9,
+        "closeChgPct": -1.2
+      },
+      {
+        "market": "KRW-BLAST",
+        "open": 0.736,
+        "high": 0.795,
+        "close": 0.752,
+        "intradayUpPct": 8.02,
+        "closeChgPct": 2.17
+      },
+      {
+        "market": "KRW-ETHFI",
+        "open": 632,
+        "high": 648,
+        "close": 617,
+        "intradayUpPct": 2.53,
+        "closeChgPct": -2.37
+      },
+      {
+        "market": "KRW-DKA",
+        "open": 8.74,
+        "high": 9.5,
+        "close": 8.89,
+        "intradayUpPct": 8.7,
+        "closeChgPct": 1.72
+      },
+      {
+        "market": "KRW-ANKR",
+        "open": 7.44,
+        "high": 7.5,
+        "close": 7.15,
+        "intradayUpPct": 0.81,
+        "closeChgPct": -3.9
+      },
+      {
+        "market": "KRW-ALGO",
+        "open": 166,
+        "high": 170,
+        "close": 165,
+        "intradayUpPct": 2.41,
+        "closeChgPct": -0.6
+      },
+      {
+        "market": "KRW-UNI",
+        "open": 4818,
+        "high": 4940,
+        "close": 4778,
+        "intradayUpPct": 2.53,
+        "closeChgPct": -0.83
+      },
+      {
+        "market": "KRW-BIO",
+        "open": 54.1,
+        "high": 54.8,
+        "close": 50.6,
+        "intradayUpPct": 1.29,
+        "closeChgPct": -6.47
+      },
+      {
+        "market": "KRW-WLFI",
+        "open": 110,
+        "high": 110,
+        "close": 94.5,
+        "intradayUpPct": 0,
+        "closeChgPct": -14.09
+      },
+      {
+        "market": "KRW-TOKAMAK",
+        "open": 820,
+        "high": 840,
+        "close": 765,
+        "intradayUpPct": 2.44,
+        "closeChgPct": -6.71
+      },
+      {
+        "market": "KRW-SKY",
+        "open": 128,
+        "high": 130,
+        "close": 123,
+        "intradayUpPct": 1.56,
+        "closeChgPct": -3.91
+      },
+      {
+        "market": "KRW-CYBER",
+        "open": 798,
+        "high": 810,
+        "close": 784,
+        "intradayUpPct": 1.5,
+        "closeChgPct": -1.75
+      },
+      {
+        "market": "KRW-SKR",
+        "open": 24.3,
+        "high": 24.5,
+        "close": 23.6,
+        "intradayUpPct": 0.82,
+        "closeChgPct": -2.88
+      },
+      {
+        "market": "KRW-WLD",
+        "open": 374,
+        "high": 381,
+        "close": 371,
+        "intradayUpPct": 1.87,
+        "closeChgPct": -0.8
+      },
+      {
+        "market": "KRW-PEPE",
+        "open": 0.00576,
+        "high": 0.00617,
+        "close": 0.00577,
+        "intradayUpPct": 7.12,
+        "closeChgPct": 0.17
+      },
+      {
+        "market": "KRW-HBAR",
+        "open": 133,
+        "high": 135,
+        "close": 132,
+        "intradayUpPct": 1.5,
+        "closeChgPct": -0.75
+      },
+      {
+        "market": "KRW-BCH",
+        "open": 674000,
+        "high": 676500,
+        "close": 669000,
+        "intradayUpPct": 0.37,
+        "closeChgPct": -0.74
+      },
+      {
+        "market": "KRW-NEWT",
+        "open": 116,
+        "high": 117,
+        "close": 113,
+        "intradayUpPct": 0.86,
+        "closeChgPct": -2.59
+      },
+      {
+        "market": "KRW-SEI",
+        "open": 87.9,
+        "high": 89.3,
+        "close": 86.4,
+        "intradayUpPct": 1.59,
+        "closeChgPct": -1.71
+      },
+      {
+        "market": "KRW-JST",
+        "open": 126,
+        "high": 130,
+        "close": 130,
+        "intradayUpPct": 3.17,
+        "closeChgPct": 3.17
+      },
+      {
+        "market": "KRW-AAVE",
+        "open": 143400,
+        "high": 146400,
+        "close": 139400,
+        "intradayUpPct": 2.09,
+        "closeChgPct": -2.79
+      },
+      {
+        "market": "KRW-JTO",
+        "open": 503,
+        "high": 516,
+        "close": 509,
+        "intradayUpPct": 2.58,
+        "closeChgPct": 1.19
+      },
+      {
+        "market": "KRW-JUP",
+        "open": 280,
+        "high": 285,
+        "close": 273,
+        "intradayUpPct": 1.79,
+        "closeChgPct": -2.5
+      },
+      {
+        "market": "KRW-PIEVERSE",
+        "open": 1074,
+        "high": 1195,
+        "close": 1140,
+        "intradayUpPct": 11.27,
+        "closeChgPct": 6.15
+      },
+      {
+        "market": "KRW-ALT",
+        "open": 11.1,
+        "high": 12.4,
+        "close": 11.6,
+        "intradayUpPct": 11.71,
+        "closeChgPct": 4.5
+      },
+      {
+        "market": "KRW-LAYER",
+        "open": 124,
+        "high": 129,
+        "close": 124,
+        "intradayUpPct": 4.03,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TRX",
+        "open": 481,
+        "high": 486,
+        "close": 483,
+        "intradayUpPct": 1.04,
+        "closeChgPct": 0.42
+      },
+      {
+        "market": "KRW-POWR",
+        "open": 96.2,
+        "high": 97.2,
+        "close": 93.4,
+        "intradayUpPct": 1.04,
+        "closeChgPct": -2.91
+      },
+      {
+        "market": "KRW-ATOM",
+        "open": 2898,
+        "high": 2956,
+        "close": 2886,
+        "intradayUpPct": 2,
+        "closeChgPct": -0.41
+      },
+      {
+        "market": "KRW-ARKM",
+        "open": 167,
+        "high": 170,
+        "close": 165,
+        "intradayUpPct": 1.8,
+        "closeChgPct": -1.2
+      },
+      {
+        "market": "KRW-CRO",
+        "open": 103,
+        "high": 104,
+        "close": 102,
+        "intradayUpPct": 0.97,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-NXPC",
+        "open": 445,
+        "high": 448,
+        "close": 442,
+        "intradayUpPct": 0.67,
+        "closeChgPct": -0.67
+      },
+      {
+        "market": "KRW-A",
+        "open": 138,
+        "high": 147,
+        "close": 141,
+        "intradayUpPct": 6.52,
+        "closeChgPct": 2.17
+      },
+      {
+        "market": "KRW-TRUMP",
+        "open": 3695,
+        "high": 3734,
+        "close": 3577,
+        "intradayUpPct": 1.06,
+        "closeChgPct": -3.19
+      },
+      {
+        "market": "KRW-F",
+        "open": 8.31,
+        "high": 8.38,
+        "close": 8.12,
+        "intradayUpPct": 0.84,
+        "closeChgPct": -2.29
+      },
+      {
+        "market": "KRW-G",
+        "open": 5.41,
+        "high": 5.49,
+        "close": 5.4,
+        "intradayUpPct": 1.48,
+        "closeChgPct": -0.18
+      },
+      {
+        "market": "KRW-CELO",
+        "open": 132,
+        "high": 134,
+        "close": 130,
+        "intradayUpPct": 1.52,
+        "closeChgPct": -1.52
+      },
+      {
+        "market": "KRW-AERO",
+        "open": 680,
+        "high": 743,
+        "close": 708,
+        "intradayUpPct": 9.26,
+        "closeChgPct": 4.12
+      },
+      {
+        "market": "KRW-CTC",
+        "open": 217,
+        "high": 219,
+        "close": 217,
+        "intradayUpPct": 0.92,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ANIME",
+        "open": 7.09,
+        "high": 7.18,
+        "close": 7,
+        "intradayUpPct": 1.27,
+        "closeChgPct": -1.27
+      },
+      {
+        "market": "KRW-APT",
+        "open": 1433,
+        "high": 1500,
+        "close": 1483,
+        "intradayUpPct": 4.68,
+        "closeChgPct": 3.49
+      },
+      {
+        "market": "KRW-MOCA",
+        "open": 21.4,
+        "high": 21.4,
+        "close": 20.4,
+        "intradayUpPct": 0,
+        "closeChgPct": -4.67
+      },
+      {
+        "market": "KRW-API3",
+        "open": 529,
+        "high": 634,
+        "close": 553,
+        "intradayUpPct": 19.85,
+        "closeChgPct": 4.54
+      },
+      {
+        "market": "KRW-AHT",
+        "open": 2.27,
+        "high": 2.29,
+        "close": 2.26,
+        "intradayUpPct": 0.88,
+        "closeChgPct": -0.44
+      },
+      {
+        "market": "KRW-EGLD",
+        "open": 6260,
+        "high": 6400,
+        "close": 6180,
+        "intradayUpPct": 2.24,
+        "closeChgPct": -1.28
+      },
+      {
+        "market": "KRW-BLEND",
+        "open": 123,
+        "high": 370,
+        "close": 251,
+        "intradayUpPct": 200.81,
+        "closeChgPct": 104.07
+      },
+      {
+        "market": "KRW-ERA",
+        "open": 216,
+        "high": 216,
+        "close": 212,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.85
+      },
+      {
+        "market": "KRW-FF",
+        "open": 98.2,
+        "high": 98.3,
+        "close": 95.4,
+        "intradayUpPct": 0.1,
+        "closeChgPct": -2.85
+      },
+      {
+        "market": "KRW-PLUME",
+        "open": 18.5,
+        "high": 19,
+        "close": 17.7,
+        "intradayUpPct": 2.7,
+        "closeChgPct": -4.32
+      },
+      {
+        "market": "KRW-ESP",
+        "open": 101,
+        "high": 102,
+        "close": 102,
+        "intradayUpPct": 0.99,
+        "closeChgPct": 0.99
+      },
+      {
+        "market": "KRW-CC",
+        "open": 221,
+        "high": 230,
+        "close": 226,
+        "intradayUpPct": 4.07,
+        "closeChgPct": 2.26
+      },
+      {
+        "market": "KRW-NEO",
+        "open": 4240,
+        "high": 4261,
+        "close": 4121,
+        "intradayUpPct": 0.5,
+        "closeChgPct": -2.81
+      },
+      {
+        "market": "KRW-ETC",
+        "open": 12470,
+        "high": 12770,
+        "close": 12480,
+        "intradayUpPct": 2.41,
+        "closeChgPct": 0.08
+      },
+      {
+        "market": "KRW-IOTA",
+        "open": 83.1,
+        "high": 85.9,
+        "close": 82.5,
+        "intradayUpPct": 3.37,
+        "closeChgPct": -0.72
+      },
+      {
+        "market": "KRW-AKT",
+        "open": 730,
+        "high": 785,
+        "close": 772,
+        "intradayUpPct": 7.53,
+        "closeChgPct": 5.75
+      },
+      {
+        "market": "KRW-COW",
+        "open": 278,
+        "high": 284,
+        "close": 279,
+        "intradayUpPct": 2.16,
+        "closeChgPct": 0.36
+      },
+      {
+        "market": "KRW-VIRTUAL",
+        "open": 1026,
+        "high": 1077,
+        "close": 1029,
+        "intradayUpPct": 4.97,
+        "closeChgPct": 0.29
+      },
+      {
+        "market": "KRW-ETH",
+        "open": 3401000,
+        "high": 3482000,
+        "close": 3372000,
+        "intradayUpPct": 2.38,
+        "closeChgPct": -0.85
+      },
+      {
+        "market": "KRW-IQ",
+        "open": 1.61,
+        "high": 1.63,
+        "close": 1.6,
+        "intradayUpPct": 1.24,
+        "closeChgPct": -0.62
+      },
+      {
+        "market": "KRW-IP",
+        "open": 749,
+        "high": 757,
+        "close": 730,
+        "intradayUpPct": 1.07,
+        "closeChgPct": -2.54
+      },
+      {
+        "market": "KRW-NEAR",
+        "open": 2000,
+        "high": 2040,
+        "close": 1988,
+        "intradayUpPct": 2,
+        "closeChgPct": -0.6
+      },
+      {
+        "market": "KRW-RVN",
+        "open": 8.81,
+        "high": 8.88,
+        "close": 8.7,
+        "intradayUpPct": 0.79,
+        "closeChgPct": -1.25
+      },
+      {
+        "market": "KRW-PRL",
+        "open": 530,
+        "high": 574,
+        "close": 470,
+        "intradayUpPct": 8.3,
+        "closeChgPct": -11.32
+      },
+      {
+        "market": "KRW-AGLD",
+        "open": 389,
+        "high": 393,
+        "close": 380,
+        "intradayUpPct": 1.03,
+        "closeChgPct": -2.31
+      },
+      {
+        "market": "KRW-ID",
+        "open": 46.2,
+        "high": 46.5,
+        "close": 45.1,
+        "intradayUpPct": 0.65,
+        "closeChgPct": -2.38
+      },
+      {
+        "market": "KRW-IN",
+        "open": 99.5,
+        "high": 101,
+        "close": 99.3,
+        "intradayUpPct": 1.51,
+        "closeChgPct": -0.2
+      },
+      {
+        "market": "KRW-MANTRA",
+        "open": 15.7,
+        "high": 17,
+        "close": 15.4,
+        "intradayUpPct": 8.28,
+        "closeChgPct": -1.91
+      },
+      {
+        "market": "KRW-WAL",
+        "open": 109,
+        "high": 110,
+        "close": 107,
+        "intradayUpPct": 0.92,
+        "closeChgPct": -1.83
+      },
+      {
+        "market": "KRW-PENDLE",
+        "open": 1997,
+        "high": 2079,
+        "close": 1973,
+        "intradayUpPct": 4.11,
+        "closeChgPct": -1.2
+      },
+      {
+        "market": "KRW-BLUR",
+        "open": 42,
+        "high": 43.8,
+        "close": 41,
+        "intradayUpPct": 4.29,
+        "closeChgPct": -2.38
+      },
+      {
+        "market": "KRW-AWE",
+        "open": 84.9,
+        "high": 87.9,
+        "close": 87,
+        "intradayUpPct": 3.53,
+        "closeChgPct": 2.47
+      },
+      {
+        "market": "KRW-THETA",
+        "open": 308,
+        "high": 310,
+        "close": 299,
+        "intradayUpPct": 0.65,
+        "closeChgPct": -2.92
+      },
+      {
+        "market": "KRW-AXL",
+        "open": 88.2,
+        "high": 105,
+        "close": 92.6,
+        "intradayUpPct": 19.05,
+        "closeChgPct": 4.99
+      },
+      {
+        "market": "KRW-SAND",
+        "open": 113,
+        "high": 116,
+        "close": 108,
+        "intradayUpPct": 2.65,
+        "closeChgPct": -4.42
+      },
+      {
+        "market": "KRW-WCT",
+        "open": 93.3,
+        "high": 97.2,
+        "close": 96,
+        "intradayUpPct": 4.18,
+        "closeChgPct": 2.89
+      },
+      {
+        "market": "KRW-YGG",
+        "open": 61.4,
+        "high": 62.6,
+        "close": 60,
+        "intradayUpPct": 1.95,
+        "closeChgPct": -2.28
+      },
+      {
+        "market": "KRW-AXS",
+        "open": 2244,
+        "high": 2311,
+        "close": 2085,
+        "intradayUpPct": 2.99,
+        "closeChgPct": -7.09
+      },
+      {
+        "market": "KRW-ARDR",
+        "open": 64.9,
+        "high": 64.9,
+        "close": 62.8,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.24
+      },
+      {
+        "market": "KRW-AQT",
+        "open": 812,
+        "high": 823,
+        "close": 811,
+        "intradayUpPct": 1.35,
+        "closeChgPct": -0.12
+      },
+      {
+        "market": "KRW-ME",
+        "open": 159,
+        "high": 162,
+        "close": 158,
+        "intradayUpPct": 1.89,
+        "closeChgPct": -0.63
+      },
+      {
+        "market": "KRW-TRUST",
+        "open": 106,
+        "high": 109,
+        "close": 103,
+        "intradayUpPct": 2.83,
+        "closeChgPct": -2.83
+      },
+      {
+        "market": "KRW-SONIC",
+        "open": 57.8,
+        "high": 57.8,
+        "close": 55.5,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.98
+      },
+      {
+        "market": "KRW-ARB",
+        "open": 184,
+        "high": 198,
+        "close": 188,
+        "intradayUpPct": 7.61,
+        "closeChgPct": 2.17
+      },
+      {
+        "market": "KRW-POL",
+        "open": 137,
+        "high": 143,
+        "close": 138,
+        "intradayUpPct": 4.38,
+        "closeChgPct": 0.73
+      },
+      {
+        "market": "KRW-CVC",
+        "open": 46.3,
+        "high": 47,
+        "close": 46.1,
+        "intradayUpPct": 1.51,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-T",
+        "open": 9.04,
+        "high": 9.09,
+        "close": 8.77,
+        "intradayUpPct": 0.55,
+        "closeChgPct": -2.99
+      },
+      {
+        "market": "KRW-W",
+        "open": 19.1,
+        "high": 19.5,
+        "close": 18.6,
+        "intradayUpPct": 2.09,
+        "closeChgPct": -2.62
+      },
+      {
+        "market": "KRW-ARK",
+        "open": 270,
+        "high": 278,
+        "close": 262,
+        "intradayUpPct": 2.96,
+        "closeChgPct": -2.96
+      },
+      {
+        "market": "KRW-AVNT",
+        "open": 230,
+        "high": 232,
+        "close": 220,
+        "intradayUpPct": 0.87,
+        "closeChgPct": -4.35
+      },
+      {
+        "market": "KRW-LA",
+        "open": 240,
+        "high": 250,
+        "close": 235,
+        "intradayUpPct": 4.17,
+        "closeChgPct": -2.08
+      },
+      {
+        "market": "KRW-HYPER",
+        "open": 179,
+        "high": 197,
+        "close": 176,
+        "intradayUpPct": 10.06,
+        "closeChgPct": -1.68
+      },
+      {
+        "market": "KRW-ATH",
+        "open": 8.78,
+        "high": 8.91,
+        "close": 8.69,
+        "intradayUpPct": 1.48,
+        "closeChgPct": -1.03
+      },
+      {
+        "market": "KRW-TAIKO",
+        "open": 178,
+        "high": 178,
+        "close": 173,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.81
+      },
+      {
+        "market": "KRW-AVAX",
+        "open": 13630,
+        "high": 14010,
+        "close": 13650,
+        "intradayUpPct": 2.79,
+        "closeChgPct": 0.15
+      },
+      {
+        "market": "KRW-XAUT",
+        "open": 6823000,
+        "high": 6849000,
+        "close": 6817000,
+        "intradayUpPct": 0.38,
+        "closeChgPct": -0.09
+      },
+      {
+        "market": "KRW-CPOOL",
+        "open": 37.6,
+        "high": 38.8,
+        "close": 38.1,
+        "intradayUpPct": 3.19,
+        "closeChgPct": 1.33
+      },
+      {
+        "market": "KRW-IMX",
+        "open": 247,
+        "high": 254,
+        "close": 246,
+        "intradayUpPct": 2.83,
+        "closeChgPct": -0.4
+      },
+      {
+        "market": "KRW-SC",
+        "open": 1.4,
+        "high": 1.41,
+        "close": 1.38,
+        "intradayUpPct": 0.71,
+        "closeChgPct": -1.43
+      },
+      {
+        "market": "KRW-INJ",
+        "open": 5300,
+        "high": 5390,
+        "close": 5200,
+        "intradayUpPct": 1.7,
+        "closeChgPct": -1.89
+      },
+      {
+        "market": "KRW-MVL",
+        "open": 1.91,
+        "high": 1.92,
+        "close": 1.92,
+        "intradayUpPct": 0.52,
+        "closeChgPct": 0.52
+      },
+      {
+        "market": "KRW-HIVE",
+        "open": 89.9,
+        "high": 91.2,
+        "close": 89.2,
+        "intradayUpPct": 1.45,
+        "closeChgPct": -0.78
+      },
+      {
+        "market": "KRW-CBK",
+        "open": 375,
+        "high": 381,
+        "close": 373,
+        "intradayUpPct": 1.6,
+        "closeChgPct": -0.53
+      },
+      {
+        "market": "KRW-OP",
+        "open": 181,
+        "high": 188,
+        "close": 180,
+        "intradayUpPct": 3.87,
+        "closeChgPct": -0.55
+      },
+      {
+        "market": "KRW-SAFE",
+        "open": 212,
+        "high": 222,
+        "close": 211,
+        "intradayUpPct": 4.72,
+        "closeChgPct": -0.47
+      },
+      {
+        "market": "KRW-GLM",
+        "open": 205,
+        "high": 212,
+        "close": 207,
+        "intradayUpPct": 3.41,
+        "closeChgPct": 0.98
+      },
+      {
+        "market": "KRW-SUPER",
+        "open": 184,
+        "high": 186,
+        "close": 178,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -3.26
+      },
+      {
+        "market": "KRW-KERNEL",
+        "open": 101,
+        "high": 102,
+        "close": 101,
+        "intradayUpPct": 0.99,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-POKT",
+        "open": 17.9,
+        "high": 18,
+        "close": 17.6,
+        "intradayUpPct": 0.56,
+        "closeChgPct": -1.68
+      },
+      {
+        "market": "KRW-SENT",
+        "open": 26.4,
+        "high": 27.4,
+        "close": 25.8,
+        "intradayUpPct": 3.79,
+        "closeChgPct": -2.27
+      },
+      {
+        "market": "KRW-ZKC",
+        "open": 116,
+        "high": 120,
+        "close": 112,
+        "intradayUpPct": 3.45,
+        "closeChgPct": -3.45
+      },
+      {
+        "market": "KRW-KNC",
+        "open": 211,
+        "high": 212,
+        "close": 207,
+        "intradayUpPct": 0.47,
+        "closeChgPct": -1.9
+      },
+      {
+        "market": "KRW-ZKP",
+        "open": 149,
+        "high": 149,
+        "close": 132,
+        "intradayUpPct": 0,
+        "closeChgPct": -11.41
+      },
+      {
+        "market": "KRW-AUCTION",
+        "open": 7090,
+        "high": 7150,
+        "close": 7120,
+        "intradayUpPct": 0.85,
+        "closeChgPct": 0.42
+      },
+      {
+        "market": "KRW-ORDER",
+        "open": 82.9,
+        "high": 84.2,
+        "close": 80.7,
+        "intradayUpPct": 1.57,
+        "closeChgPct": -2.65
+      },
+      {
+        "market": "KRW-DRIFT",
+        "open": 69.4,
+        "high": 72.2,
+        "close": 68.1,
+        "intradayUpPct": 4.03,
+        "closeChgPct": -1.87
+      },
+      {
+        "market": "KRW-FCT2",
+        "open": 19.1,
+        "high": 19.3,
+        "close": 19.2,
+        "intradayUpPct": 1.05,
+        "closeChgPct": 0.52
+      },
+      {
+        "market": "KRW-MTL",
+        "open": 444,
+        "high": 449,
+        "close": 442,
+        "intradayUpPct": 1.13,
+        "closeChgPct": -0.45
+      },
+      {
+        "market": "KRW-VET",
+        "open": 10.6,
+        "high": 10.8,
+        "close": 10.4,
+        "intradayUpPct": 1.89,
+        "closeChgPct": -1.89
+      },
+      {
+        "market": "KRW-TAO",
+        "open": 383700,
+        "high": 395700,
+        "close": 380200,
+        "intradayUpPct": 3.13,
+        "closeChgPct": -0.91
+      },
+      {
+        "market": "KRW-QTUM",
+        "open": 1318,
+        "high": 1339,
+        "close": 1307,
+        "intradayUpPct": 1.59,
+        "closeChgPct": -0.83
+      },
+      {
+        "market": "KRW-TT",
+        "open": 1.32,
+        "high": 1.34,
+        "close": 1.31,
+        "intradayUpPct": 1.52,
+        "closeChgPct": -0.76
+      },
+      {
+        "market": "KRW-LINK",
+        "open": 13730,
+        "high": 13990,
+        "close": 13640,
+        "intradayUpPct": 1.89,
+        "closeChgPct": -0.66
+      },
+      {
+        "market": "KRW-CHZ",
+        "open": 67.6,
+        "high": 71,
+        "close": 63.5,
+        "intradayUpPct": 5.03,
+        "closeChgPct": -6.07
+      },
+      {
+        "market": "KRW-ASTR",
+        "open": 12.1,
+        "high": 12.3,
+        "close": 12.2,
+        "intradayUpPct": 1.65,
+        "closeChgPct": 0.83
+      },
+      {
+        "market": "KRW-ZK",
+        "open": 23.8,
+        "high": 23.9,
+        "close": 23,
+        "intradayUpPct": 0.42,
+        "closeChgPct": -3.36
+      },
+      {
+        "market": "KRW-STORJ",
+        "open": 146,
+        "high": 149,
+        "close": 145,
+        "intradayUpPct": 2.05,
+        "closeChgPct": -0.68
+      },
+      {
+        "market": "KRW-ENA",
+        "open": 157,
+        "high": 164,
+        "close": 156,
+        "intradayUpPct": 4.46,
+        "closeChgPct": -0.64
+      },
+      {
+        "market": "KRW-MANA",
+        "open": 137,
+        "high": 139,
+        "close": 134,
+        "intradayUpPct": 1.46,
+        "closeChgPct": -2.19
+      },
+      {
+        "market": "KRW-OPEN",
+        "open": 392,
+        "high": 433,
+        "close": 413,
+        "intradayUpPct": 10.46,
+        "closeChgPct": 5.36
+      },
+      {
+        "market": "KRW-PYTH",
+        "open": 70.7,
+        "high": 72.1,
+        "close": 70,
+        "intradayUpPct": 1.98,
+        "closeChgPct": -0.99
+      },
+      {
+        "market": "KRW-ENS",
+        "open": 8980,
+        "high": 9275,
+        "close": 9000,
+        "intradayUpPct": 3.29,
+        "closeChgPct": 0.22
+      },
+      {
+        "market": "KRW-GRT",
+        "open": 36.7,
+        "high": 37.6,
+        "close": 36.5,
+        "intradayUpPct": 2.45,
+        "closeChgPct": -0.54
+      },
+      {
+        "market": "KRW-PUMP",
+        "open": 2.83,
+        "high": 2.89,
+        "close": 2.61,
+        "intradayUpPct": 2.12,
+        "closeChgPct": -7.77
+      },
+      {
+        "market": "KRW-XTZ",
+        "open": 573,
+        "high": 578,
+        "close": 555,
+        "intradayUpPct": 0.87,
+        "closeChgPct": -3.14
+      },
+      {
+        "market": "KRW-CKB",
+        "open": 2.25,
+        "high": 2.27,
+        "close": 2.24,
+        "intradayUpPct": 0.89,
+        "closeChgPct": -0.44
+      },
+      {
+        "market": "KRW-KAVA",
+        "open": 88.2,
+        "high": 89.7,
+        "close": 86.8,
+        "intradayUpPct": 1.7,
+        "closeChgPct": -1.59
+      },
+      {
+        "market": "KRW-TOSHI",
+        "open": 0.278,
+        "high": 0.294,
+        "close": 0.28,
+        "intradayUpPct": 5.76,
+        "closeChgPct": 0.72
+      },
+      {
+        "market": "KRW-BARD",
+        "open": 425,
+        "high": 429,
+        "close": 418,
+        "intradayUpPct": 0.94,
+        "closeChgPct": -1.65
+      },
+      {
+        "market": "KRW-ZRO",
+        "open": 2139,
+        "high": 2225,
+        "close": 2200,
+        "intradayUpPct": 4.02,
+        "closeChgPct": 2.85
+      },
+      {
+        "market": "KRW-RAY",
+        "open": 1108,
+        "high": 1232,
+        "close": 1186,
+        "intradayUpPct": 11.19,
+        "closeChgPct": 7.04
+      },
+      {
+        "market": "KRW-ONDO",
+        "open": 393,
+        "high": 402,
+        "close": 394,
+        "intradayUpPct": 2.29,
+        "closeChgPct": 0.25
+      },
+      {
+        "market": "KRW-ZRX",
+        "open": 170,
+        "high": 171,
+        "close": 167,
+        "intradayUpPct": 0.59,
+        "closeChgPct": -1.76
+      },
+      {
+        "market": "KRW-TFUEL",
+        "open": 17.3,
+        "high": 17.6,
+        "close": 17.2,
+        "intradayUpPct": 1.73,
+        "closeChgPct": -0.58
+      },
+      {
+        "market": "KRW-CFG",
+        "open": 312,
+        "high": 321,
+        "close": 303,
+        "intradayUpPct": 2.88,
+        "closeChgPct": -2.88
+      },
+      {
+        "market": "KRW-AZTEC",
+        "open": 30.1,
+        "high": 31.2,
+        "close": 29.2,
+        "intradayUpPct": 3.65,
+        "closeChgPct": -2.99
+      },
+      {
+        "market": "KRW-XPL",
+        "open": 143,
+        "high": 147,
+        "close": 140,
+        "intradayUpPct": 2.8,
+        "closeChgPct": -2.1
+      },
+      {
+        "market": "KRW-ZAMA",
+        "open": 40.4,
+        "high": 41.3,
+        "close": 39.9,
+        "intradayUpPct": 2.23,
+        "closeChgPct": -1.24
+      },
+      {
+        "market": "KRW-MASK",
+        "open": 776,
+        "high": 791,
+        "close": 758,
+        "intradayUpPct": 1.93,
+        "closeChgPct": -2.32
+      },
+      {
+        "market": "KRW-COMP",
+        "open": 35300,
+        "high": 35750,
+        "close": 35610,
+        "intradayUpPct": 1.27,
+        "closeChgPct": 0.88
+      },
+      {
+        "market": "KRW-ZETA",
+        "open": 82.6,
+        "high": 83.5,
+        "close": 82.4,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -0.24
+      },
+      {
+        "market": "KRW-RED",
+        "open": 198,
+        "high": 201,
+        "close": 198,
+        "intradayUpPct": 1.52,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TIA",
+        "open": 542,
+        "high": 568,
+        "close": 518,
+        "intradayUpPct": 4.8,
+        "closeChgPct": -4.43
+      },
+      {
+        "market": "KRW-ADA",
+        "open": 366,
+        "high": 377,
+        "close": 366,
+        "intradayUpPct": 3.01,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ELF",
+        "open": 116,
+        "high": 117,
+        "close": 115,
+        "intradayUpPct": 0.86,
+        "closeChgPct": -0.86
+      },
+      {
+        "market": "KRW-SOON",
+        "open": 255,
+        "high": 265,
+        "close": 244,
+        "intradayUpPct": 3.92,
+        "closeChgPct": -4.31
+      },
+      {
+        "market": "KRW-STEEM",
+        "open": 85.2,
+        "high": 86.3,
+        "close": 85.2,
+        "intradayUpPct": 1.29,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ELSA",
+        "open": 107,
+        "high": 108,
+        "close": 104,
+        "intradayUpPct": 0.93,
+        "closeChgPct": -2.8
+      },
+      {
+        "market": "KRW-SPK",
+        "open": 54.8,
+        "high": 62,
+        "close": 54,
+        "intradayUpPct": 13.14,
+        "closeChgPct": -1.46
+      },
+      {
+        "market": "KRW-SOPH",
+        "open": 13.1,
+        "high": 13.2,
+        "close": 12.9,
+        "intradayUpPct": 0.76,
+        "closeChgPct": -1.53
+      },
+      {
+        "market": "KRW-MED",
+        "open": 3.2,
+        "high": 3.21,
+        "close": 3.17,
+        "intradayUpPct": 0.31,
+        "closeChgPct": -0.94
+      },
+      {
+        "market": "KRW-1INCH",
+        "open": 140,
+        "high": 144,
+        "close": 139,
+        "intradayUpPct": 2.86,
+        "closeChgPct": -0.71
+      },
+      {
+        "market": "KRW-MEW",
+        "open": 0.886,
+        "high": 0.93,
+        "close": 0.87,
+        "intradayUpPct": 4.97,
+        "closeChgPct": -1.81
+      },
+      {
+        "market": "KRW-ORBS",
+        "open": 12.6,
+        "high": 12.8,
+        "close": 12.5,
+        "intradayUpPct": 1.59,
+        "closeChgPct": -0.79
+      },
+      {
+        "market": "KRW-RENDER",
+        "open": 2591,
+        "high": 2665,
+        "close": 2569,
+        "intradayUpPct": 2.86,
+        "closeChgPct": -0.85
+      },
+      {
+        "market": "KRW-ORCA",
+        "open": 2425,
+        "high": 2621,
+        "close": 2443,
+        "intradayUpPct": 8.08,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-BERA",
+        "open": 561,
+        "high": 563,
+        "close": 541,
+        "intradayUpPct": 0.36,
+        "closeChgPct": -3.57
+      },
+      {
+        "market": "KRW-SIGN",
+        "open": 23.7,
+        "high": 23.9,
+        "close": 23.7,
+        "intradayUpPct": 0.84,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-VANA",
+        "open": 2252,
+        "high": 2255,
+        "close": 2153,
+        "intradayUpPct": 0.13,
+        "closeChgPct": -4.4
+      },
+      {
+        "market": "KRW-DOT",
+        "open": 1827,
+        "high": 1868,
+        "close": 1811,
+        "intradayUpPct": 2.24,
+        "closeChgPct": -0.88
+      },
+      {
+        "market": "KRW-EDGE",
+        "open": 159,
+        "high": 165,
+        "close": 162,
+        "intradayUpPct": 3.77,
+        "closeChgPct": 1.89
+      },
+      {
+        "market": "KRW-MET2",
+        "open": 228,
+        "high": 242,
+        "close": 228,
+        "intradayUpPct": 6.14,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-MBL",
+        "open": 1.39,
+        "high": 1.41,
+        "close": 1.39,
+        "intradayUpPct": 1.44,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-FLUID",
+        "open": 2464,
+        "high": 2529,
+        "close": 2318,
+        "intradayUpPct": 2.64,
+        "closeChgPct": -5.93
+      },
+      {
+        "market": "KRW-BIGTIME",
+        "open": 19.9,
+        "high": 20.2,
+        "close": 19.7,
+        "intradayUpPct": 1.51,
+        "closeChgPct": -1.01
+      },
+      {
+        "market": "KRW-SNT",
+        "open": 14.8,
+        "high": 15,
+        "close": 14.8,
+        "intradayUpPct": 1.35,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SOL",
+        "open": 124900,
+        "high": 127000,
+        "close": 124200,
+        "intradayUpPct": 1.68,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-QKC",
+        "open": 4.59,
+        "high": 4.64,
+        "close": 4.55,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -0.87
+      },
+      {
+        "market": "KRW-META",
+        "open": 14.5,
+        "high": 14.7,
+        "close": 14.3,
+        "intradayUpPct": 1.38,
+        "closeChgPct": -1.38
+      },
+      {
+        "market": "KRW-SAHARA",
+        "open": 33.8,
+        "high": 34.6,
+        "close": 33.1,
+        "intradayUpPct": 2.37,
+        "closeChgPct": -2.07
+      },
+      {
+        "market": "KRW-MLK",
+        "open": 77.4,
+        "high": 79,
+        "close": 77.4,
+        "intradayUpPct": 2.07,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-VTHO",
+        "open": 0.855,
+        "high": 0.868,
+        "close": 0.852,
+        "intradayUpPct": 1.52,
+        "closeChgPct": -0.35
+      },
+      {
+        "market": "KRW-KITE",
+        "open": 213,
+        "high": 225,
+        "close": 215,
+        "intradayUpPct": 5.63,
+        "closeChgPct": 0.94
+      },
+      {
+        "market": "KRW-MINA",
+        "open": 91,
+        "high": 92.2,
+        "close": 88.6,
+        "intradayUpPct": 1.32,
+        "closeChgPct": -2.64
+      },
+      {
+        "market": "KRW-MMT",
+        "open": 201,
+        "high": 202,
+        "close": 197,
+        "intradayUpPct": 0.5,
+        "closeChgPct": -1.99
+      },
+      {
+        "market": "KRW-CHIP",
+        "open": 103,
+        "high": 105,
+        "close": 95.4,
+        "intradayUpPct": 1.94,
+        "closeChgPct": -7.38
+      },
+      {
+        "market": "KRW-ZORA",
+        "open": 19.3,
+        "high": 19.5,
+        "close": 18.8,
+        "intradayUpPct": 1.04,
+        "closeChgPct": -2.59
+      },
+      {
+        "market": "KRW-XCN",
+        "open": 8.48,
+        "high": 9.41,
+        "close": 8.62,
+        "intradayUpPct": 10.97,
+        "closeChgPct": 1.65
+      },
+      {
+        "market": "KRW-MNT",
+        "open": 935,
+        "high": 950,
+        "close": 934,
+        "intradayUpPct": 1.6,
+        "closeChgPct": -0.11
+      },
+      {
+        "market": "KRW-MOC",
+        "open": 41.4,
+        "high": 42.5,
+        "close": 41.5,
+        "intradayUpPct": 2.66,
+        "closeChgPct": 0.24
+      },
+      {
+        "market": "KRW-MOODENG",
+        "open": 85.9,
+        "high": 101,
+        "close": 88.8,
+        "intradayUpPct": 17.58,
+        "closeChgPct": 3.38
+      },
+      {
+        "market": "KRW-XEC",
+        "open": 0.0106,
+        "high": 0.0107,
+        "close": 0.0105,
+        "intradayUpPct": 0.94,
+        "closeChgPct": -0.94
+      },
+      {
+        "market": "KRW-MON",
+        "open": 43.5,
+        "high": 44.3,
+        "close": 40.5,
+        "intradayUpPct": 1.84,
+        "closeChgPct": -6.9
+      },
+      {
+        "market": "KRW-ZIL",
+        "open": 6.03,
+        "high": 6.1,
+        "close": 5.92,
+        "intradayUpPct": 1.16,
+        "closeChgPct": -1.82
+      },
+      {
+        "market": "KRW-GAME2",
+        "open": 2.02,
+        "high": 2.05,
+        "close": 2.02,
+        "intradayUpPct": 1.49,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-STX",
+        "open": 333,
+        "high": 342,
+        "close": 333,
+        "intradayUpPct": 2.7,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-FLOCK",
+        "open": 92,
+        "high": 92.5,
+        "close": 88.8,
+        "intradayUpPct": 0.54,
+        "closeChgPct": -3.48
+      },
+      {
+        "market": "KRW-PROVE",
+        "open": 368,
+        "high": 374,
+        "close": 368,
+        "intradayUpPct": 1.63,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-BSV",
+        "open": 23000,
+        "high": 23770,
+        "close": 23740,
+        "intradayUpPct": 3.35,
+        "closeChgPct": 3.22
+      },
+      {
+        "market": "KRW-SUI",
+        "open": 1374,
+        "high": 1392,
+        "close": 1357,
+        "intradayUpPct": 1.31,
+        "closeChgPct": -1.24
+      },
+      {
+        "market": "KRW-SYRUP",
+        "open": 364,
+        "high": 372,
+        "close": 357,
+        "intradayUpPct": 2.2,
+        "closeChgPct": -1.92
+      },
+      {
+        "market": "KRW-HOLO",
+        "open": 92.7,
+        "high": 95.9,
+        "close": 93.2,
+        "intradayUpPct": 3.45,
+        "closeChgPct": 0.54
+      },
+      {
+        "market": "KRW-MIRA",
+        "open": 128,
+        "high": 128,
+        "close": 124,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.13
+      },
+      {
+        "market": "KRW-SUN",
+        "open": 27.2,
+        "high": 28.2,
+        "close": 27.9,
+        "intradayUpPct": 3.68,
+        "closeChgPct": 2.57
+      },
+      {
+        "market": "KRW-ZBT",
+        "open": 276,
+        "high": 290,
+        "close": 270,
+        "intradayUpPct": 5.07,
+        "closeChgPct": -2.17
+      },
+      {
+        "market": "KRW-ONG",
+        "open": 112,
+        "high": 115,
+        "close": 109,
+        "intradayUpPct": 2.68,
+        "closeChgPct": -2.68
+      },
+      {
+        "market": "KRW-ENSO",
+        "open": 1385,
+        "high": 1423,
+        "close": 1318,
+        "intradayUpPct": 2.74,
+        "closeChgPct": -4.84
+      },
+      {
+        "market": "KRW-BIRB",
+        "open": 197,
+        "high": 209,
+        "close": 200,
+        "intradayUpPct": 6.09,
+        "closeChgPct": 1.52
+      },
+      {
+        "market": "KRW-ONT",
+        "open": 109,
+        "high": 112,
+        "close": 105,
+        "intradayUpPct": 2.75,
+        "closeChgPct": -3.67
+      },
+      {
+        "market": "KRW-SOMI",
+        "open": 268,
+        "high": 269,
+        "close": 267,
+        "intradayUpPct": 0.37,
+        "closeChgPct": -0.37
+      },
+      {
+        "market": "KRW-DEEP",
+        "open": 44.2,
+        "high": 44.9,
+        "close": 42.5,
+        "intradayUpPct": 1.58,
+        "closeChgPct": -3.85
+      },
+      {
+        "market": "KRW-STRAX",
+        "open": 19.5,
+        "high": 19.8,
+        "close": 19.5,
+        "intradayUpPct": 1.54,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ICP",
+        "open": 3560,
+        "high": 3659,
+        "close": 3565,
+        "intradayUpPct": 2.78,
+        "closeChgPct": 0.14
+      },
+      {
+        "market": "KRW-BREV",
+        "open": 184,
+        "high": 186,
+        "close": 180,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -2.17
+      },
+      {
+        "market": "KRW-ICX",
+        "open": 55.8,
+        "high": 56.1,
+        "close": 54.2,
+        "intradayUpPct": 0.54,
+        "closeChgPct": -2.87
+      },
+      {
+        "market": "KRW-POLYX",
+        "open": 73.4,
+        "high": 73.5,
+        "close": 71.2,
+        "intradayUpPct": 0.14,
+        "closeChgPct": -3
+      }
+    ],
+    "2026-04-30": [
+      {
+        "market": "KRW-WAXP",
+        "open": 9.92,
+        "high": 9.98,
+        "close": 9.76,
+        "intradayUpPct": 0.6,
+        "closeChgPct": -1.61
+      },
+      {
+        "market": "KRW-CARV",
+        "open": 84.6,
+        "high": 84.7,
+        "close": 83,
+        "intradayUpPct": 0.12,
+        "closeChgPct": -1.89
+      },
+      {
+        "market": "KRW-LSK",
+        "open": 187,
+        "high": 188,
+        "close": 186,
+        "intradayUpPct": 0.53,
+        "closeChgPct": -0.53
+      },
+      {
+        "market": "KRW-0G",
+        "open": 824,
+        "high": 829,
+        "close": 790,
+        "intradayUpPct": 0.61,
+        "closeChgPct": -4.13
+      },
+      {
+        "market": "KRW-BORA",
+        "open": 53.9,
+        "high": 53.9,
+        "close": 53.4,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.93
+      },
+      {
+        "market": "KRW-PUNDIX",
+        "open": 220,
+        "high": 221,
+        "close": 216,
+        "intradayUpPct": 0.45,
+        "closeChgPct": -1.82
+      },
+      {
+        "market": "KRW-USD1",
+        "open": 1496,
+        "high": 1499,
+        "close": 1491,
+        "intradayUpPct": 0.2,
+        "closeChgPct": -0.33
+      },
+      {
+        "market": "KRW-BAT",
+        "open": 146,
+        "high": 147,
+        "close": 144,
+        "intradayUpPct": 0.68,
+        "closeChgPct": -1.37
+      },
+      {
+        "market": "KRW-HUNT",
+        "open": 150,
+        "high": 151,
+        "close": 150,
+        "intradayUpPct": 0.67,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-PENGU",
+        "open": 14.6,
+        "high": 15.2,
+        "close": 14.8,
+        "intradayUpPct": 4.11,
+        "closeChgPct": 1.37
+      },
+      {
+        "market": "KRW-BEAM",
+        "open": 2.85,
+        "high": 2.88,
+        "close": 2.83,
+        "intradayUpPct": 1.05,
+        "closeChgPct": -0.7
+      },
+      {
+        "market": "KRW-DOOD",
+        "open": 4.76,
+        "high": 4.96,
+        "close": 4.75,
+        "intradayUpPct": 4.2,
+        "closeChgPct": -0.21
+      },
+      {
+        "market": "KRW-WAVES",
+        "open": 610,
+        "high": 611,
+        "close": 606,
+        "intradayUpPct": 0.16,
+        "closeChgPct": -0.66
+      },
+      {
+        "market": "KRW-USDC",
+        "open": 1496,
+        "high": 1496,
+        "close": 1490,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.4
+      },
+      {
+        "market": "KRW-MOVE",
+        "open": 25.8,
+        "high": 25.9,
+        "close": 25.4,
+        "intradayUpPct": 0.39,
+        "closeChgPct": -1.55
+      },
+      {
+        "market": "KRW-TREE",
+        "open": 102,
+        "high": 104,
+        "close": 100,
+        "intradayUpPct": 1.96,
+        "closeChgPct": -1.96
+      },
+      {
+        "market": "KRW-USDE",
+        "open": 1497,
+        "high": 1497,
+        "close": 1493,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.27
+      },
+      {
+        "market": "KRW-AERGO",
+        "open": 85.6,
+        "high": 87.7,
+        "close": 83.5,
+        "intradayUpPct": 2.45,
+        "closeChgPct": -2.45
+      },
+      {
+        "market": "KRW-WET",
+        "open": 140,
+        "high": 144,
+        "close": 144,
+        "intradayUpPct": 2.86,
+        "closeChgPct": 2.86
+      },
+      {
+        "market": "KRW-USDT",
+        "open": 1496,
+        "high": 1496,
+        "close": 1489,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.47
+      },
+      {
+        "market": "KRW-2Z",
+        "open": 123,
+        "high": 126,
+        "close": 123,
+        "intradayUpPct": 2.44,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-BOUNTY",
+        "open": 31.1,
+        "high": 31.6,
+        "close": 31.2,
+        "intradayUpPct": 1.61,
+        "closeChgPct": 0.32
+      },
+      {
+        "market": "KRW-KAITO",
+        "open": 653,
+        "high": 708,
+        "close": 679,
+        "intradayUpPct": 8.42,
+        "closeChgPct": 3.98
+      },
+      {
+        "market": "KRW-LPT",
+        "open": 3115,
+        "high": 3138,
+        "close": 3118,
+        "intradayUpPct": 0.74,
+        "closeChgPct": 0.1
+      },
+      {
+        "market": "KRW-BLAST",
+        "open": 0.75,
+        "high": 0.769,
+        "close": 0.74,
+        "intradayUpPct": 2.53,
+        "closeChgPct": -1.33
+      },
+      {
+        "market": "KRW-ETHFI",
+        "open": 617,
+        "high": 620,
+        "close": 611,
+        "intradayUpPct": 0.49,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-DKA",
+        "open": 8.86,
+        "high": 8.9,
+        "close": 8.57,
+        "intradayUpPct": 0.45,
+        "closeChgPct": -3.27
+      },
+      {
+        "market": "KRW-ANKR",
+        "open": 7.15,
+        "high": 7.2,
+        "close": 7.06,
+        "intradayUpPct": 0.7,
+        "closeChgPct": -1.26
+      },
+      {
+        "market": "KRW-ALGO",
+        "open": 165,
+        "high": 168,
+        "close": 164,
+        "intradayUpPct": 1.82,
+        "closeChgPct": -0.61
+      },
+      {
+        "market": "KRW-UNI",
+        "open": 4772,
+        "high": 4809,
+        "close": 4743,
+        "intradayUpPct": 0.78,
+        "closeChgPct": -0.61
+      },
+      {
+        "market": "KRW-BIO",
+        "open": 50.6,
+        "high": 68.8,
+        "close": 61.7,
+        "intradayUpPct": 35.97,
+        "closeChgPct": 21.94
+      },
+      {
+        "market": "KRW-WLFI",
+        "open": 94.5,
+        "high": 96,
+        "close": 90.6,
+        "intradayUpPct": 1.59,
+        "closeChgPct": -4.13
+      },
+      {
+        "market": "KRW-TOKAMAK",
+        "open": 765,
+        "high": 765,
+        "close": 736,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.79
+      },
+      {
+        "market": "KRW-SKY",
+        "open": 123,
+        "high": 123,
+        "close": 119,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.25
+      },
+      {
+        "market": "KRW-CYBER",
+        "open": 786,
+        "high": 787,
+        "close": 775,
+        "intradayUpPct": 0.13,
+        "closeChgPct": -1.4
+      },
+      {
+        "market": "KRW-SKR",
+        "open": 23.6,
+        "high": 25.3,
+        "close": 25.1,
+        "intradayUpPct": 7.2,
+        "closeChgPct": 6.36
+      },
+      {
+        "market": "KRW-WLD",
+        "open": 372,
+        "high": 375,
+        "close": 362,
+        "intradayUpPct": 0.81,
+        "closeChgPct": -2.69
+      },
+      {
+        "market": "KRW-PEPE",
+        "open": 0.00578,
+        "high": 0.00589,
+        "close": 0.00578,
+        "intradayUpPct": 1.9,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-HBAR",
+        "open": 133,
+        "high": 134,
+        "close": 131,
+        "intradayUpPct": 0.75,
+        "closeChgPct": -1.5
+      },
+      {
+        "market": "KRW-BCH",
+        "open": 670000,
+        "high": 671000,
+        "close": 658000,
+        "intradayUpPct": 0.15,
+        "closeChgPct": -1.79
+      },
+      {
+        "market": "KRW-NEWT",
+        "open": 113,
+        "high": 113,
+        "close": 109,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.54
+      },
+      {
+        "market": "KRW-SEI",
+        "open": 86.4,
+        "high": 87.2,
+        "close": 85.5,
+        "intradayUpPct": 0.93,
+        "closeChgPct": -1.04
+      },
+      {
+        "market": "KRW-JST",
+        "open": 130,
+        "high": 133,
+        "close": 132,
+        "intradayUpPct": 2.31,
+        "closeChgPct": 1.54
+      },
+      {
+        "market": "KRW-AAVE",
+        "open": 139600,
+        "high": 139700,
+        "close": 138300,
+        "intradayUpPct": 0.07,
+        "closeChgPct": -0.93
+      },
+      {
+        "market": "KRW-JTO",
+        "open": 510,
+        "high": 531,
+        "close": 531,
+        "intradayUpPct": 4.12,
+        "closeChgPct": 4.12
+      },
+      {
+        "market": "KRW-JUP",
+        "open": 272,
+        "high": 277,
+        "close": 268,
+        "intradayUpPct": 1.84,
+        "closeChgPct": -1.47
+      },
+      {
+        "market": "KRW-PIEVERSE",
+        "open": 1141,
+        "high": 1144,
+        "close": 1015,
+        "intradayUpPct": 0.26,
+        "closeChgPct": -11.04
+      },
+      {
+        "market": "KRW-ALT",
+        "open": 11.6,
+        "high": 11.6,
+        "close": 11.2,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.45
+      },
+      {
+        "market": "KRW-LAYER",
+        "open": 123,
+        "high": 125,
+        "close": 122,
+        "intradayUpPct": 1.63,
+        "closeChgPct": -0.81
+      },
+      {
+        "market": "KRW-TRX",
+        "open": 484,
+        "high": 488,
+        "close": 488,
+        "intradayUpPct": 0.83,
+        "closeChgPct": 0.83
+      },
+      {
+        "market": "KRW-POWR",
+        "open": 93.6,
+        "high": 94.2,
+        "close": 92.2,
+        "intradayUpPct": 0.64,
+        "closeChgPct": -1.5
+      },
+      {
+        "market": "KRW-ATOM",
+        "open": 2887,
+        "high": 2893,
+        "close": 2814,
+        "intradayUpPct": 0.21,
+        "closeChgPct": -2.53
+      },
+      {
+        "market": "KRW-ARKM",
+        "open": 165,
+        "high": 170,
+        "close": 164,
+        "intradayUpPct": 3.03,
+        "closeChgPct": -0.61
+      },
+      {
+        "market": "KRW-CRO",
+        "open": 103,
+        "high": 103,
+        "close": 102,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-NXPC",
+        "open": 444,
+        "high": 445,
+        "close": 439,
+        "intradayUpPct": 0.23,
+        "closeChgPct": -1.13
+      },
+      {
+        "market": "KRW-A",
+        "open": 140,
+        "high": 144,
+        "close": 132,
+        "intradayUpPct": 2.86,
+        "closeChgPct": -5.71
+      },
+      {
+        "market": "KRW-TRUMP",
+        "open": 3576,
+        "high": 3594,
+        "close": 3550,
+        "intradayUpPct": 0.5,
+        "closeChgPct": -0.73
+      },
+      {
+        "market": "KRW-F",
+        "open": 8.1,
+        "high": 8.16,
+        "close": 8.01,
+        "intradayUpPct": 0.74,
+        "closeChgPct": -1.11
+      },
+      {
+        "market": "KRW-G",
+        "open": 5.4,
+        "high": 5.93,
+        "close": 5.37,
+        "intradayUpPct": 9.81,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-CELO",
+        "open": 130,
+        "high": 131,
+        "close": 128,
+        "intradayUpPct": 0.77,
+        "closeChgPct": -1.54
+      },
+      {
+        "market": "KRW-AERO",
+        "open": 708,
+        "high": 708,
+        "close": 667,
+        "intradayUpPct": 0,
+        "closeChgPct": -5.79
+      },
+      {
+        "market": "KRW-CTC",
+        "open": 217,
+        "high": 217,
+        "close": 215,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.92
+      },
+      {
+        "market": "KRW-ANIME",
+        "open": 7.01,
+        "high": 7.28,
+        "close": 6.96,
+        "intradayUpPct": 3.85,
+        "closeChgPct": -0.71
+      },
+      {
+        "market": "KRW-APT",
+        "open": 1482,
+        "high": 1550,
+        "close": 1482,
+        "intradayUpPct": 4.59,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-MOCA",
+        "open": 20.3,
+        "high": 20.5,
+        "close": 20.1,
+        "intradayUpPct": 0.99,
+        "closeChgPct": -0.99
+      },
+      {
+        "market": "KRW-API3",
+        "open": 553,
+        "high": 589,
+        "close": 551,
+        "intradayUpPct": 6.51,
+        "closeChgPct": -0.36
+      },
+      {
+        "market": "KRW-AHT",
+        "open": 2.26,
+        "high": 2.26,
+        "close": 2.25,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.44
+      },
+      {
+        "market": "KRW-EGLD",
+        "open": 6165,
+        "high": 6165,
+        "close": 6080,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.38
+      },
+      {
+        "market": "KRW-BLEND",
+        "open": 251,
+        "high": 271,
+        "close": 200,
+        "intradayUpPct": 7.97,
+        "closeChgPct": -20.32
+      },
+      {
+        "market": "KRW-ERA",
+        "open": 211,
+        "high": 213,
+        "close": 204,
+        "intradayUpPct": 0.95,
+        "closeChgPct": -3.32
+      },
+      {
+        "market": "KRW-FF",
+        "open": 95.3,
+        "high": 98.2,
+        "close": 94,
+        "intradayUpPct": 3.04,
+        "closeChgPct": -1.36
+      },
+      {
+        "market": "KRW-PLUME",
+        "open": 17.6,
+        "high": 18.6,
+        "close": 17.2,
+        "intradayUpPct": 5.68,
+        "closeChgPct": -2.27
+      },
+      {
+        "market": "KRW-ESP",
+        "open": 101,
+        "high": 104,
+        "close": 101,
+        "intradayUpPct": 2.97,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-CC",
+        "open": 226,
+        "high": 230,
+        "close": 225,
+        "intradayUpPct": 1.77,
+        "closeChgPct": -0.44
+      },
+      {
+        "market": "KRW-NEO",
+        "open": 4121,
+        "high": 4133,
+        "close": 4052,
+        "intradayUpPct": 0.29,
+        "closeChgPct": -1.67
+      },
+      {
+        "market": "KRW-ETC",
+        "open": 12460,
+        "high": 12600,
+        "close": 12420,
+        "intradayUpPct": 1.12,
+        "closeChgPct": -0.32
+      },
+      {
+        "market": "KRW-IOTA",
+        "open": 82.6,
+        "high": 83.1,
+        "close": 81.1,
+        "intradayUpPct": 0.61,
+        "closeChgPct": -1.82
+      },
+      {
+        "market": "KRW-AKT",
+        "open": 772,
+        "high": 783,
+        "close": 759,
+        "intradayUpPct": 1.42,
+        "closeChgPct": -1.68
+      },
+      {
+        "market": "KRW-COW",
+        "open": 280,
+        "high": 283,
+        "close": 275,
+        "intradayUpPct": 1.07,
+        "closeChgPct": -1.79
+      },
+      {
+        "market": "KRW-VIRTUAL",
+        "open": 1029,
+        "high": 1060,
+        "close": 1025,
+        "intradayUpPct": 3.01,
+        "closeChgPct": -0.39
+      },
+      {
+        "market": "KRW-ETH",
+        "open": 3372000,
+        "high": 3402000,
+        "close": 3368000,
+        "intradayUpPct": 0.89,
+        "closeChgPct": -0.12
+      },
+      {
+        "market": "KRW-IQ",
+        "open": 1.59,
+        "high": 1.61,
+        "close": 1.58,
+        "intradayUpPct": 1.26,
+        "closeChgPct": -0.63
+      },
+      {
+        "market": "KRW-IP",
+        "open": 730,
+        "high": 747,
+        "close": 734,
+        "intradayUpPct": 2.33,
+        "closeChgPct": 0.55
+      },
+      {
+        "market": "KRW-NEAR",
+        "open": 1988,
+        "high": 2002,
+        "close": 1932,
+        "intradayUpPct": 0.7,
+        "closeChgPct": -2.82
+      },
+      {
+        "market": "KRW-RVN",
+        "open": 8.7,
+        "high": 8.79,
+        "close": 8.66,
+        "intradayUpPct": 1.03,
+        "closeChgPct": -0.46
+      },
+      {
+        "market": "KRW-PRL",
+        "open": 471,
+        "high": 471,
+        "close": 419,
+        "intradayUpPct": 0,
+        "closeChgPct": -11.04
+      },
+      {
+        "market": "KRW-AGLD",
+        "open": 380,
+        "high": 382,
+        "close": 371,
+        "intradayUpPct": 0.53,
+        "closeChgPct": -2.37
+      },
+      {
+        "market": "KRW-ID",
+        "open": 45.1,
+        "high": 46.2,
+        "close": 45.4,
+        "intradayUpPct": 2.44,
+        "closeChgPct": 0.67
+      },
+      {
+        "market": "KRW-IN",
+        "open": 98.9,
+        "high": 101,
+        "close": 99,
+        "intradayUpPct": 2.12,
+        "closeChgPct": 0.1
+      },
+      {
+        "market": "KRW-MANTRA",
+        "open": 15.3,
+        "high": 15.5,
+        "close": 14.6,
+        "intradayUpPct": 1.31,
+        "closeChgPct": -4.58
+      },
+      {
+        "market": "KRW-WAL",
+        "open": 106,
+        "high": 108,
+        "close": 103,
+        "intradayUpPct": 1.89,
+        "closeChgPct": -2.83
+      },
+      {
+        "market": "KRW-PENDLE",
+        "open": 1972,
+        "high": 2135,
+        "close": 2124,
+        "intradayUpPct": 8.27,
+        "closeChgPct": 7.71
+      },
+      {
+        "market": "KRW-BLUR",
+        "open": 40.9,
+        "high": 42.2,
+        "close": 39.3,
+        "intradayUpPct": 3.18,
+        "closeChgPct": -3.91
+      },
+      {
+        "market": "KRW-AWE",
+        "open": 87,
+        "high": 92.1,
+        "close": 91.4,
+        "intradayUpPct": 5.86,
+        "closeChgPct": 5.06
+      },
+      {
+        "market": "KRW-THETA",
+        "open": 300,
+        "high": 303,
+        "close": 290,
+        "intradayUpPct": 1,
+        "closeChgPct": -3.33
+      },
+      {
+        "market": "KRW-AXL",
+        "open": 92.8,
+        "high": 95.7,
+        "close": 91.8,
+        "intradayUpPct": 3.13,
+        "closeChgPct": -1.08
+      },
+      {
+        "market": "KRW-SAND",
+        "open": 109,
+        "high": 110,
+        "close": 107,
+        "intradayUpPct": 0.92,
+        "closeChgPct": -1.83
+      },
+      {
+        "market": "KRW-WCT",
+        "open": 95.9,
+        "high": 96.5,
+        "close": 91.2,
+        "intradayUpPct": 0.63,
+        "closeChgPct": -4.9
+      },
+      {
+        "market": "KRW-YGG",
+        "open": 60.1,
+        "high": 61.1,
+        "close": 59.7,
+        "intradayUpPct": 1.66,
+        "closeChgPct": -0.67
+      },
+      {
+        "market": "KRW-AXS",
+        "open": 2086,
+        "high": 2104,
+        "close": 2040,
+        "intradayUpPct": 0.86,
+        "closeChgPct": -2.21
+      },
+      {
+        "market": "KRW-ARDR",
+        "open": 62.8,
+        "high": 62.8,
+        "close": 61.8,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.59
+      },
+      {
+        "market": "KRW-AQT",
+        "open": 811,
+        "high": 814,
+        "close": 809,
+        "intradayUpPct": 0.37,
+        "closeChgPct": -0.25
+      },
+      {
+        "market": "KRW-ME",
+        "open": 158,
+        "high": 160,
+        "close": 155,
+        "intradayUpPct": 1.27,
+        "closeChgPct": -1.9
+      },
+      {
+        "market": "KRW-TRUST",
+        "open": 102,
+        "high": 104,
+        "close": 101,
+        "intradayUpPct": 1.96,
+        "closeChgPct": -0.98
+      },
+      {
+        "market": "KRW-SONIC",
+        "open": 55.5,
+        "high": 57.5,
+        "close": 56.7,
+        "intradayUpPct": 3.6,
+        "closeChgPct": 2.16
+      },
+      {
+        "market": "KRW-ARB",
+        "open": 188,
+        "high": 193,
+        "close": 185,
+        "intradayUpPct": 2.66,
+        "closeChgPct": -1.6
+      },
+      {
+        "market": "KRW-POL",
+        "open": 139,
+        "high": 144,
+        "close": 142,
+        "intradayUpPct": 3.6,
+        "closeChgPct": 2.16
+      },
+      {
+        "market": "KRW-CVC",
+        "open": 45.8,
+        "high": 46.1,
+        "close": 45.8,
+        "intradayUpPct": 0.66,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-T",
+        "open": 8.79,
+        "high": 8.84,
+        "close": 8.7,
+        "intradayUpPct": 0.57,
+        "closeChgPct": -1.02
+      },
+      {
+        "market": "KRW-W",
+        "open": 18.6,
+        "high": 18.9,
+        "close": 18.4,
+        "intradayUpPct": 1.61,
+        "closeChgPct": -1.08
+      },
+      {
+        "market": "KRW-ARK",
+        "open": 262,
+        "high": 262,
+        "close": 259,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.15
+      },
+      {
+        "market": "KRW-AVNT",
+        "open": 219,
+        "high": 224,
+        "close": 220,
+        "intradayUpPct": 2.28,
+        "closeChgPct": 0.46
+      },
+      {
+        "market": "KRW-LA",
+        "open": 234,
+        "high": 237,
+        "close": 233,
+        "intradayUpPct": 1.28,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-HYPER",
+        "open": 176,
+        "high": 193,
+        "close": 185,
+        "intradayUpPct": 9.66,
+        "closeChgPct": 5.11
+      },
+      {
+        "market": "KRW-ATH",
+        "open": 8.68,
+        "high": 8.91,
+        "close": 8.69,
+        "intradayUpPct": 2.65,
+        "closeChgPct": 0.12
+      },
+      {
+        "market": "KRW-TAIKO",
+        "open": 173,
+        "high": 173,
+        "close": 171,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.16
+      },
+      {
+        "market": "KRW-AVAX",
+        "open": 13650,
+        "high": 13780,
+        "close": 13570,
+        "intradayUpPct": 0.95,
+        "closeChgPct": -0.59
+      },
+      {
+        "market": "KRW-XAUT",
+        "open": 6817000,
+        "high": 6904000,
+        "close": 6879000,
+        "intradayUpPct": 1.28,
+        "closeChgPct": 0.91
+      },
+      {
+        "market": "KRW-CPOOL",
+        "open": 37.9,
+        "high": 41.5,
+        "close": 38.3,
+        "intradayUpPct": 9.5,
+        "closeChgPct": 1.06
+      },
+      {
+        "market": "KRW-IMX",
+        "open": 245,
+        "high": 248,
+        "close": 244,
+        "intradayUpPct": 1.22,
+        "closeChgPct": -0.41
+      },
+      {
+        "market": "KRW-SC",
+        "open": 1.38,
+        "high": 1.39,
+        "close": 1.36,
+        "intradayUpPct": 0.72,
+        "closeChgPct": -1.45
+      },
+      {
+        "market": "KRW-INJ",
+        "open": 5200,
+        "high": 5225,
+        "close": 5095,
+        "intradayUpPct": 0.48,
+        "closeChgPct": -2.02
+      },
+      {
+        "market": "KRW-MVL",
+        "open": 1.91,
+        "high": 1.92,
+        "close": 1.91,
+        "intradayUpPct": 0.52,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-HIVE",
+        "open": 89.1,
+        "high": 89.3,
+        "close": 88.1,
+        "intradayUpPct": 0.22,
+        "closeChgPct": -1.12
+      },
+      {
+        "market": "KRW-CBK",
+        "open": 373,
+        "high": 375,
+        "close": 371,
+        "intradayUpPct": 0.54,
+        "closeChgPct": -0.54
+      },
+      {
+        "market": "KRW-OP",
+        "open": 179,
+        "high": 183,
+        "close": 180,
+        "intradayUpPct": 2.23,
+        "closeChgPct": 0.56
+      },
+      {
+        "market": "KRW-SAFE",
+        "open": 211,
+        "high": 223,
+        "close": 215,
+        "intradayUpPct": 5.69,
+        "closeChgPct": 1.9
+      },
+      {
+        "market": "KRW-GLM",
+        "open": 207,
+        "high": 213,
+        "close": 213,
+        "intradayUpPct": 2.9,
+        "closeChgPct": 2.9
+      },
+      {
+        "market": "KRW-SUPER",
+        "open": 178,
+        "high": 182,
+        "close": 179,
+        "intradayUpPct": 2.25,
+        "closeChgPct": 0.56
+      },
+      {
+        "market": "KRW-KERNEL",
+        "open": 101,
+        "high": 112,
+        "close": 99.7,
+        "intradayUpPct": 10.89,
+        "closeChgPct": -1.29
+      },
+      {
+        "market": "KRW-POKT",
+        "open": 17.6,
+        "high": 17.8,
+        "close": 17.7,
+        "intradayUpPct": 1.14,
+        "closeChgPct": 0.57
+      },
+      {
+        "market": "KRW-SENT",
+        "open": 25.8,
+        "high": 26.4,
+        "close": 25.5,
+        "intradayUpPct": 2.33,
+        "closeChgPct": -1.16
+      },
+      {
+        "market": "KRW-ZKC",
+        "open": 111,
+        "high": 115,
+        "close": 110,
+        "intradayUpPct": 3.6,
+        "closeChgPct": -0.9
+      },
+      {
+        "market": "KRW-KNC",
+        "open": 207,
+        "high": 207,
+        "close": 205,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-ZKP",
+        "open": 131,
+        "high": 137,
+        "close": 120,
+        "intradayUpPct": 4.58,
+        "closeChgPct": -8.4
+      },
+      {
+        "market": "KRW-AUCTION",
+        "open": 7120,
+        "high": 7140,
+        "close": 7080,
+        "intradayUpPct": 0.28,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-ORDER",
+        "open": 81,
+        "high": 81.8,
+        "close": 80.6,
+        "intradayUpPct": 0.99,
+        "closeChgPct": -0.49
+      },
+      {
+        "market": "KRW-DRIFT",
+        "open": 68.2,
+        "high": 99.5,
+        "close": 84.3,
+        "intradayUpPct": 45.89,
+        "closeChgPct": 23.61
+      },
+      {
+        "market": "KRW-FCT2",
+        "open": 19.2,
+        "high": 19.2,
+        "close": 18.6,
+        "intradayUpPct": 0,
+        "closeChgPct": -3.12
+      },
+      {
+        "market": "KRW-MTL",
+        "open": 442,
+        "high": 444,
+        "close": 438,
+        "intradayUpPct": 0.45,
+        "closeChgPct": -0.9
+      },
+      {
+        "market": "KRW-VET",
+        "open": 10.4,
+        "high": 10.7,
+        "close": 10.4,
+        "intradayUpPct": 2.88,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TAO",
+        "open": 380400,
+        "high": 380400,
+        "close": 370500,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.6
+      },
+      {
+        "market": "KRW-QTUM",
+        "open": 1308,
+        "high": 1314,
+        "close": 1287,
+        "intradayUpPct": 0.46,
+        "closeChgPct": -1.61
+      },
+      {
+        "market": "KRW-TT",
+        "open": 1.32,
+        "high": 1.32,
+        "close": 1.29,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.27
+      },
+      {
+        "market": "KRW-LINK",
+        "open": 13650,
+        "high": 13710,
+        "close": 13570,
+        "intradayUpPct": 0.44,
+        "closeChgPct": -0.59
+      },
+      {
+        "market": "KRW-CHZ",
+        "open": 63.5,
+        "high": 63.9,
+        "close": 61.7,
+        "intradayUpPct": 0.63,
+        "closeChgPct": -2.83
+      },
+      {
+        "market": "KRW-ASTR",
+        "open": 12.2,
+        "high": 12.3,
+        "close": 12,
+        "intradayUpPct": 0.82,
+        "closeChgPct": -1.64
+      },
+      {
+        "market": "KRW-ZK",
+        "open": 23,
+        "high": 23.3,
+        "close": 22.9,
+        "intradayUpPct": 1.3,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-STORJ",
+        "open": 145,
+        "high": 146,
+        "close": 143,
+        "intradayUpPct": 0.69,
+        "closeChgPct": -1.38
+      },
+      {
+        "market": "KRW-ENA",
+        "open": 156,
+        "high": 157,
+        "close": 153,
+        "intradayUpPct": 0.64,
+        "closeChgPct": -1.92
+      },
+      {
+        "market": "KRW-MANA",
+        "open": 134,
+        "high": 137,
+        "close": 133,
+        "intradayUpPct": 2.24,
+        "closeChgPct": -0.75
+      },
+      {
+        "market": "KRW-OPEN",
+        "open": 413,
+        "high": 431,
+        "close": 400,
+        "intradayUpPct": 4.36,
+        "closeChgPct": -3.15
+      },
+      {
+        "market": "KRW-PYTH",
+        "open": 70,
+        "high": 70.4,
+        "close": 69.4,
+        "intradayUpPct": 0.57,
+        "closeChgPct": -0.86
+      },
+      {
+        "market": "KRW-ENS",
+        "open": 9010,
+        "high": 9090,
+        "close": 8945,
+        "intradayUpPct": 0.89,
+        "closeChgPct": -0.72
+      },
+      {
+        "market": "KRW-GRT",
+        "open": 36.3,
+        "high": 36.7,
+        "close": 36,
+        "intradayUpPct": 1.1,
+        "closeChgPct": -0.83
+      },
+      {
+        "market": "KRW-PUMP",
+        "open": 2.61,
+        "high": 2.7,
+        "close": 2.64,
+        "intradayUpPct": 3.45,
+        "closeChgPct": 1.15
+      },
+      {
+        "market": "KRW-XTZ",
+        "open": 557,
+        "high": 557,
+        "close": 543,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.51
+      },
+      {
+        "market": "KRW-CKB",
+        "open": 2.24,
+        "high": 2.26,
+        "close": 2.19,
+        "intradayUpPct": 0.89,
+        "closeChgPct": -2.23
+      },
+      {
+        "market": "KRW-KAVA",
+        "open": 86.6,
+        "high": 87.3,
+        "close": 83.9,
+        "intradayUpPct": 0.81,
+        "closeChgPct": -3.12
+      },
+      {
+        "market": "KRW-TOSHI",
+        "open": 0.279,
+        "high": 0.285,
+        "close": 0.271,
+        "intradayUpPct": 2.15,
+        "closeChgPct": -2.87
+      },
+      {
+        "market": "KRW-BARD",
+        "open": 419,
+        "high": 419,
+        "close": 413,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.43
+      },
+      {
+        "market": "KRW-ZRO",
+        "open": 2201,
+        "high": 2208,
+        "close": 2128,
+        "intradayUpPct": 0.32,
+        "closeChgPct": -3.32
+      },
+      {
+        "market": "KRW-RAY",
+        "open": 1185,
+        "high": 1205,
+        "close": 1205,
+        "intradayUpPct": 1.69,
+        "closeChgPct": 1.69
+      },
+      {
+        "market": "KRW-ONDO",
+        "open": 394,
+        "high": 400,
+        "close": 391,
+        "intradayUpPct": 1.52,
+        "closeChgPct": -0.76
+      },
+      {
+        "market": "KRW-ZRX",
+        "open": 166,
+        "high": 168,
+        "close": 165,
+        "intradayUpPct": 1.2,
+        "closeChgPct": -0.6
+      },
+      {
+        "market": "KRW-TFUEL",
+        "open": 17.1,
+        "high": 17.2,
+        "close": 16.8,
+        "intradayUpPct": 0.58,
+        "closeChgPct": -1.75
+      },
+      {
+        "market": "KRW-CFG",
+        "open": 304,
+        "high": 313,
+        "close": 301,
+        "intradayUpPct": 2.96,
+        "closeChgPct": -0.99
+      },
+      {
+        "market": "KRW-AZTEC",
+        "open": 29.2,
+        "high": 29.9,
+        "close": 28.9,
+        "intradayUpPct": 2.4,
+        "closeChgPct": -1.03
+      },
+      {
+        "market": "KRW-XPL",
+        "open": 139,
+        "high": 140,
+        "close": 136,
+        "intradayUpPct": 0.72,
+        "closeChgPct": -2.16
+      },
+      {
+        "market": "KRW-ZAMA",
+        "open": 39.9,
+        "high": 40.8,
+        "close": 39.1,
+        "intradayUpPct": 2.26,
+        "closeChgPct": -2.01
+      },
+      {
+        "market": "KRW-MASK",
+        "open": 757,
+        "high": 762,
+        "close": 742,
+        "intradayUpPct": 0.66,
+        "closeChgPct": -1.98
+      },
+      {
+        "market": "KRW-COMP",
+        "open": 35540,
+        "high": 36270,
+        "close": 35090,
+        "intradayUpPct": 2.05,
+        "closeChgPct": -1.27
+      },
+      {
+        "market": "KRW-ZETA",
+        "open": 82.4,
+        "high": 90.4,
+        "close": 86.9,
+        "intradayUpPct": 9.71,
+        "closeChgPct": 5.46
+      },
+      {
+        "market": "KRW-RED",
+        "open": 197,
+        "high": 205,
+        "close": 201,
+        "intradayUpPct": 4.06,
+        "closeChgPct": 2.03
+      },
+      {
+        "market": "KRW-TIA",
+        "open": 520,
+        "high": 545,
+        "close": 522,
+        "intradayUpPct": 4.81,
+        "closeChgPct": 0.38
+      },
+      {
+        "market": "KRW-ADA",
+        "open": 366,
+        "high": 370,
+        "close": 367,
+        "intradayUpPct": 1.09,
+        "closeChgPct": 0.27
+      },
+      {
+        "market": "KRW-ELF",
+        "open": 117,
+        "high": 119,
+        "close": 117,
+        "intradayUpPct": 1.71,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SOON",
+        "open": 244,
+        "high": 252,
+        "close": 246,
+        "intradayUpPct": 3.28,
+        "closeChgPct": 0.82
+      },
+      {
+        "market": "KRW-STEEM",
+        "open": 85.2,
+        "high": 85.4,
+        "close": 83.7,
+        "intradayUpPct": 0.23,
+        "closeChgPct": -1.76
+      },
+      {
+        "market": "KRW-ELSA",
+        "open": 104,
+        "high": 113,
+        "close": 105,
+        "intradayUpPct": 8.65,
+        "closeChgPct": 0.96
+      },
+      {
+        "market": "KRW-SPK",
+        "open": 53.9,
+        "high": 55.4,
+        "close": 53.2,
+        "intradayUpPct": 2.78,
+        "closeChgPct": -1.3
+      },
+      {
+        "market": "KRW-SOPH",
+        "open": 12.8,
+        "high": 13,
+        "close": 12.9,
+        "intradayUpPct": 1.56,
+        "closeChgPct": 0.78
+      },
+      {
+        "market": "KRW-MED",
+        "open": 3.17,
+        "high": 3.23,
+        "close": 3.15,
+        "intradayUpPct": 1.89,
+        "closeChgPct": -0.63
+      },
+      {
+        "market": "KRW-1INCH",
+        "open": 140,
+        "high": 140,
+        "close": 137,
+        "intradayUpPct": 0,
+        "closeChgPct": -2.14
+      },
+      {
+        "market": "KRW-MEW",
+        "open": 0.868,
+        "high": 0.89,
+        "close": 0.867,
+        "intradayUpPct": 2.53,
+        "closeChgPct": -0.12
+      },
+      {
+        "market": "KRW-ORBS",
+        "open": 12.5,
+        "high": 12.8,
+        "close": 12.7,
+        "intradayUpPct": 2.4,
+        "closeChgPct": 1.6
+      },
+      {
+        "market": "KRW-RENDER",
+        "open": 2565,
+        "high": 2568,
+        "close": 2500,
+        "intradayUpPct": 0.12,
+        "closeChgPct": -2.53
+      },
+      {
+        "market": "KRW-ORCA",
+        "open": 2443,
+        "high": 3175,
+        "close": 3159,
+        "intradayUpPct": 29.96,
+        "closeChgPct": 29.31
+      },
+      {
+        "market": "KRW-BERA",
+        "open": 542,
+        "high": 544,
+        "close": 534,
+        "intradayUpPct": 0.37,
+        "closeChgPct": -1.48
+      },
+      {
+        "market": "KRW-SIGN",
+        "open": 23.7,
+        "high": 24,
+        "close": 23.4,
+        "intradayUpPct": 1.27,
+        "closeChgPct": -1.27
+      },
+      {
+        "market": "KRW-VANA",
+        "open": 2154,
+        "high": 2286,
+        "close": 2165,
+        "intradayUpPct": 6.13,
+        "closeChgPct": 0.51
+      },
+      {
+        "market": "KRW-DOT",
+        "open": 1811,
+        "high": 1828,
+        "close": 1795,
+        "intradayUpPct": 0.94,
+        "closeChgPct": -0.88
+      },
+      {
+        "market": "KRW-EDGE",
+        "open": 161,
+        "high": 163,
+        "close": 156,
+        "intradayUpPct": 1.24,
+        "closeChgPct": -3.11
+      },
+      {
+        "market": "KRW-MET2",
+        "open": 228,
+        "high": 234,
+        "close": 230,
+        "intradayUpPct": 2.63,
+        "closeChgPct": 0.88
+      },
+      {
+        "market": "KRW-MBL",
+        "open": 1.38,
+        "high": 1.39,
+        "close": 1.37,
+        "intradayUpPct": 0.72,
+        "closeChgPct": -0.72
+      },
+      {
+        "market": "KRW-FLUID",
+        "open": 2317,
+        "high": 2320,
+        "close": 2320,
+        "intradayUpPct": 0.13,
+        "closeChgPct": 0.13
+      },
+      {
+        "market": "KRW-BIGTIME",
+        "open": 19.7,
+        "high": 20.2,
+        "close": 19.6,
+        "intradayUpPct": 2.54,
+        "closeChgPct": -0.51
+      },
+      {
+        "market": "KRW-SNT",
+        "open": 14.8,
+        "high": 15,
+        "close": 14.9,
+        "intradayUpPct": 1.35,
+        "closeChgPct": 0.68
+      },
+      {
+        "market": "KRW-SOL",
+        "open": 124300,
+        "high": 125400,
+        "close": 123700,
+        "intradayUpPct": 0.88,
+        "closeChgPct": -0.48
+      },
+      {
+        "market": "KRW-QKC",
+        "open": 4.54,
+        "high": 4.55,
+        "close": 4.51,
+        "intradayUpPct": 0.22,
+        "closeChgPct": -0.66
+      },
+      {
+        "market": "KRW-META",
+        "open": 14.3,
+        "high": 14.4,
+        "close": 14.4,
+        "intradayUpPct": 0.7,
+        "closeChgPct": 0.7
+      },
+      {
+        "market": "KRW-SAHARA",
+        "open": 33,
+        "high": 33.6,
+        "close": 32.6,
+        "intradayUpPct": 1.82,
+        "closeChgPct": -1.21
+      },
+      {
+        "market": "KRW-MLK",
+        "open": 77.6,
+        "high": 77.6,
+        "close": 76.2,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.8
+      },
+      {
+        "market": "KRW-VTHO",
+        "open": 0.853,
+        "high": 0.854,
+        "close": 0.835,
+        "intradayUpPct": 0.12,
+        "closeChgPct": -2.11
+      },
+      {
+        "market": "KRW-KITE",
+        "open": 215,
+        "high": 223,
+        "close": 211,
+        "intradayUpPct": 3.72,
+        "closeChgPct": -1.86
+      },
+      {
+        "market": "KRW-MINA",
+        "open": 88.6,
+        "high": 88.6,
+        "close": 88.2,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.45
+      },
+      {
+        "market": "KRW-MMT",
+        "open": 198,
+        "high": 200,
+        "close": 195,
+        "intradayUpPct": 1.01,
+        "closeChgPct": -1.52
+      },
+      {
+        "market": "KRW-CHIP",
+        "open": 95.4,
+        "high": 102,
+        "close": 95.1,
+        "intradayUpPct": 6.92,
+        "closeChgPct": -0.31
+      },
+      {
+        "market": "KRW-ZORA",
+        "open": 18.8,
+        "high": 19,
+        "close": 18.7,
+        "intradayUpPct": 1.06,
+        "closeChgPct": -0.53
+      },
+      {
+        "market": "KRW-XCN",
+        "open": 8.62,
+        "high": 9,
+        "close": 8.02,
+        "intradayUpPct": 4.41,
+        "closeChgPct": -6.96
+      },
+      {
+        "market": "KRW-MEGA",
+        "open": 242,
+        "high": 348,
+        "close": 249,
+        "intradayUpPct": 43.8,
+        "closeChgPct": 2.89
+      },
+      {
+        "market": "KRW-MNT",
+        "open": 934,
+        "high": 937,
+        "close": 935,
+        "intradayUpPct": 0.32,
+        "closeChgPct": 0.11
+      },
+      {
+        "market": "KRW-MOC",
+        "open": 41.5,
+        "high": 41.5,
+        "close": 41.1,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.96
+      },
+      {
+        "market": "KRW-MOODENG",
+        "open": 88.8,
+        "high": 95,
+        "close": 88.5,
+        "intradayUpPct": 6.98,
+        "closeChgPct": -0.34
+      },
+      {
+        "market": "KRW-XEC",
+        "open": 0.0105,
+        "high": 0.0105,
+        "close": 0.0103,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.9
+      },
+      {
+        "market": "KRW-MON",
+        "open": 40.4,
+        "high": 41.6,
+        "close": 40.4,
+        "intradayUpPct": 2.97,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ZIL",
+        "open": 5.93,
+        "high": 6,
+        "close": 5.89,
+        "intradayUpPct": 1.18,
+        "closeChgPct": -0.67
+      },
+      {
+        "market": "KRW-GAME2",
+        "open": 2.03,
+        "high": 2.03,
+        "close": 2.01,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.99
+      },
+      {
+        "market": "KRW-STX",
+        "open": 331,
+        "high": 335,
+        "close": 330,
+        "intradayUpPct": 1.21,
+        "closeChgPct": -0.3
+      },
+      {
+        "market": "KRW-FLOCK",
+        "open": 88.6,
+        "high": 89.8,
+        "close": 88.1,
+        "intradayUpPct": 1.35,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-PROVE",
+        "open": 368,
+        "high": 370,
+        "close": 368,
+        "intradayUpPct": 0.54,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-BSV",
+        "open": 23760,
+        "high": 23810,
+        "close": 23530,
+        "intradayUpPct": 0.21,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-SUI",
+        "open": 1357,
+        "high": 1370,
+        "close": 1354,
+        "intradayUpPct": 0.96,
+        "closeChgPct": -0.22
+      },
+      {
+        "market": "KRW-SYRUP",
+        "open": 356,
+        "high": 360,
+        "close": 355,
+        "intradayUpPct": 1.12,
+        "closeChgPct": -0.28
+      },
+      {
+        "market": "KRW-HOLO",
+        "open": 92.9,
+        "high": 95.7,
+        "close": 92,
+        "intradayUpPct": 3.01,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-MIRA",
+        "open": 123,
+        "high": 124,
+        "close": 121,
+        "intradayUpPct": 0.81,
+        "closeChgPct": -1.63
+      },
+      {
+        "market": "KRW-SUN",
+        "open": 28,
+        "high": 28.2,
+        "close": 27.5,
+        "intradayUpPct": 0.71,
+        "closeChgPct": -1.79
+      },
+      {
+        "market": "KRW-ZBT",
+        "open": 270,
+        "high": 302,
+        "close": 271,
+        "intradayUpPct": 11.85,
+        "closeChgPct": 0.37
+      },
+      {
+        "market": "KRW-ONG",
+        "open": 109,
+        "high": 109,
+        "close": 107,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.83
+      },
+      {
+        "market": "KRW-ENSO",
+        "open": 1318,
+        "high": 1578,
+        "close": 1502,
+        "intradayUpPct": 19.73,
+        "closeChgPct": 13.96
+      },
+      {
+        "market": "KRW-BIRB",
+        "open": 200,
+        "high": 203,
+        "close": 197,
+        "intradayUpPct": 1.5,
+        "closeChgPct": -1.5
+      },
+      {
+        "market": "KRW-ONT",
+        "open": 105,
+        "high": 108,
+        "close": 106,
+        "intradayUpPct": 2.86,
+        "closeChgPct": 0.95
+      },
+      {
+        "market": "KRW-SOMI",
+        "open": 267,
+        "high": 287,
+        "close": 281,
+        "intradayUpPct": 7.49,
+        "closeChgPct": 5.24
+      },
+      {
+        "market": "KRW-DEEP",
+        "open": 42.6,
+        "high": 43,
+        "close": 42,
+        "intradayUpPct": 0.94,
+        "closeChgPct": -1.41
+      },
+      {
+        "market": "KRW-STRAX",
+        "open": 19.5,
+        "high": 19.5,
+        "close": 19.2,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.54
+      },
+      {
+        "market": "KRW-ICP",
+        "open": 3565,
+        "high": 3618,
+        "close": 3545,
+        "intradayUpPct": 1.49,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-BREV",
+        "open": 179,
+        "high": 181,
+        "close": 172,
+        "intradayUpPct": 1.12,
+        "closeChgPct": -3.91
+      },
+      {
+        "market": "KRW-ICX",
+        "open": 54.2,
+        "high": 54.6,
+        "close": 53.5,
+        "intradayUpPct": 0.74,
+        "closeChgPct": -1.29
+      },
+      {
+        "market": "KRW-POLYX",
+        "open": 71.2,
+        "high": 71.3,
+        "close": 70.1,
+        "intradayUpPct": 0.14,
+        "closeChgPct": -1.54
+      }
+    ],
+    "2026-05-01": [
+      {
+        "market": "KRW-WAXP",
+        "open": 9.79,
+        "high": 9.91,
+        "close": 9.81,
+        "intradayUpPct": 1.23,
+        "closeChgPct": 0.2
+      },
+      {
+        "market": "KRW-CARV",
+        "open": 82.9,
+        "high": 83.3,
+        "close": 82,
+        "intradayUpPct": 0.48,
+        "closeChgPct": -1.09
+      },
+      {
+        "market": "KRW-LSK",
+        "open": 184,
+        "high": 189,
+        "close": 186,
+        "intradayUpPct": 2.72,
+        "closeChgPct": 1.09
+      },
+      {
+        "market": "KRW-0G",
+        "open": 788,
+        "high": 792,
+        "close": 786,
+        "intradayUpPct": 0.51,
+        "closeChgPct": -0.25
+      },
+      {
+        "market": "KRW-BORA",
+        "open": 53.4,
+        "high": 53.9,
+        "close": 53.9,
+        "intradayUpPct": 0.94,
+        "closeChgPct": 0.94
+      },
+      {
+        "market": "KRW-PUNDIX",
+        "open": 216,
+        "high": 218,
+        "close": 215,
+        "intradayUpPct": 0.93,
+        "closeChgPct": -0.46
+      },
+      {
+        "market": "KRW-USD1",
+        "open": 1491,
+        "high": 1491,
+        "close": 1484,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.47
+      },
+      {
+        "market": "KRW-BAT",
+        "open": 144,
+        "high": 146,
+        "close": 145,
+        "intradayUpPct": 1.39,
+        "closeChgPct": 0.69
+      },
+      {
+        "market": "KRW-HUNT",
+        "open": 149,
+        "high": 151,
+        "close": 149,
+        "intradayUpPct": 1.34,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-PENGU",
+        "open": 14.8,
+        "high": 15.2,
+        "close": 14.7,
+        "intradayUpPct": 2.7,
+        "closeChgPct": -0.68
+      },
+      {
+        "market": "KRW-BEAM",
+        "open": 2.84,
+        "high": 2.87,
+        "close": 2.82,
+        "intradayUpPct": 1.06,
+        "closeChgPct": -0.7
+      },
+      {
+        "market": "KRW-DOOD",
+        "open": 4.75,
+        "high": 4.81,
+        "close": 4.72,
+        "intradayUpPct": 1.26,
+        "closeChgPct": -0.63
+      },
+      {
+        "market": "KRW-WAVES",
+        "open": 604,
+        "high": 609,
+        "close": 607,
+        "intradayUpPct": 0.83,
+        "closeChgPct": 0.5
+      },
+      {
+        "market": "KRW-USDC",
+        "open": 1489,
+        "high": 1492,
+        "close": 1483,
+        "intradayUpPct": 0.2,
+        "closeChgPct": -0.4
+      },
+      {
+        "market": "KRW-MOVE",
+        "open": 25.5,
+        "high": 26.3,
+        "close": 26,
+        "intradayUpPct": 3.14,
+        "closeChgPct": 1.96
+      },
+      {
+        "market": "KRW-TREE",
+        "open": 100,
+        "high": 101,
+        "close": 98.3,
+        "intradayUpPct": 1,
+        "closeChgPct": -1.7
+      },
+      {
+        "market": "KRW-USDE",
+        "open": 1487,
+        "high": 1495,
+        "close": 1481,
+        "intradayUpPct": 0.54,
+        "closeChgPct": -0.4
+      },
+      {
+        "market": "KRW-AERGO",
+        "open": 83.8,
+        "high": 86.4,
+        "close": 83,
+        "intradayUpPct": 3.1,
+        "closeChgPct": -0.95
+      },
+      {
+        "market": "KRW-WET",
+        "open": 143,
+        "high": 148,
+        "close": 144,
+        "intradayUpPct": 3.5,
+        "closeChgPct": 0.7
+      },
+      {
+        "market": "KRW-USDT",
+        "open": 1491,
+        "high": 1491,
+        "close": 1483,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.54
+      },
+      {
+        "market": "KRW-2Z",
+        "open": 122,
+        "high": 124,
+        "close": 123,
+        "intradayUpPct": 1.64,
+        "closeChgPct": 0.82
+      },
+      {
+        "market": "KRW-BOUNTY",
+        "open": 31.2,
+        "high": 31.5,
+        "close": 31.2,
+        "intradayUpPct": 0.96,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-KAITO",
+        "open": 676,
+        "high": 714,
+        "close": 703,
+        "intradayUpPct": 5.62,
+        "closeChgPct": 3.99
+      },
+      {
+        "market": "KRW-LPT",
+        "open": 3120,
+        "high": 3149,
+        "close": 3138,
+        "intradayUpPct": 0.93,
+        "closeChgPct": 0.58
+      },
+      {
+        "market": "KRW-BLAST",
+        "open": 0.739,
+        "high": 0.751,
+        "close": 0.737,
+        "intradayUpPct": 1.62,
+        "closeChgPct": -0.27
+      },
+      {
+        "market": "KRW-ETHFI",
+        "open": 612,
+        "high": 620,
+        "close": 606,
+        "intradayUpPct": 1.31,
+        "closeChgPct": -0.98
+      },
+      {
+        "market": "KRW-DKA",
+        "open": 8.58,
+        "high": 8.78,
+        "close": 8.59,
+        "intradayUpPct": 2.33,
+        "closeChgPct": 0.12
+      },
+      {
+        "market": "KRW-ANKR",
+        "open": 7.05,
+        "high": 7.16,
+        "close": 7.15,
+        "intradayUpPct": 1.56,
+        "closeChgPct": 1.42
+      },
+      {
+        "market": "KRW-ALGO",
+        "open": 164,
+        "high": 165,
+        "close": 162,
+        "intradayUpPct": 0.61,
+        "closeChgPct": -1.22
+      },
+      {
+        "market": "KRW-UNI",
+        "open": 4752,
+        "high": 4850,
+        "close": 4756,
+        "intradayUpPct": 2.06,
+        "closeChgPct": 0.08
+      },
+      {
+        "market": "KRW-BIO",
+        "open": 61.6,
+        "high": 66,
+        "close": 59.8,
+        "intradayUpPct": 7.14,
+        "closeChgPct": -2.92
+      },
+      {
+        "market": "KRW-WLFI",
+        "open": 90.8,
+        "high": 91.9,
+        "close": 80.9,
+        "intradayUpPct": 1.21,
+        "closeChgPct": -10.9
+      },
+      {
+        "market": "KRW-TOKAMAK",
+        "open": 735,
+        "high": 932,
+        "close": 837,
+        "intradayUpPct": 26.8,
+        "closeChgPct": 13.88
+      },
+      {
+        "market": "KRW-SKY",
+        "open": 118,
+        "high": 122,
+        "close": 120,
+        "intradayUpPct": 3.39,
+        "closeChgPct": 1.69
+      },
+      {
+        "market": "KRW-CYBER",
+        "open": 776,
+        "high": 787,
+        "close": 783,
+        "intradayUpPct": 1.42,
+        "closeChgPct": 0.9
+      },
+      {
+        "market": "KRW-SKR",
+        "open": 25.1,
+        "high": 25.5,
+        "close": 24.2,
+        "intradayUpPct": 1.59,
+        "closeChgPct": -3.59
+      },
+      {
+        "market": "KRW-WLD",
+        "open": 361,
+        "high": 365,
+        "close": 348,
+        "intradayUpPct": 1.11,
+        "closeChgPct": -3.6
+      },
+      {
+        "market": "KRW-PEPE",
+        "open": 0.00577,
+        "high": 0.00597,
+        "close": 0.00584,
+        "intradayUpPct": 3.47,
+        "closeChgPct": 1.21
+      },
+      {
+        "market": "KRW-HBAR",
+        "open": 131,
+        "high": 132,
+        "close": 130,
+        "intradayUpPct": 0.76,
+        "closeChgPct": -0.76
+      },
+      {
+        "market": "KRW-BCH",
+        "open": 657000,
+        "high": 678500,
+        "close": 668000,
+        "intradayUpPct": 3.27,
+        "closeChgPct": 1.67
+      },
+      {
+        "market": "KRW-NEWT",
+        "open": 108,
+        "high": 111,
+        "close": 110,
+        "intradayUpPct": 2.78,
+        "closeChgPct": 1.85
+      },
+      {
+        "market": "KRW-SEI",
+        "open": 85.5,
+        "high": 86.4,
+        "close": 85.8,
+        "intradayUpPct": 1.05,
+        "closeChgPct": 0.35
+      },
+      {
+        "market": "KRW-JST",
+        "open": 132,
+        "high": 135,
+        "close": 128,
+        "intradayUpPct": 2.27,
+        "closeChgPct": -3.03
+      },
+      {
+        "market": "KRW-AAVE",
+        "open": 138300,
+        "high": 140000,
+        "close": 136500,
+        "intradayUpPct": 1.23,
+        "closeChgPct": -1.3
+      },
+      {
+        "market": "KRW-JTO",
+        "open": 531,
+        "high": 540,
+        "close": 534,
+        "intradayUpPct": 1.69,
+        "closeChgPct": 0.56
+      },
+      {
+        "market": "KRW-JUP",
+        "open": 268,
+        "high": 276,
+        "close": 265,
+        "intradayUpPct": 2.99,
+        "closeChgPct": -1.12
+      },
+      {
+        "market": "KRW-PIEVERSE",
+        "open": 1011,
+        "high": 1036,
+        "close": 1001,
+        "intradayUpPct": 2.47,
+        "closeChgPct": -0.99
+      },
+      {
+        "market": "KRW-ALT",
+        "open": 11.1,
+        "high": 11.3,
+        "close": 11.2,
+        "intradayUpPct": 1.8,
+        "closeChgPct": 0.9
+      },
+      {
+        "market": "KRW-LAYER",
+        "open": 121,
+        "high": 125,
+        "close": 123,
+        "intradayUpPct": 3.31,
+        "closeChgPct": 1.65
+      },
+      {
+        "market": "KRW-TRX",
+        "open": 488,
+        "high": 489,
+        "close": 484,
+        "intradayUpPct": 0.2,
+        "closeChgPct": -0.82
+      },
+      {
+        "market": "KRW-POWR",
+        "open": 92.2,
+        "high": 93.4,
+        "close": 92.7,
+        "intradayUpPct": 1.3,
+        "closeChgPct": 0.54
+      },
+      {
+        "market": "KRW-ATOM",
+        "open": 2813,
+        "high": 2840,
+        "close": 2814,
+        "intradayUpPct": 0.96,
+        "closeChgPct": 0.04
+      },
+      {
+        "market": "KRW-ARKM",
+        "open": 164,
+        "high": 168,
+        "close": 165,
+        "intradayUpPct": 2.44,
+        "closeChgPct": 0.61
+      },
+      {
+        "market": "KRW-CRO",
+        "open": 102,
+        "high": 103,
+        "close": 101,
+        "intradayUpPct": 0.98,
+        "closeChgPct": -0.98
+      },
+      {
+        "market": "KRW-NXPC",
+        "open": 441,
+        "high": 475,
+        "close": 430,
+        "intradayUpPct": 7.71,
+        "closeChgPct": -2.49
+      },
+      {
+        "market": "KRW-A",
+        "open": 133,
+        "high": 134,
+        "close": 133,
+        "intradayUpPct": 0.75,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TRUMP",
+        "open": 3551,
+        "high": 3580,
+        "close": 3432,
+        "intradayUpPct": 0.82,
+        "closeChgPct": -3.35
+      },
+      {
+        "market": "KRW-F",
+        "open": 8,
+        "high": 8.13,
+        "close": 8.12,
+        "intradayUpPct": 1.63,
+        "closeChgPct": 1.5
+      },
+      {
+        "market": "KRW-G",
+        "open": 5.37,
+        "high": 5.37,
+        "close": 5.31,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.12
+      },
+      {
+        "market": "KRW-CELO",
+        "open": 127,
+        "high": 131,
+        "close": 128,
+        "intradayUpPct": 3.15,
+        "closeChgPct": 0.79
+      },
+      {
+        "market": "KRW-AERO",
+        "open": 670,
+        "high": 696,
+        "close": 670,
+        "intradayUpPct": 3.88,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-CTC",
+        "open": 215,
+        "high": 216,
+        "close": 214,
+        "intradayUpPct": 0.47,
+        "closeChgPct": -0.47
+      },
+      {
+        "market": "KRW-ANIME",
+        "open": 6.97,
+        "high": 7.05,
+        "close": 6.99,
+        "intradayUpPct": 1.15,
+        "closeChgPct": 0.29
+      },
+      {
+        "market": "KRW-APT",
+        "open": 1481,
+        "high": 1557,
+        "close": 1470,
+        "intradayUpPct": 5.13,
+        "closeChgPct": -0.74
+      },
+      {
+        "market": "KRW-MOCA",
+        "open": 20.1,
+        "high": 20.9,
+        "close": 20.3,
+        "intradayUpPct": 3.98,
+        "closeChgPct": 1
+      },
+      {
+        "market": "KRW-API3",
+        "open": 552,
+        "high": 617,
+        "close": 575,
+        "intradayUpPct": 11.78,
+        "closeChgPct": 4.17
+      },
+      {
+        "market": "KRW-AHT",
+        "open": 2.25,
+        "high": 2.3,
+        "close": 2.25,
+        "intradayUpPct": 2.22,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-EGLD",
+        "open": 6065,
+        "high": 6175,
+        "close": 6070,
+        "intradayUpPct": 1.81,
+        "closeChgPct": 0.08
+      },
+      {
+        "market": "KRW-BLEND",
+        "open": 200,
+        "high": 205,
+        "close": 178,
+        "intradayUpPct": 2.5,
+        "closeChgPct": -11
+      },
+      {
+        "market": "KRW-ERA",
+        "open": 203,
+        "high": 206,
+        "close": 205,
+        "intradayUpPct": 1.48,
+        "closeChgPct": 0.99
+      },
+      {
+        "market": "KRW-FF",
+        "open": 93.7,
+        "high": 96.1,
+        "close": 93.9,
+        "intradayUpPct": 2.56,
+        "closeChgPct": 0.21
+      },
+      {
+        "market": "KRW-PLUME",
+        "open": 17.3,
+        "high": 17.4,
+        "close": 17,
+        "intradayUpPct": 0.58,
+        "closeChgPct": -1.73
+      },
+      {
+        "market": "KRW-ESP",
+        "open": 101,
+        "high": 103,
+        "close": 100,
+        "intradayUpPct": 1.98,
+        "closeChgPct": -0.99
+      },
+      {
+        "market": "KRW-CC",
+        "open": 225,
+        "high": 225,
+        "close": 222,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.33
+      },
+      {
+        "market": "KRW-NEO",
+        "open": 4050,
+        "high": 4114,
+        "close": 4076,
+        "intradayUpPct": 1.58,
+        "closeChgPct": 0.64
+      },
+      {
+        "market": "KRW-ETC",
+        "open": 12440,
+        "high": 12620,
+        "close": 12490,
+        "intradayUpPct": 1.45,
+        "closeChgPct": 0.4
+      },
+      {
+        "market": "KRW-IOTA",
+        "open": 81.2,
+        "high": 82.4,
+        "close": 81.2,
+        "intradayUpPct": 1.48,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-AKT",
+        "open": 758,
+        "high": 783,
+        "close": 770,
+        "intradayUpPct": 3.3,
+        "closeChgPct": 1.58
+      },
+      {
+        "market": "KRW-COW",
+        "open": 276,
+        "high": 279,
+        "close": 272,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -1.45
+      },
+      {
+        "market": "KRW-VIRTUAL",
+        "open": 1024,
+        "high": 1060,
+        "close": 1038,
+        "intradayUpPct": 3.52,
+        "closeChgPct": 1.37
+      },
+      {
+        "market": "KRW-ETH",
+        "open": 3368000,
+        "high": 3441000,
+        "close": 3405000,
+        "intradayUpPct": 2.17,
+        "closeChgPct": 1.1
+      },
+      {
+        "market": "KRW-IQ",
+        "open": 1.57,
+        "high": 1.59,
+        "close": 1.59,
+        "intradayUpPct": 1.27,
+        "closeChgPct": 1.27
+      },
+      {
+        "market": "KRW-IP",
+        "open": 735,
+        "high": 754,
+        "close": 743,
+        "intradayUpPct": 2.59,
+        "closeChgPct": 1.09
+      },
+      {
+        "market": "KRW-NEAR",
+        "open": 1932,
+        "high": 1962,
+        "close": 1913,
+        "intradayUpPct": 1.55,
+        "closeChgPct": -0.98
+      },
+      {
+        "market": "KRW-RVN",
+        "open": 8.68,
+        "high": 8.74,
+        "close": 8.66,
+        "intradayUpPct": 0.69,
+        "closeChgPct": -0.23
+      },
+      {
+        "market": "KRW-PRL",
+        "open": 419,
+        "high": 436,
+        "close": 375,
+        "intradayUpPct": 4.06,
+        "closeChgPct": -10.5
+      },
+      {
+        "market": "KRW-AGLD",
+        "open": 371,
+        "high": 381,
+        "close": 372,
+        "intradayUpPct": 2.7,
+        "closeChgPct": 0.27
+      },
+      {
+        "market": "KRW-ID",
+        "open": 45.4,
+        "high": 45.9,
+        "close": 45.4,
+        "intradayUpPct": 1.1,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-IN",
+        "open": 98.7,
+        "high": 99.9,
+        "close": 98.5,
+        "intradayUpPct": 1.22,
+        "closeChgPct": -0.2
+      },
+      {
+        "market": "KRW-MANTRA",
+        "open": 14.6,
+        "high": 16.4,
+        "close": 15.2,
+        "intradayUpPct": 12.33,
+        "closeChgPct": 4.11
+      },
+      {
+        "market": "KRW-WAL",
+        "open": 104,
+        "high": 106,
+        "close": 106,
+        "intradayUpPct": 1.92,
+        "closeChgPct": 1.92
+      },
+      {
+        "market": "KRW-PENDLE",
+        "open": 2126,
+        "high": 2376,
+        "close": 2333,
+        "intradayUpPct": 11.76,
+        "closeChgPct": 9.74
+      },
+      {
+        "market": "KRW-BLUR",
+        "open": 39.3,
+        "high": 41.4,
+        "close": 40.1,
+        "intradayUpPct": 5.34,
+        "closeChgPct": 2.04
+      },
+      {
+        "market": "KRW-AWE",
+        "open": 91.1,
+        "high": 92.2,
+        "close": 86.2,
+        "intradayUpPct": 1.21,
+        "closeChgPct": -5.38
+      },
+      {
+        "market": "KRW-THETA",
+        "open": 290,
+        "high": 300,
+        "close": 298,
+        "intradayUpPct": 3.45,
+        "closeChgPct": 2.76
+      },
+      {
+        "market": "KRW-AXL",
+        "open": 91.8,
+        "high": 108,
+        "close": 101,
+        "intradayUpPct": 17.65,
+        "closeChgPct": 10.02
+      },
+      {
+        "market": "KRW-SAND",
+        "open": 108,
+        "high": 109,
+        "close": 106,
+        "intradayUpPct": 0.93,
+        "closeChgPct": -1.85
+      },
+      {
+        "market": "KRW-WCT",
+        "open": 91.2,
+        "high": 94.4,
+        "close": 93.9,
+        "intradayUpPct": 3.51,
+        "closeChgPct": 2.96
+      },
+      {
+        "market": "KRW-YGG",
+        "open": 59.7,
+        "high": 61.6,
+        "close": 60.5,
+        "intradayUpPct": 3.18,
+        "closeChgPct": 1.34
+      },
+      {
+        "market": "KRW-AXS",
+        "open": 2041,
+        "high": 2132,
+        "close": 2063,
+        "intradayUpPct": 4.46,
+        "closeChgPct": 1.08
+      },
+      {
+        "market": "KRW-ARDR",
+        "open": 61.7,
+        "high": 62.2,
+        "close": 62.1,
+        "intradayUpPct": 0.81,
+        "closeChgPct": 0.65
+      },
+      {
+        "market": "KRW-AQT",
+        "open": 807,
+        "high": 845,
+        "close": 826,
+        "intradayUpPct": 4.71,
+        "closeChgPct": 2.35
+      },
+      {
+        "market": "KRW-ME",
+        "open": 155,
+        "high": 158,
+        "close": 155,
+        "intradayUpPct": 1.94,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TRUST",
+        "open": 101,
+        "high": 101,
+        "close": 99.1,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.88
+      },
+      {
+        "market": "KRW-SONIC",
+        "open": 56.7,
+        "high": 59.4,
+        "close": 55.9,
+        "intradayUpPct": 4.76,
+        "closeChgPct": -1.41
+      },
+      {
+        "market": "KRW-ARB",
+        "open": 185,
+        "high": 189,
+        "close": 184,
+        "intradayUpPct": 2.16,
+        "closeChgPct": -0.54
+      },
+      {
+        "market": "KRW-POL",
+        "open": 142,
+        "high": 143,
+        "close": 141,
+        "intradayUpPct": 0.7,
+        "closeChgPct": -0.7
+      },
+      {
+        "market": "KRW-CVC",
+        "open": 45.7,
+        "high": 46.2,
+        "close": 45.4,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -0.66
+      },
+      {
+        "market": "KRW-T",
+        "open": 8.7,
+        "high": 8.84,
+        "close": 8.74,
+        "intradayUpPct": 1.61,
+        "closeChgPct": 0.46
+      },
+      {
+        "market": "KRW-W",
+        "open": 18.4,
+        "high": 19,
+        "close": 18.8,
+        "intradayUpPct": 3.26,
+        "closeChgPct": 2.17
+      },
+      {
+        "market": "KRW-ARK",
+        "open": 259,
+        "high": 261,
+        "close": 257,
+        "intradayUpPct": 0.77,
+        "closeChgPct": -0.77
+      },
+      {
+        "market": "KRW-AVNT",
+        "open": 219,
+        "high": 224,
+        "close": 220,
+        "intradayUpPct": 2.28,
+        "closeChgPct": 0.46
+      },
+      {
+        "market": "KRW-LA",
+        "open": 233,
+        "high": 235,
+        "close": 206,
+        "intradayUpPct": 0.86,
+        "closeChgPct": -11.59
+      },
+      {
+        "market": "KRW-HYPER",
+        "open": 185,
+        "high": 188,
+        "close": 181,
+        "intradayUpPct": 1.62,
+        "closeChgPct": -2.16
+      },
+      {
+        "market": "KRW-ATH",
+        "open": 8.69,
+        "high": 8.77,
+        "close": 8.64,
+        "intradayUpPct": 0.92,
+        "closeChgPct": -0.58
+      },
+      {
+        "market": "KRW-TAIKO",
+        "open": 171,
+        "high": 173,
+        "close": 172,
+        "intradayUpPct": 1.17,
+        "closeChgPct": 0.58
+      },
+      {
+        "market": "KRW-AVAX",
+        "open": 13570,
+        "high": 13720,
+        "close": 13500,
+        "intradayUpPct": 1.11,
+        "closeChgPct": -0.52
+      },
+      {
+        "market": "KRW-XAUT",
+        "open": 6877000,
+        "high": 6884000,
+        "close": 6833000,
+        "intradayUpPct": 0.1,
+        "closeChgPct": -0.64
+      },
+      {
+        "market": "KRW-CPOOL",
+        "open": 38.2,
+        "high": 39.9,
+        "close": 38.4,
+        "intradayUpPct": 4.45,
+        "closeChgPct": 0.52
+      },
+      {
+        "market": "KRW-IMX",
+        "open": 245,
+        "high": 255,
+        "close": 248,
+        "intradayUpPct": 4.08,
+        "closeChgPct": 1.22
+      },
+      {
+        "market": "KRW-SC",
+        "open": 1.36,
+        "high": 1.38,
+        "close": 1.37,
+        "intradayUpPct": 1.47,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-INJ",
+        "open": 5095,
+        "high": 5490,
+        "close": 5395,
+        "intradayUpPct": 7.75,
+        "closeChgPct": 5.89
+      },
+      {
+        "market": "KRW-MVL",
+        "open": 1.91,
+        "high": 1.92,
+        "close": 1.92,
+        "intradayUpPct": 0.52,
+        "closeChgPct": 0.52
+      },
+      {
+        "market": "KRW-HIVE",
+        "open": 88.1,
+        "high": 89.2,
+        "close": 88.6,
+        "intradayUpPct": 1.25,
+        "closeChgPct": 0.57
+      },
+      {
+        "market": "KRW-CBK",
+        "open": 370,
+        "high": 387,
+        "close": 382,
+        "intradayUpPct": 4.59,
+        "closeChgPct": 3.24
+      },
+      {
+        "market": "KRW-OP",
+        "open": 180,
+        "high": 183,
+        "close": 180,
+        "intradayUpPct": 1.67,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SAFE",
+        "open": 215,
+        "high": 225,
+        "close": 213,
+        "intradayUpPct": 4.65,
+        "closeChgPct": -0.93
+      },
+      {
+        "market": "KRW-GLM",
+        "open": 213,
+        "high": 214,
+        "close": 209,
+        "intradayUpPct": 0.47,
+        "closeChgPct": -1.88
+      },
+      {
+        "market": "KRW-SUPER",
+        "open": 179,
+        "high": 182,
+        "close": 177,
+        "intradayUpPct": 1.68,
+        "closeChgPct": -1.12
+      },
+      {
+        "market": "KRW-KERNEL",
+        "open": 99.7,
+        "high": 104,
+        "close": 99.2,
+        "intradayUpPct": 4.31,
+        "closeChgPct": -0.5
+      },
+      {
+        "market": "KRW-POKT",
+        "open": 17.7,
+        "high": 17.8,
+        "close": 17.6,
+        "intradayUpPct": 0.56,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-SENT",
+        "open": 25.6,
+        "high": 26,
+        "close": 25.4,
+        "intradayUpPct": 1.56,
+        "closeChgPct": -0.78
+      },
+      {
+        "market": "KRW-ZKC",
+        "open": 110,
+        "high": 112,
+        "close": 111,
+        "intradayUpPct": 1.82,
+        "closeChgPct": 0.91
+      },
+      {
+        "market": "KRW-KNC",
+        "open": 205,
+        "high": 207,
+        "close": 205,
+        "intradayUpPct": 0.98,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ZKP",
+        "open": 120,
+        "high": 136,
+        "close": 126,
+        "intradayUpPct": 13.33,
+        "closeChgPct": 5
+      },
+      {
+        "market": "KRW-AUCTION",
+        "open": 7080,
+        "high": 7115,
+        "close": 7060,
+        "intradayUpPct": 0.49,
+        "closeChgPct": -0.28
+      },
+      {
+        "market": "KRW-ORDER",
+        "open": 80.6,
+        "high": 82.4,
+        "close": 81.2,
+        "intradayUpPct": 2.23,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-DRIFT",
+        "open": 84.5,
+        "high": 96.3,
+        "close": 88,
+        "intradayUpPct": 13.96,
+        "closeChgPct": 4.14
+      },
+      {
+        "market": "KRW-FCT2",
+        "open": 18.6,
+        "high": 19,
+        "close": 18.9,
+        "intradayUpPct": 2.15,
+        "closeChgPct": 1.61
+      },
+      {
+        "market": "KRW-MTL",
+        "open": 440,
+        "high": 444,
+        "close": 442,
+        "intradayUpPct": 0.91,
+        "closeChgPct": 0.45
+      },
+      {
+        "market": "KRW-VET",
+        "open": 10.4,
+        "high": 10.8,
+        "close": 10.6,
+        "intradayUpPct": 3.85,
+        "closeChgPct": 1.92
+      },
+      {
+        "market": "KRW-TAO",
+        "open": 371200,
+        "high": 408300,
+        "close": 401800,
+        "intradayUpPct": 9.99,
+        "closeChgPct": 8.24
+      },
+      {
+        "market": "KRW-QTUM",
+        "open": 1288,
+        "high": 1300,
+        "close": 1294,
+        "intradayUpPct": 0.93,
+        "closeChgPct": 0.47
+      },
+      {
+        "market": "KRW-TT",
+        "open": 1.29,
+        "high": 1.31,
+        "close": 1.31,
+        "intradayUpPct": 1.55,
+        "closeChgPct": 1.55
+      },
+      {
+        "market": "KRW-LINK",
+        "open": 13580,
+        "high": 13750,
+        "close": 13500,
+        "intradayUpPct": 1.25,
+        "closeChgPct": -0.59
+      },
+      {
+        "market": "KRW-CHZ",
+        "open": 61.5,
+        "high": 63.1,
+        "close": 61.7,
+        "intradayUpPct": 2.6,
+        "closeChgPct": 0.33
+      },
+      {
+        "market": "KRW-ASTR",
+        "open": 12,
+        "high": 12.1,
+        "close": 11.9,
+        "intradayUpPct": 0.83,
+        "closeChgPct": -0.83
+      },
+      {
+        "market": "KRW-ZK",
+        "open": 22.8,
+        "high": 23.2,
+        "close": 22.8,
+        "intradayUpPct": 1.75,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-STORJ",
+        "open": 143,
+        "high": 144,
+        "close": 142,
+        "intradayUpPct": 0.7,
+        "closeChgPct": -0.7
+      },
+      {
+        "market": "KRW-ENA",
+        "open": 153,
+        "high": 157,
+        "close": 152,
+        "intradayUpPct": 2.61,
+        "closeChgPct": -0.65
+      },
+      {
+        "market": "KRW-MANA",
+        "open": 133,
+        "high": 135,
+        "close": 134,
+        "intradayUpPct": 1.5,
+        "closeChgPct": 0.75
+      },
+      {
+        "market": "KRW-OPEN",
+        "open": 399,
+        "high": 415,
+        "close": 366,
+        "intradayUpPct": 4.01,
+        "closeChgPct": -8.27
+      },
+      {
+        "market": "KRW-PYTH",
+        "open": 69.4,
+        "high": 70.4,
+        "close": 69.5,
+        "intradayUpPct": 1.44,
+        "closeChgPct": 0.14
+      },
+      {
+        "market": "KRW-ENS",
+        "open": 8935,
+        "high": 9100,
+        "close": 9015,
+        "intradayUpPct": 1.85,
+        "closeChgPct": 0.9
+      },
+      {
+        "market": "KRW-GRT",
+        "open": 35.9,
+        "high": 36.5,
+        "close": 35.9,
+        "intradayUpPct": 1.67,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-PUMP",
+        "open": 2.64,
+        "high": 2.75,
+        "close": 2.68,
+        "intradayUpPct": 4.17,
+        "closeChgPct": 1.52
+      },
+      {
+        "market": "KRW-XTZ",
+        "open": 543,
+        "high": 550,
+        "close": 543,
+        "intradayUpPct": 1.29,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-CKB",
+        "open": 2.2,
+        "high": 2.24,
+        "close": 2.22,
+        "intradayUpPct": 1.82,
+        "closeChgPct": 0.91
+      },
+      {
+        "market": "KRW-KAVA",
+        "open": 84,
+        "high": 85.6,
+        "close": 84,
+        "intradayUpPct": 1.9,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TOSHI",
+        "open": 0.272,
+        "high": 0.277,
+        "close": 0.27,
+        "intradayUpPct": 1.84,
+        "closeChgPct": -0.74
+      },
+      {
+        "market": "KRW-BARD",
+        "open": 413,
+        "high": 427,
+        "close": 425,
+        "intradayUpPct": 3.39,
+        "closeChgPct": 2.91
+      },
+      {
+        "market": "KRW-ZRO",
+        "open": 2128,
+        "high": 2155,
+        "close": 2033,
+        "intradayUpPct": 1.27,
+        "closeChgPct": -4.46
+      },
+      {
+        "market": "KRW-RAY",
+        "open": 1205,
+        "high": 1271,
+        "close": 1236,
+        "intradayUpPct": 5.48,
+        "closeChgPct": 2.57
+      },
+      {
+        "market": "KRW-ONDO",
+        "open": 392,
+        "high": 405,
+        "close": 398,
+        "intradayUpPct": 3.32,
+        "closeChgPct": 1.53
+      },
+      {
+        "market": "KRW-ZRX",
+        "open": 165,
+        "high": 166,
+        "close": 162,
+        "intradayUpPct": 0.61,
+        "closeChgPct": -1.82
+      },
+      {
+        "market": "KRW-TFUEL",
+        "open": 16.8,
+        "high": 16.9,
+        "close": 16.7,
+        "intradayUpPct": 0.6,
+        "closeChgPct": -0.6
+      },
+      {
+        "market": "KRW-CFG",
+        "open": 300,
+        "high": 317,
+        "close": 303,
+        "intradayUpPct": 5.67,
+        "closeChgPct": 1
+      },
+      {
+        "market": "KRW-AZTEC",
+        "open": 29,
+        "high": 30,
+        "close": 29.4,
+        "intradayUpPct": 3.45,
+        "closeChgPct": 1.38
+      },
+      {
+        "market": "KRW-XPL",
+        "open": 136,
+        "high": 140,
+        "close": 136,
+        "intradayUpPct": 2.94,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ZAMA",
+        "open": 39.1,
+        "high": 41.4,
+        "close": 40.2,
+        "intradayUpPct": 5.88,
+        "closeChgPct": 2.81
+      },
+      {
+        "market": "KRW-MASK",
+        "open": 746,
+        "high": 796,
+        "close": 768,
+        "intradayUpPct": 6.7,
+        "closeChgPct": 2.95
+      },
+      {
+        "market": "KRW-COMP",
+        "open": 35020,
+        "high": 37750,
+        "close": 35250,
+        "intradayUpPct": 7.8,
+        "closeChgPct": 0.66
+      },
+      {
+        "market": "KRW-ZETA",
+        "open": 87.1,
+        "high": 91.2,
+        "close": 85.2,
+        "intradayUpPct": 4.71,
+        "closeChgPct": -2.18
+      },
+      {
+        "market": "KRW-RED",
+        "open": 202,
+        "high": 202,
+        "close": 198,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.98
+      },
+      {
+        "market": "KRW-TIA",
+        "open": 521,
+        "high": 536,
+        "close": 519,
+        "intradayUpPct": 2.88,
+        "closeChgPct": -0.38
+      },
+      {
+        "market": "KRW-ADA",
+        "open": 366,
+        "high": 372,
+        "close": 369,
+        "intradayUpPct": 1.64,
+        "closeChgPct": 0.82
+      },
+      {
+        "market": "KRW-ELF",
+        "open": 116,
+        "high": 117,
+        "close": 116,
+        "intradayUpPct": 0.86,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SOON",
+        "open": 245,
+        "high": 261,
+        "close": 255,
+        "intradayUpPct": 6.53,
+        "closeChgPct": 4.08
+      },
+      {
+        "market": "KRW-STEEM",
+        "open": 83.4,
+        "high": 85.2,
+        "close": 84.1,
+        "intradayUpPct": 2.16,
+        "closeChgPct": 0.84
+      },
+      {
+        "market": "KRW-ELSA",
+        "open": 106,
+        "high": 112,
+        "close": 108,
+        "intradayUpPct": 5.66,
+        "closeChgPct": 1.89
+      },
+      {
+        "market": "KRW-SPK",
+        "open": 53.1,
+        "high": 53.9,
+        "close": 53.8,
+        "intradayUpPct": 1.51,
+        "closeChgPct": 1.32
+      },
+      {
+        "market": "KRW-SOPH",
+        "open": 12.9,
+        "high": 13.1,
+        "close": 13,
+        "intradayUpPct": 1.55,
+        "closeChgPct": 0.78
+      },
+      {
+        "market": "KRW-MED",
+        "open": 3.13,
+        "high": 3.17,
+        "close": 3.15,
+        "intradayUpPct": 1.28,
+        "closeChgPct": 0.64
+      },
+      {
+        "market": "KRW-1INCH",
+        "open": 138,
+        "high": 142,
+        "close": 140,
+        "intradayUpPct": 2.9,
+        "closeChgPct": 1.45
+      },
+      {
+        "market": "KRW-MEW",
+        "open": 0.865,
+        "high": 0.887,
+        "close": 0.873,
+        "intradayUpPct": 2.54,
+        "closeChgPct": 0.92
+      },
+      {
+        "market": "KRW-ORBS",
+        "open": 12.7,
+        "high": 12.7,
+        "close": 12.6,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.79
+      },
+      {
+        "market": "KRW-RENDER",
+        "open": 2501,
+        "high": 2560,
+        "close": 2526,
+        "intradayUpPct": 2.36,
+        "closeChgPct": 1
+      },
+      {
+        "market": "KRW-ORCA",
+        "open": 3159,
+        "high": 3360,
+        "close": 2970,
+        "intradayUpPct": 6.36,
+        "closeChgPct": -5.98
+      },
+      {
+        "market": "KRW-BERA",
+        "open": 534,
+        "high": 575,
+        "close": 553,
+        "intradayUpPct": 7.68,
+        "closeChgPct": 3.56
+      },
+      {
+        "market": "KRW-SIGN",
+        "open": 23.4,
+        "high": 23.5,
+        "close": 23.4,
+        "intradayUpPct": 0.43,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-VANA",
+        "open": 2165,
+        "high": 2231,
+        "close": 2201,
+        "intradayUpPct": 3.05,
+        "closeChgPct": 1.66
+      },
+      {
+        "market": "KRW-DOT",
+        "open": 1795,
+        "high": 1817,
+        "close": 1788,
+        "intradayUpPct": 1.23,
+        "closeChgPct": -0.39
+      },
+      {
+        "market": "KRW-EDGE",
+        "open": 156,
+        "high": 156,
+        "close": 156,
+        "intradayUpPct": 0,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-MET2",
+        "open": 231,
+        "high": 239,
+        "close": 238,
+        "intradayUpPct": 3.46,
+        "closeChgPct": 3.03
+      },
+      {
+        "market": "KRW-MBL",
+        "open": 1.37,
+        "high": 1.38,
+        "close": 1.37,
+        "intradayUpPct": 0.73,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-FLUID",
+        "open": 2315,
+        "high": 2777,
+        "close": 2467,
+        "intradayUpPct": 19.96,
+        "closeChgPct": 6.57
+      },
+      {
+        "market": "KRW-BIGTIME",
+        "open": 19.7,
+        "high": 20.1,
+        "close": 19.8,
+        "intradayUpPct": 2.03,
+        "closeChgPct": 0.51
+      },
+      {
+        "market": "KRW-SNT",
+        "open": 14.8,
+        "high": 14.9,
+        "close": 14.8,
+        "intradayUpPct": 0.68,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SOL",
+        "open": 123800,
+        "high": 125700,
+        "close": 124200,
+        "intradayUpPct": 1.53,
+        "closeChgPct": 0.32
+      },
+      {
+        "market": "KRW-QKC",
+        "open": 4.51,
+        "high": 4.57,
+        "close": 4.52,
+        "intradayUpPct": 1.33,
+        "closeChgPct": 0.22
+      },
+      {
+        "market": "KRW-META",
+        "open": 14.4,
+        "high": 14.4,
+        "close": 14.3,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.69
+      },
+      {
+        "market": "KRW-SAHARA",
+        "open": 32.6,
+        "high": 34.8,
+        "close": 34.4,
+        "intradayUpPct": 6.75,
+        "closeChgPct": 5.52
+      },
+      {
+        "market": "KRW-MLK",
+        "open": 76.2,
+        "high": 76.7,
+        "close": 76.5,
+        "intradayUpPct": 0.66,
+        "closeChgPct": 0.39
+      },
+      {
+        "market": "KRW-VTHO",
+        "open": 0.838,
+        "high": 0.844,
+        "close": 0.838,
+        "intradayUpPct": 0.72,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-KITE",
+        "open": 211,
+        "high": 224,
+        "close": 218,
+        "intradayUpPct": 6.16,
+        "closeChgPct": 3.32
+      },
+      {
+        "market": "KRW-MINA",
+        "open": 88.2,
+        "high": 88.9,
+        "close": 88.3,
+        "intradayUpPct": 0.79,
+        "closeChgPct": 0.11
+      },
+      {
+        "market": "KRW-MMT",
+        "open": 194,
+        "high": 196,
+        "close": 193,
+        "intradayUpPct": 1.03,
+        "closeChgPct": -0.52
+      },
+      {
+        "market": "KRW-CHIP",
+        "open": 95.1,
+        "high": 96.6,
+        "close": 95.7,
+        "intradayUpPct": 1.58,
+        "closeChgPct": 0.63
+      },
+      {
+        "market": "KRW-ZORA",
+        "open": 18.7,
+        "high": 18.8,
+        "close": 18.4,
+        "intradayUpPct": 0.53,
+        "closeChgPct": -1.6
+      },
+      {
+        "market": "KRW-XCN",
+        "open": 8.02,
+        "high": 8.06,
+        "close": 7.78,
+        "intradayUpPct": 0.5,
+        "closeChgPct": -2.99
+      },
+      {
+        "market": "KRW-MEGA",
+        "open": 248,
+        "high": 258,
+        "close": 236,
+        "intradayUpPct": 4.03,
+        "closeChgPct": -4.84
+      },
+      {
+        "market": "KRW-MNT",
+        "open": 934,
+        "high": 943,
+        "close": 933,
+        "intradayUpPct": 0.96,
+        "closeChgPct": -0.11
+      },
+      {
+        "market": "KRW-MOC",
+        "open": 40.9,
+        "high": 41.3,
+        "close": 41,
+        "intradayUpPct": 0.98,
+        "closeChgPct": 0.24
+      },
+      {
+        "market": "KRW-MOODENG",
+        "open": 88.5,
+        "high": 92.9,
+        "close": 90.2,
+        "intradayUpPct": 4.97,
+        "closeChgPct": 1.92
+      },
+      {
+        "market": "KRW-XEC",
+        "open": 0.0103,
+        "high": 0.0107,
+        "close": 0.0106,
+        "intradayUpPct": 3.88,
+        "closeChgPct": 2.91
+      },
+      {
+        "market": "KRW-MON",
+        "open": 40.4,
+        "high": 45,
+        "close": 44.6,
+        "intradayUpPct": 11.39,
+        "closeChgPct": 10.4
+      },
+      {
+        "market": "KRW-ZIL",
+        "open": 5.89,
+        "high": 5.98,
+        "close": 5.91,
+        "intradayUpPct": 1.53,
+        "closeChgPct": 0.34
+      },
+      {
+        "market": "KRW-GAME2",
+        "open": 2.01,
+        "high": 2.02,
+        "close": 2.01,
+        "intradayUpPct": 0.5,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-STX",
+        "open": 330,
+        "high": 335,
+        "close": 331,
+        "intradayUpPct": 1.52,
+        "closeChgPct": 0.3
+      },
+      {
+        "market": "KRW-FLOCK",
+        "open": 87.5,
+        "high": 87.9,
+        "close": 85.6,
+        "intradayUpPct": 0.46,
+        "closeChgPct": -2.17
+      },
+      {
+        "market": "KRW-PROVE",
+        "open": 368,
+        "high": 368,
+        "close": 363,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.36
+      },
+      {
+        "market": "KRW-BSV",
+        "open": 23530,
+        "high": 23960,
+        "close": 23450,
+        "intradayUpPct": 1.83,
+        "closeChgPct": -0.34
+      },
+      {
+        "market": "KRW-SUI",
+        "open": 1354,
+        "high": 1373,
+        "close": 1364,
+        "intradayUpPct": 1.4,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-SYRUP",
+        "open": 355,
+        "high": 370,
+        "close": 363,
+        "intradayUpPct": 4.23,
+        "closeChgPct": 2.25
+      },
+      {
+        "market": "KRW-HOLO",
+        "open": 92.2,
+        "high": 94,
+        "close": 92.5,
+        "intradayUpPct": 1.95,
+        "closeChgPct": 0.33
+      },
+      {
+        "market": "KRW-MIRA",
+        "open": 120,
+        "high": 122,
+        "close": 120,
+        "intradayUpPct": 1.67,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SUN",
+        "open": 27.5,
+        "high": 27.6,
+        "close": 27.2,
+        "intradayUpPct": 0.36,
+        "closeChgPct": -1.09
+      },
+      {
+        "market": "KRW-ZBT",
+        "open": 272,
+        "high": 317,
+        "close": 281,
+        "intradayUpPct": 16.54,
+        "closeChgPct": 3.31
+      },
+      {
+        "market": "KRW-ONG",
+        "open": 108,
+        "high": 108,
+        "close": 108,
+        "intradayUpPct": 0,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ENSO",
+        "open": 1504,
+        "high": 1663,
+        "close": 1509,
+        "intradayUpPct": 10.57,
+        "closeChgPct": 0.33
+      },
+      {
+        "market": "KRW-BIRB",
+        "open": 197,
+        "high": 204,
+        "close": 197,
+        "intradayUpPct": 3.55,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ONT",
+        "open": 106,
+        "high": 107,
+        "close": 107,
+        "intradayUpPct": 0.94,
+        "closeChgPct": 0.94
+      },
+      {
+        "market": "KRW-SOMI",
+        "open": 280,
+        "high": 283,
+        "close": 270,
+        "intradayUpPct": 1.07,
+        "closeChgPct": -3.57
+      },
+      {
+        "market": "KRW-DEEP",
+        "open": 42,
+        "high": 43,
+        "close": 41.5,
+        "intradayUpPct": 2.38,
+        "closeChgPct": -1.19
+      },
+      {
+        "market": "KRW-STRAX",
+        "open": 19.1,
+        "high": 19.4,
+        "close": 19.3,
+        "intradayUpPct": 1.57,
+        "closeChgPct": 1.05
+      },
+      {
+        "market": "KRW-ICP",
+        "open": 3549,
+        "high": 3570,
+        "close": 3486,
+        "intradayUpPct": 0.59,
+        "closeChgPct": -1.78
+      },
+      {
+        "market": "KRW-BREV",
+        "open": 172,
+        "high": 176,
+        "close": 173,
+        "intradayUpPct": 2.33,
+        "closeChgPct": 0.58
+      },
+      {
+        "market": "KRW-ICX",
+        "open": 53.5,
+        "high": 54.7,
+        "close": 53.7,
+        "intradayUpPct": 2.24,
+        "closeChgPct": 0.37
+      },
+      {
+        "market": "KRW-POLYX",
+        "open": 70.1,
+        "high": 71.4,
+        "close": 71,
+        "intradayUpPct": 1.85,
+        "closeChgPct": 1.28
+      }
+    ],
+    "2026-05-02": [
+      {
+        "market": "KRW-WAXP",
+        "open": 9.84,
+        "high": 9.88,
+        "close": 9.82,
+        "intradayUpPct": 0.41,
+        "closeChgPct": -0.2
+      },
+      {
+        "market": "KRW-CARV",
+        "open": 82,
+        "high": 87.1,
+        "close": 85.6,
+        "intradayUpPct": 6.22,
+        "closeChgPct": 4.39
+      },
+      {
+        "market": "KRW-LSK",
+        "open": 186,
+        "high": 187,
+        "close": 186,
+        "intradayUpPct": 0.54,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-0G",
+        "open": 786,
+        "high": 800,
+        "close": 790,
+        "intradayUpPct": 1.78,
+        "closeChgPct": 0.51
+      },
+      {
+        "market": "KRW-BORA",
+        "open": 53.8,
+        "high": 53.9,
+        "close": 53.6,
+        "intradayUpPct": 0.19,
+        "closeChgPct": -0.37
+      },
+      {
+        "market": "KRW-PUNDIX",
+        "open": 215,
+        "high": 217,
+        "close": 214,
+        "intradayUpPct": 0.93,
+        "closeChgPct": -0.47
+      },
+      {
+        "market": "KRW-USD1",
+        "open": 1484,
+        "high": 1487,
+        "close": 1485,
+        "intradayUpPct": 0.2,
+        "closeChgPct": 0.07
+      },
+      {
+        "market": "KRW-BAT",
+        "open": 145,
+        "high": 146,
+        "close": 143,
+        "intradayUpPct": 0.69,
+        "closeChgPct": -1.38
+      },
+      {
+        "market": "KRW-HUNT",
+        "open": 149,
+        "high": 150,
+        "close": 150,
+        "intradayUpPct": 0.67,
+        "closeChgPct": 0.67
+      },
+      {
+        "market": "KRW-PENGU",
+        "open": 14.7,
+        "high": 15.4,
+        "close": 14.9,
+        "intradayUpPct": 4.76,
+        "closeChgPct": 1.36
+      },
+      {
+        "market": "KRW-BEAM",
+        "open": 2.83,
+        "high": 2.9,
+        "close": 2.89,
+        "intradayUpPct": 2.47,
+        "closeChgPct": 2.12
+      },
+      {
+        "market": "KRW-DOOD",
+        "open": 4.73,
+        "high": 4.74,
+        "close": 4.66,
+        "intradayUpPct": 0.21,
+        "closeChgPct": -1.48
+      },
+      {
+        "market": "KRW-WAVES",
+        "open": 606,
+        "high": 609,
+        "close": 605,
+        "intradayUpPct": 0.5,
+        "closeChgPct": -0.17
+      },
+      {
+        "market": "KRW-USDC",
+        "open": 1483,
+        "high": 1486,
+        "close": 1485,
+        "intradayUpPct": 0.2,
+        "closeChgPct": 0.13
+      },
+      {
+        "market": "KRW-MOVE",
+        "open": 26.1,
+        "high": 26.1,
+        "close": 26,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.38
+      },
+      {
+        "market": "KRW-TREE",
+        "open": 98.3,
+        "high": 103,
+        "close": 102,
+        "intradayUpPct": 4.78,
+        "closeChgPct": 3.76
+      },
+      {
+        "market": "KRW-USDE",
+        "open": 1481,
+        "high": 1488,
+        "close": 1486,
+        "intradayUpPct": 0.47,
+        "closeChgPct": 0.34
+      },
+      {
+        "market": "KRW-AERGO",
+        "open": 83,
+        "high": 83.2,
+        "close": 82,
+        "intradayUpPct": 0.24,
+        "closeChgPct": -1.2
+      },
+      {
+        "market": "KRW-WET",
+        "open": 144,
+        "high": 145,
+        "close": 143,
+        "intradayUpPct": 0.69,
+        "closeChgPct": -0.69
+      },
+      {
+        "market": "KRW-USDT",
+        "open": 1483,
+        "high": 1487,
+        "close": 1483,
+        "intradayUpPct": 0.27,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-2Z",
+        "open": 122,
+        "high": 123,
+        "close": 123,
+        "intradayUpPct": 0.82,
+        "closeChgPct": 0.82
+      },
+      {
+        "market": "KRW-BOUNTY",
+        "open": 31.4,
+        "high": 31.4,
+        "close": 31.1,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.96
+      },
+      {
+        "market": "KRW-KAITO",
+        "open": 704,
+        "high": 721,
+        "close": 701,
+        "intradayUpPct": 2.41,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-LPT",
+        "open": 3139,
+        "high": 3206,
+        "close": 3196,
+        "intradayUpPct": 2.13,
+        "closeChgPct": 1.82
+      },
+      {
+        "market": "KRW-BLAST",
+        "open": 0.737,
+        "high": 0.74,
+        "close": 0.733,
+        "intradayUpPct": 0.41,
+        "closeChgPct": -0.54
+      },
+      {
+        "market": "KRW-ETHFI",
+        "open": 609,
+        "high": 620,
+        "close": 612,
+        "intradayUpPct": 1.81,
+        "closeChgPct": 0.49
+      },
+      {
+        "market": "KRW-DKA",
+        "open": 8.6,
+        "high": 8.63,
+        "close": 8.45,
+        "intradayUpPct": 0.35,
+        "closeChgPct": -1.74
+      },
+      {
+        "market": "KRW-ANKR",
+        "open": 7.14,
+        "high": 7.2,
+        "close": 7.07,
+        "intradayUpPct": 0.84,
+        "closeChgPct": -0.98
+      },
+      {
+        "market": "KRW-ALGO",
+        "open": 161,
+        "high": 162,
+        "close": 160,
+        "intradayUpPct": 0.62,
+        "closeChgPct": -0.62
+      },
+      {
+        "market": "KRW-UNI",
+        "open": 4755,
+        "high": 4785,
+        "close": 4784,
+        "intradayUpPct": 0.63,
+        "closeChgPct": 0.61
+      },
+      {
+        "market": "KRW-BIO",
+        "open": 59.9,
+        "high": 81.8,
+        "close": 80,
+        "intradayUpPct": 36.56,
+        "closeChgPct": 33.56
+      },
+      {
+        "market": "KRW-WLFI",
+        "open": 80.9,
+        "high": 84.8,
+        "close": 82.6,
+        "intradayUpPct": 4.82,
+        "closeChgPct": 2.1
+      },
+      {
+        "market": "KRW-TOKAMAK",
+        "open": 837,
+        "high": 855,
+        "close": 800,
+        "intradayUpPct": 2.15,
+        "closeChgPct": -4.42
+      },
+      {
+        "market": "KRW-SKY",
+        "open": 120,
+        "high": 122,
+        "close": 122,
+        "intradayUpPct": 1.67,
+        "closeChgPct": 1.67
+      },
+      {
+        "market": "KRW-CYBER",
+        "open": 781,
+        "high": 787,
+        "close": 779,
+        "intradayUpPct": 0.77,
+        "closeChgPct": -0.26
+      },
+      {
+        "market": "KRW-SKR",
+        "open": 24.2,
+        "high": 24.7,
+        "close": 24.1,
+        "intradayUpPct": 2.07,
+        "closeChgPct": -0.41
+      },
+      {
+        "market": "KRW-WLD",
+        "open": 348,
+        "high": 353,
+        "close": 351,
+        "intradayUpPct": 1.44,
+        "closeChgPct": 0.86
+      },
+      {
+        "market": "KRW-PEPE",
+        "open": 0.00583,
+        "high": 0.00586,
+        "close": 0.00583,
+        "intradayUpPct": 0.51,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-HBAR",
+        "open": 130,
+        "high": 132,
+        "close": 131,
+        "intradayUpPct": 1.54,
+        "closeChgPct": 0.77
+      },
+      {
+        "market": "KRW-BCH",
+        "open": 669000,
+        "high": 672500,
+        "close": 662000,
+        "intradayUpPct": 0.52,
+        "closeChgPct": -1.05
+      },
+      {
+        "market": "KRW-NEWT",
+        "open": 109,
+        "high": 111,
+        "close": 110,
+        "intradayUpPct": 1.83,
+        "closeChgPct": 0.92
+      },
+      {
+        "market": "KRW-SEI",
+        "open": 85.8,
+        "high": 86.5,
+        "close": 86.2,
+        "intradayUpPct": 0.82,
+        "closeChgPct": 0.47
+      },
+      {
+        "market": "KRW-JST",
+        "open": 127,
+        "high": 130,
+        "close": 127,
+        "intradayUpPct": 2.36,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-AAVE",
+        "open": 136500,
+        "high": 137900,
+        "close": 137000,
+        "intradayUpPct": 1.03,
+        "closeChgPct": 0.37
+      },
+      {
+        "market": "KRW-JTO",
+        "open": 534,
+        "high": 555,
+        "close": 555,
+        "intradayUpPct": 3.93,
+        "closeChgPct": 3.93
+      },
+      {
+        "market": "KRW-JUP",
+        "open": 265,
+        "high": 268,
+        "close": 265,
+        "intradayUpPct": 1.13,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-PIEVERSE",
+        "open": 1005,
+        "high": 1092,
+        "close": 1068,
+        "intradayUpPct": 8.66,
+        "closeChgPct": 6.27
+      },
+      {
+        "market": "KRW-ALT",
+        "open": 11.1,
+        "high": 11.4,
+        "close": 11.2,
+        "intradayUpPct": 2.7,
+        "closeChgPct": 0.9
+      },
+      {
+        "market": "KRW-LAYER",
+        "open": 123,
+        "high": 125,
+        "close": 124,
+        "intradayUpPct": 1.63,
+        "closeChgPct": 0.81
+      },
+      {
+        "market": "KRW-TRX",
+        "open": 485,
+        "high": 492,
+        "close": 491,
+        "intradayUpPct": 1.44,
+        "closeChgPct": 1.24
+      },
+      {
+        "market": "KRW-POWR",
+        "open": 92.8,
+        "high": 93.1,
+        "close": 92.4,
+        "intradayUpPct": 0.32,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-ATOM",
+        "open": 2813,
+        "high": 2831,
+        "close": 2780,
+        "intradayUpPct": 0.64,
+        "closeChgPct": -1.17
+      },
+      {
+        "market": "KRW-ARKM",
+        "open": 164,
+        "high": 186,
+        "close": 186,
+        "intradayUpPct": 13.41,
+        "closeChgPct": 13.41
+      },
+      {
+        "market": "KRW-CRO",
+        "open": 101,
+        "high": 102,
+        "close": 102,
+        "intradayUpPct": 0.99,
+        "closeChgPct": 0.99
+      },
+      {
+        "market": "KRW-NXPC",
+        "open": 431,
+        "high": 444,
+        "close": 440,
+        "intradayUpPct": 3.02,
+        "closeChgPct": 2.09
+      },
+      {
+        "market": "KRW-A",
+        "open": 132,
+        "high": 137,
+        "close": 136,
+        "intradayUpPct": 3.79,
+        "closeChgPct": 3.03
+      },
+      {
+        "market": "KRW-TRUMP",
+        "open": 3432,
+        "high": 3465,
+        "close": 3419,
+        "intradayUpPct": 0.96,
+        "closeChgPct": -0.38
+      },
+      {
+        "market": "KRW-F",
+        "open": 8.12,
+        "high": 8.12,
+        "close": 8.09,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.37
+      },
+      {
+        "market": "KRW-G",
+        "open": 5.31,
+        "high": 5.32,
+        "close": 5.29,
+        "intradayUpPct": 0.19,
+        "closeChgPct": -0.38
+      },
+      {
+        "market": "KRW-CELO",
+        "open": 129,
+        "high": 138,
+        "close": 135,
+        "intradayUpPct": 6.98,
+        "closeChgPct": 4.65
+      },
+      {
+        "market": "KRW-AERO",
+        "open": 669,
+        "high": 690,
+        "close": 673,
+        "intradayUpPct": 3.14,
+        "closeChgPct": 0.6
+      },
+      {
+        "market": "KRW-CTC",
+        "open": 213,
+        "high": 217,
+        "close": 215,
+        "intradayUpPct": 1.88,
+        "closeChgPct": 0.94
+      },
+      {
+        "market": "KRW-ANIME",
+        "open": 7,
+        "high": 7.04,
+        "close": 6.99,
+        "intradayUpPct": 0.57,
+        "closeChgPct": -0.14
+      },
+      {
+        "market": "KRW-APT",
+        "open": 1469,
+        "high": 1528,
+        "close": 1476,
+        "intradayUpPct": 4.02,
+        "closeChgPct": 0.48
+      },
+      {
+        "market": "KRW-MOCA",
+        "open": 20.3,
+        "high": 20.3,
+        "close": 19.9,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.97
+      },
+      {
+        "market": "KRW-API3",
+        "open": 575,
+        "high": 580,
+        "close": 569,
+        "intradayUpPct": 0.87,
+        "closeChgPct": -1.04
+      },
+      {
+        "market": "KRW-AHT",
+        "open": 2.25,
+        "high": 2.27,
+        "close": 2.26,
+        "intradayUpPct": 0.89,
+        "closeChgPct": 0.44
+      },
+      {
+        "market": "KRW-EGLD",
+        "open": 6090,
+        "high": 6110,
+        "close": 6020,
+        "intradayUpPct": 0.33,
+        "closeChgPct": -1.15
+      },
+      {
+        "market": "KRW-BLEND",
+        "open": 177,
+        "high": 194,
+        "close": 174,
+        "intradayUpPct": 9.6,
+        "closeChgPct": -1.69
+      },
+      {
+        "market": "KRW-ERA",
+        "open": 205,
+        "high": 205,
+        "close": 203,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.98
+      },
+      {
+        "market": "KRW-FF",
+        "open": 93.8,
+        "high": 94,
+        "close": 92.4,
+        "intradayUpPct": 0.21,
+        "closeChgPct": -1.49
+      },
+      {
+        "market": "KRW-PLUME",
+        "open": 16.9,
+        "high": 17.2,
+        "close": 17,
+        "intradayUpPct": 1.78,
+        "closeChgPct": 0.59
+      },
+      {
+        "market": "KRW-ESP",
+        "open": 100,
+        "high": 101,
+        "close": 100,
+        "intradayUpPct": 1,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-CC",
+        "open": 223,
+        "high": 225,
+        "close": 221,
+        "intradayUpPct": 0.9,
+        "closeChgPct": -0.9
+      },
+      {
+        "market": "KRW-NEO",
+        "open": 4088,
+        "high": 4116,
+        "close": 4095,
+        "intradayUpPct": 0.68,
+        "closeChgPct": 0.17
+      },
+      {
+        "market": "KRW-ETC",
+        "open": 12490,
+        "high": 12650,
+        "close": 12590,
+        "intradayUpPct": 1.28,
+        "closeChgPct": 0.8
+      },
+      {
+        "market": "KRW-IOTA",
+        "open": 81.2,
+        "high": 81.7,
+        "close": 81.1,
+        "intradayUpPct": 0.62,
+        "closeChgPct": -0.12
+      },
+      {
+        "market": "KRW-AKT",
+        "open": 770,
+        "high": 778,
+        "close": 767,
+        "intradayUpPct": 1.04,
+        "closeChgPct": -0.39
+      },
+      {
+        "market": "KRW-COW",
+        "open": 274,
+        "high": 275,
+        "close": 273,
+        "intradayUpPct": 0.36,
+        "closeChgPct": -0.36
+      },
+      {
+        "market": "KRW-VIRTUAL",
+        "open": 1039,
+        "high": 1048,
+        "close": 1043,
+        "intradayUpPct": 0.87,
+        "closeChgPct": 0.38
+      },
+      {
+        "market": "KRW-ETH",
+        "open": 3406000,
+        "high": 3429000,
+        "close": 3426000,
+        "intradayUpPct": 0.68,
+        "closeChgPct": 0.59
+      },
+      {
+        "market": "KRW-IQ",
+        "open": 1.59,
+        "high": 1.6,
+        "close": 1.58,
+        "intradayUpPct": 0.63,
+        "closeChgPct": -0.63
+      },
+      {
+        "market": "KRW-IP",
+        "open": 742,
+        "high": 752,
+        "close": 739,
+        "intradayUpPct": 1.35,
+        "closeChgPct": -0.4
+      },
+      {
+        "market": "KRW-NEAR",
+        "open": 1913,
+        "high": 1929,
+        "close": 1901,
+        "intradayUpPct": 0.84,
+        "closeChgPct": -0.63
+      },
+      {
+        "market": "KRW-RVN",
+        "open": 8.66,
+        "high": 8.76,
+        "close": 8.72,
+        "intradayUpPct": 1.15,
+        "closeChgPct": 0.69
+      },
+      {
+        "market": "KRW-PRL",
+        "open": 375,
+        "high": 415,
+        "close": 386,
+        "intradayUpPct": 10.67,
+        "closeChgPct": 2.93
+      },
+      {
+        "market": "KRW-AGLD",
+        "open": 374,
+        "high": 377,
+        "close": 375,
+        "intradayUpPct": 0.8,
+        "closeChgPct": 0.27
+      },
+      {
+        "market": "KRW-ID",
+        "open": 45.6,
+        "high": 47.4,
+        "close": 47,
+        "intradayUpPct": 3.95,
+        "closeChgPct": 3.07
+      },
+      {
+        "market": "KRW-IN",
+        "open": 98.2,
+        "high": 103,
+        "close": 101,
+        "intradayUpPct": 4.89,
+        "closeChgPct": 2.85
+      },
+      {
+        "market": "KRW-MANTRA",
+        "open": 15.2,
+        "high": 17.1,
+        "close": 15.6,
+        "intradayUpPct": 12.5,
+        "closeChgPct": 2.63
+      },
+      {
+        "market": "KRW-WAL",
+        "open": 105,
+        "high": 106,
+        "close": 105,
+        "intradayUpPct": 0.95,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-PENDLE",
+        "open": 2332,
+        "high": 2368,
+        "close": 2285,
+        "intradayUpPct": 1.54,
+        "closeChgPct": -2.02
+      },
+      {
+        "market": "KRW-BLUR",
+        "open": 40,
+        "high": 41.2,
+        "close": 40.6,
+        "intradayUpPct": 3,
+        "closeChgPct": 1.5
+      },
+      {
+        "market": "KRW-AWE",
+        "open": 86.2,
+        "high": 94.5,
+        "close": 81.5,
+        "intradayUpPct": 9.63,
+        "closeChgPct": -5.45
+      },
+      {
+        "market": "KRW-THETA",
+        "open": 299,
+        "high": 300,
+        "close": 292,
+        "intradayUpPct": 0.33,
+        "closeChgPct": -2.34
+      },
+      {
+        "market": "KRW-AXL",
+        "open": 102,
+        "high": 105,
+        "close": 105,
+        "intradayUpPct": 2.94,
+        "closeChgPct": 2.94
+      },
+      {
+        "market": "KRW-SAND",
+        "open": 107,
+        "high": 108,
+        "close": 106,
+        "intradayUpPct": 0.93,
+        "closeChgPct": -0.93
+      },
+      {
+        "market": "KRW-WCT",
+        "open": 93.8,
+        "high": 93.9,
+        "close": 92.1,
+        "intradayUpPct": 0.11,
+        "closeChgPct": -1.81
+      },
+      {
+        "market": "KRW-YGG",
+        "open": 60.6,
+        "high": 61.6,
+        "close": 61.6,
+        "intradayUpPct": 1.65,
+        "closeChgPct": 1.65
+      },
+      {
+        "market": "KRW-AXS",
+        "open": 2066,
+        "high": 2193,
+        "close": 2042,
+        "intradayUpPct": 6.15,
+        "closeChgPct": -1.16
+      },
+      {
+        "market": "KRW-ARDR",
+        "open": 62.2,
+        "high": 62.2,
+        "close": 61.7,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.8
+      },
+      {
+        "market": "KRW-AQT",
+        "open": 827,
+        "high": 832,
+        "close": 824,
+        "intradayUpPct": 0.6,
+        "closeChgPct": -0.36
+      },
+      {
+        "market": "KRW-ME",
+        "open": 156,
+        "high": 156,
+        "close": 156,
+        "intradayUpPct": 0,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TRUST",
+        "open": 99.2,
+        "high": 102,
+        "close": 102,
+        "intradayUpPct": 2.82,
+        "closeChgPct": 2.82
+      },
+      {
+        "market": "KRW-SONIC",
+        "open": 55.9,
+        "high": 56.4,
+        "close": 55.9,
+        "intradayUpPct": 0.89,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ARB",
+        "open": 183,
+        "high": 185,
+        "close": 181,
+        "intradayUpPct": 1.09,
+        "closeChgPct": -1.09
+      },
+      {
+        "market": "KRW-POL",
+        "open": 142,
+        "high": 146,
+        "close": 143,
+        "intradayUpPct": 2.82,
+        "closeChgPct": 0.7
+      },
+      {
+        "market": "KRW-CVC",
+        "open": 45.4,
+        "high": 45.5,
+        "close": 45.2,
+        "intradayUpPct": 0.22,
+        "closeChgPct": -0.44
+      },
+      {
+        "market": "KRW-T",
+        "open": 8.74,
+        "high": 8.83,
+        "close": 8.74,
+        "intradayUpPct": 1.03,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-W",
+        "open": 18.8,
+        "high": 19.2,
+        "close": 19,
+        "intradayUpPct": 2.13,
+        "closeChgPct": 1.06
+      },
+      {
+        "market": "KRW-ARK",
+        "open": 256,
+        "high": 259,
+        "close": 255,
+        "intradayUpPct": 1.17,
+        "closeChgPct": -0.39
+      },
+      {
+        "market": "KRW-AVNT",
+        "open": 219,
+        "high": 221,
+        "close": 219,
+        "intradayUpPct": 0.91,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-LA",
+        "open": 206,
+        "high": 212,
+        "close": 204,
+        "intradayUpPct": 2.91,
+        "closeChgPct": -0.97
+      },
+      {
+        "market": "KRW-HYPER",
+        "open": 181,
+        "high": 187,
+        "close": 178,
+        "intradayUpPct": 3.31,
+        "closeChgPct": -1.66
+      },
+      {
+        "market": "KRW-ATH",
+        "open": 8.63,
+        "high": 8.69,
+        "close": 8.6,
+        "intradayUpPct": 0.7,
+        "closeChgPct": -0.35
+      },
+      {
+        "market": "KRW-TAIKO",
+        "open": 171,
+        "high": 173,
+        "close": 171,
+        "intradayUpPct": 1.17,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-AVAX",
+        "open": 13500,
+        "high": 13570,
+        "close": 13500,
+        "intradayUpPct": 0.52,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-XAUT",
+        "open": 6832000,
+        "high": 6845000,
+        "close": 6838000,
+        "intradayUpPct": 0.19,
+        "closeChgPct": 0.09
+      },
+      {
+        "market": "KRW-CPOOL",
+        "open": 38.4,
+        "high": 38.4,
+        "close": 37.8,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.56
+      },
+      {
+        "market": "KRW-IMX",
+        "open": 248,
+        "high": 250,
+        "close": 249,
+        "intradayUpPct": 0.81,
+        "closeChgPct": 0.4
+      },
+      {
+        "market": "KRW-SC",
+        "open": 1.37,
+        "high": 1.38,
+        "close": 1.36,
+        "intradayUpPct": 0.73,
+        "closeChgPct": -0.73
+      },
+      {
+        "market": "KRW-INJ",
+        "open": 5410,
+        "high": 5795,
+        "close": 5575,
+        "intradayUpPct": 7.12,
+        "closeChgPct": 3.05
+      },
+      {
+        "market": "KRW-MVL",
+        "open": 1.92,
+        "high": 1.92,
+        "close": 1.91,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.52
+      },
+      {
+        "market": "KRW-HIVE",
+        "open": 88.5,
+        "high": 89.2,
+        "close": 88.7,
+        "intradayUpPct": 0.79,
+        "closeChgPct": 0.23
+      },
+      {
+        "market": "KRW-CBK",
+        "open": 380,
+        "high": 382,
+        "close": 378,
+        "intradayUpPct": 0.53,
+        "closeChgPct": -0.53
+      },
+      {
+        "market": "KRW-OP",
+        "open": 180,
+        "high": 181,
+        "close": 180,
+        "intradayUpPct": 0.56,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SAFE",
+        "open": 212,
+        "high": 214,
+        "close": 207,
+        "intradayUpPct": 0.94,
+        "closeChgPct": -2.36
+      },
+      {
+        "market": "KRW-GLM",
+        "open": 209,
+        "high": 211,
+        "close": 209,
+        "intradayUpPct": 0.96,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SUPER",
+        "open": 178,
+        "high": 180,
+        "close": 179,
+        "intradayUpPct": 1.12,
+        "closeChgPct": 0.56
+      },
+      {
+        "market": "KRW-KERNEL",
+        "open": 99,
+        "high": 101,
+        "close": 98.2,
+        "intradayUpPct": 2.02,
+        "closeChgPct": -0.81
+      },
+      {
+        "market": "KRW-POKT",
+        "open": 17.6,
+        "high": 17.9,
+        "close": 17.5,
+        "intradayUpPct": 1.7,
+        "closeChgPct": -0.57
+      },
+      {
+        "market": "KRW-SENT",
+        "open": 25.4,
+        "high": 25.5,
+        "close": 25.2,
+        "intradayUpPct": 0.39,
+        "closeChgPct": -0.79
+      },
+      {
+        "market": "KRW-ZKC",
+        "open": 110,
+        "high": 111,
+        "close": 110,
+        "intradayUpPct": 0.91,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-KNC",
+        "open": 204,
+        "high": 279,
+        "close": 238,
+        "intradayUpPct": 36.76,
+        "closeChgPct": 16.67
+      },
+      {
+        "market": "KRW-ZKP",
+        "open": 125,
+        "high": 127,
+        "close": 124,
+        "intradayUpPct": 1.6,
+        "closeChgPct": -0.8
+      },
+      {
+        "market": "KRW-AUCTION",
+        "open": 7060,
+        "high": 7085,
+        "close": 7075,
+        "intradayUpPct": 0.35,
+        "closeChgPct": 0.21
+      },
+      {
+        "market": "KRW-ORDER",
+        "open": 80.9,
+        "high": 82.4,
+        "close": 82.3,
+        "intradayUpPct": 1.85,
+        "closeChgPct": 1.73
+      },
+      {
+        "market": "KRW-DRIFT",
+        "open": 87.9,
+        "high": 90.5,
+        "close": 81.2,
+        "intradayUpPct": 2.96,
+        "closeChgPct": -7.62
+      },
+      {
+        "market": "KRW-FCT2",
+        "open": 18.9,
+        "high": 19,
+        "close": 18.6,
+        "intradayUpPct": 0.53,
+        "closeChgPct": -1.59
+      },
+      {
+        "market": "KRW-MTL",
+        "open": 441,
+        "high": 443,
+        "close": 439,
+        "intradayUpPct": 0.45,
+        "closeChgPct": -0.45
+      },
+      {
+        "market": "KRW-VET",
+        "open": 10.7,
+        "high": 10.8,
+        "close": 10.7,
+        "intradayUpPct": 0.93,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TAO",
+        "open": 401800,
+        "high": 413900,
+        "close": 411000,
+        "intradayUpPct": 3.01,
+        "closeChgPct": 2.29
+      },
+      {
+        "market": "KRW-QTUM",
+        "open": 1295,
+        "high": 1300,
+        "close": 1294,
+        "intradayUpPct": 0.39,
+        "closeChgPct": -0.08
+      },
+      {
+        "market": "KRW-TT",
+        "open": 1.31,
+        "high": 1.31,
+        "close": 1.3,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.76
+      },
+      {
+        "market": "KRW-LINK",
+        "open": 13510,
+        "high": 13570,
+        "close": 13500,
+        "intradayUpPct": 0.44,
+        "closeChgPct": -0.07
+      },
+      {
+        "market": "KRW-CHZ",
+        "open": 61.8,
+        "high": 62.3,
+        "close": 61.4,
+        "intradayUpPct": 0.81,
+        "closeChgPct": -0.65
+      },
+      {
+        "market": "KRW-ASTR",
+        "open": 12,
+        "high": 12,
+        "close": 11.8,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.67
+      },
+      {
+        "market": "KRW-ZK",
+        "open": 22.8,
+        "high": 23.2,
+        "close": 23,
+        "intradayUpPct": 1.75,
+        "closeChgPct": 0.88
+      },
+      {
+        "market": "KRW-STORJ",
+        "open": 142,
+        "high": 143,
+        "close": 142,
+        "intradayUpPct": 0.7,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ENA",
+        "open": 152,
+        "high": 153,
+        "close": 150,
+        "intradayUpPct": 0.66,
+        "closeChgPct": -1.32
+      },
+      {
+        "market": "KRW-MANA",
+        "open": 133,
+        "high": 135,
+        "close": 133,
+        "intradayUpPct": 1.5,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-OPEN",
+        "open": 367,
+        "high": 385,
+        "close": 369,
+        "intradayUpPct": 4.9,
+        "closeChgPct": 0.54
+      },
+      {
+        "market": "KRW-PYTH",
+        "open": 69.6,
+        "high": 69.9,
+        "close": 69.5,
+        "intradayUpPct": 0.43,
+        "closeChgPct": -0.14
+      },
+      {
+        "market": "KRW-ENS",
+        "open": 9025,
+        "high": 9090,
+        "close": 8990,
+        "intradayUpPct": 0.72,
+        "closeChgPct": -0.39
+      },
+      {
+        "market": "KRW-GRT",
+        "open": 35.9,
+        "high": 36.3,
+        "close": 36.1,
+        "intradayUpPct": 1.11,
+        "closeChgPct": 0.56
+      },
+      {
+        "market": "KRW-PUMP",
+        "open": 2.7,
+        "high": 2.71,
+        "close": 2.69,
+        "intradayUpPct": 0.37,
+        "closeChgPct": -0.37
+      },
+      {
+        "market": "KRW-XTZ",
+        "open": 544,
+        "high": 547,
+        "close": 544,
+        "intradayUpPct": 0.55,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-CKB",
+        "open": 2.22,
+        "high": 2.23,
+        "close": 2.21,
+        "intradayUpPct": 0.45,
+        "closeChgPct": -0.45
+      },
+      {
+        "market": "KRW-KAVA",
+        "open": 84.4,
+        "high": 103,
+        "close": 89.5,
+        "intradayUpPct": 22.04,
+        "closeChgPct": 6.04
+      },
+      {
+        "market": "KRW-TOSHI",
+        "open": 0.269,
+        "high": 0.272,
+        "close": 0.269,
+        "intradayUpPct": 1.12,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-BARD",
+        "open": 425,
+        "high": 426,
+        "close": 417,
+        "intradayUpPct": 0.24,
+        "closeChgPct": -1.88
+      },
+      {
+        "market": "KRW-ZRO",
+        "open": 2040,
+        "high": 2065,
+        "close": 2058,
+        "intradayUpPct": 1.23,
+        "closeChgPct": 0.88
+      },
+      {
+        "market": "KRW-RAY",
+        "open": 1237,
+        "high": 1262,
+        "close": 1261,
+        "intradayUpPct": 2.02,
+        "closeChgPct": 1.94
+      },
+      {
+        "market": "KRW-ONDO",
+        "open": 398,
+        "high": 413,
+        "close": 410,
+        "intradayUpPct": 3.77,
+        "closeChgPct": 3.02
+      },
+      {
+        "market": "KRW-ZRX",
+        "open": 162,
+        "high": 164,
+        "close": 162,
+        "intradayUpPct": 1.23,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-TFUEL",
+        "open": 16.7,
+        "high": 16.9,
+        "close": 16.9,
+        "intradayUpPct": 1.2,
+        "closeChgPct": 1.2
+      },
+      {
+        "market": "KRW-CFG",
+        "open": 303,
+        "high": 317,
+        "close": 309,
+        "intradayUpPct": 4.62,
+        "closeChgPct": 1.98
+      },
+      {
+        "market": "KRW-AZTEC",
+        "open": 29.5,
+        "high": 30,
+        "close": 29.7,
+        "intradayUpPct": 1.69,
+        "closeChgPct": 0.68
+      },
+      {
+        "market": "KRW-XPL",
+        "open": 135,
+        "high": 138,
+        "close": 136,
+        "intradayUpPct": 2.22,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-ZAMA",
+        "open": 40.4,
+        "high": 41.4,
+        "close": 39.9,
+        "intradayUpPct": 2.48,
+        "closeChgPct": -1.24
+      },
+      {
+        "market": "KRW-MASK",
+        "open": 770,
+        "high": 771,
+        "close": 762,
+        "intradayUpPct": 0.13,
+        "closeChgPct": -1.04
+      },
+      {
+        "market": "KRW-COMP",
+        "open": 35330,
+        "high": 35580,
+        "close": 34230,
+        "intradayUpPct": 0.71,
+        "closeChgPct": -3.11
+      },
+      {
+        "market": "KRW-ZETA",
+        "open": 85.2,
+        "high": 85.6,
+        "close": 84.4,
+        "intradayUpPct": 0.47,
+        "closeChgPct": -0.94
+      },
+      {
+        "market": "KRW-RED",
+        "open": 198,
+        "high": 198,
+        "close": 196,
+        "intradayUpPct": 0,
+        "closeChgPct": -1.01
+      },
+      {
+        "market": "KRW-TIA",
+        "open": 519,
+        "high": 524,
+        "close": 518,
+        "intradayUpPct": 0.96,
+        "closeChgPct": -0.19
+      },
+      {
+        "market": "KRW-ADA",
+        "open": 369,
+        "high": 370,
+        "close": 369,
+        "intradayUpPct": 0.27,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ELF",
+        "open": 116,
+        "high": 116,
+        "close": 115,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.86
+      },
+      {
+        "market": "KRW-SOON",
+        "open": 256,
+        "high": 260,
+        "close": 259,
+        "intradayUpPct": 1.56,
+        "closeChgPct": 1.17
+      },
+      {
+        "market": "KRW-STEEM",
+        "open": 84.3,
+        "high": 84.5,
+        "close": 82.9,
+        "intradayUpPct": 0.24,
+        "closeChgPct": -1.66
+      },
+      {
+        "market": "KRW-ELSA",
+        "open": 108,
+        "high": 111,
+        "close": 108,
+        "intradayUpPct": 2.78,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SPK",
+        "open": 53.8,
+        "high": 56.9,
+        "close": 56.2,
+        "intradayUpPct": 5.76,
+        "closeChgPct": 4.46
+      },
+      {
+        "market": "KRW-SOPH",
+        "open": 12.9,
+        "high": 13.1,
+        "close": 13.1,
+        "intradayUpPct": 1.55,
+        "closeChgPct": 1.55
+      },
+      {
+        "market": "KRW-MED",
+        "open": 3.17,
+        "high": 3.2,
+        "close": 3.18,
+        "intradayUpPct": 0.95,
+        "closeChgPct": 0.32
+      },
+      {
+        "market": "KRW-1INCH",
+        "open": 141,
+        "high": 141,
+        "close": 140,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.71
+      },
+      {
+        "market": "KRW-MEW",
+        "open": 0.873,
+        "high": 0.876,
+        "close": 0.867,
+        "intradayUpPct": 0.34,
+        "closeChgPct": -0.69
+      },
+      {
+        "market": "KRW-ORBS",
+        "open": 12.7,
+        "high": 12.9,
+        "close": 12.7,
+        "intradayUpPct": 1.57,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-RENDER",
+        "open": 2528,
+        "high": 2557,
+        "close": 2548,
+        "intradayUpPct": 1.15,
+        "closeChgPct": 0.79
+      },
+      {
+        "market": "KRW-ORCA",
+        "open": 2970,
+        "high": 3540,
+        "close": 3212,
+        "intradayUpPct": 19.19,
+        "closeChgPct": 8.15
+      },
+      {
+        "market": "KRW-BERA",
+        "open": 552,
+        "high": 553,
+        "close": 545,
+        "intradayUpPct": 0.18,
+        "closeChgPct": -1.27
+      },
+      {
+        "market": "KRW-SIGN",
+        "open": 23.3,
+        "high": 23.5,
+        "close": 23.2,
+        "intradayUpPct": 0.86,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-VANA",
+        "open": 2201,
+        "high": 2329,
+        "close": 2257,
+        "intradayUpPct": 5.82,
+        "closeChgPct": 2.54
+      },
+      {
+        "market": "KRW-DOT",
+        "open": 1788,
+        "high": 1801,
+        "close": 1789,
+        "intradayUpPct": 0.73,
+        "closeChgPct": 0.06
+      },
+      {
+        "market": "KRW-EDGE",
+        "open": 154,
+        "high": 156,
+        "close": 155,
+        "intradayUpPct": 1.3,
+        "closeChgPct": 0.65
+      },
+      {
+        "market": "KRW-MET2",
+        "open": 238,
+        "high": 238,
+        "close": 237,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.42
+      },
+      {
+        "market": "KRW-MBL",
+        "open": 1.37,
+        "high": 1.38,
+        "close": 1.37,
+        "intradayUpPct": 0.73,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-FLUID",
+        "open": 2467,
+        "high": 2475,
+        "close": 2373,
+        "intradayUpPct": 0.32,
+        "closeChgPct": -3.81
+      },
+      {
+        "market": "KRW-BIGTIME",
+        "open": 19.9,
+        "high": 20.5,
+        "close": 20.2,
+        "intradayUpPct": 3.02,
+        "closeChgPct": 1.51
+      },
+      {
+        "market": "KRW-SNT",
+        "open": 14.7,
+        "high": 14.9,
+        "close": 14.7,
+        "intradayUpPct": 1.36,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SOL",
+        "open": 124300,
+        "high": 125000,
+        "close": 124700,
+        "intradayUpPct": 0.56,
+        "closeChgPct": 0.32
+      },
+      {
+        "market": "KRW-QKC",
+        "open": 4.52,
+        "high": 4.54,
+        "close": 4.52,
+        "intradayUpPct": 0.44,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-META",
+        "open": 14.3,
+        "high": 14.4,
+        "close": 14.3,
+        "intradayUpPct": 0.7,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-SAHARA",
+        "open": 34.5,
+        "high": 34.6,
+        "close": 34.2,
+        "intradayUpPct": 0.29,
+        "closeChgPct": -0.87
+      },
+      {
+        "market": "KRW-MLK",
+        "open": 76.1,
+        "high": 76.6,
+        "close": 76.1,
+        "intradayUpPct": 0.66,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-VTHO",
+        "open": 0.838,
+        "high": 0.841,
+        "close": 0.834,
+        "intradayUpPct": 0.36,
+        "closeChgPct": -0.48
+      },
+      {
+        "market": "KRW-KITE",
+        "open": 219,
+        "high": 226,
+        "close": 221,
+        "intradayUpPct": 3.2,
+        "closeChgPct": 0.91
+      },
+      {
+        "market": "KRW-MINA",
+        "open": 88.3,
+        "high": 88.3,
+        "close": 87.8,
+        "intradayUpPct": 0,
+        "closeChgPct": -0.57
+      },
+      {
+        "market": "KRW-MMT",
+        "open": 193,
+        "high": 194,
+        "close": 193,
+        "intradayUpPct": 0.52,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-CHIP",
+        "open": 95.6,
+        "high": 103,
+        "close": 98,
+        "intradayUpPct": 7.74,
+        "closeChgPct": 2.51
+      },
+      {
+        "market": "KRW-ZORA",
+        "open": 18.4,
+        "high": 18.8,
+        "close": 18.8,
+        "intradayUpPct": 2.17,
+        "closeChgPct": 2.17
+      },
+      {
+        "market": "KRW-XCN",
+        "open": 7.8,
+        "high": 7.93,
+        "close": 7.7,
+        "intradayUpPct": 1.67,
+        "closeChgPct": -1.28
+      },
+      {
+        "market": "KRW-MEGA",
+        "open": 236,
+        "high": 237,
+        "close": 219,
+        "intradayUpPct": 0.42,
+        "closeChgPct": -7.2
+      },
+      {
+        "market": "KRW-MNT",
+        "open": 935,
+        "high": 939,
+        "close": 936,
+        "intradayUpPct": 0.43,
+        "closeChgPct": 0.11
+      },
+      {
+        "market": "KRW-MOC",
+        "open": 41,
+        "high": 41.2,
+        "close": 40.7,
+        "intradayUpPct": 0.49,
+        "closeChgPct": -0.73
+      },
+      {
+        "market": "KRW-MOODENG",
+        "open": 90.6,
+        "high": 91.4,
+        "close": 90.4,
+        "intradayUpPct": 0.88,
+        "closeChgPct": -0.22
+      },
+      {
+        "market": "KRW-XEC",
+        "open": 0.0106,
+        "high": 0.0107,
+        "close": 0.0107,
+        "intradayUpPct": 0.94,
+        "closeChgPct": 0.94
+      },
+      {
+        "market": "KRW-MON",
+        "open": 44.6,
+        "high": 46.2,
+        "close": 44.6,
+        "intradayUpPct": 3.59,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ZIL",
+        "open": 5.91,
+        "high": 6,
+        "close": 5.99,
+        "intradayUpPct": 1.52,
+        "closeChgPct": 1.35
+      },
+      {
+        "market": "KRW-GAME2",
+        "open": 2.01,
+        "high": 2.02,
+        "close": 2.01,
+        "intradayUpPct": 0.5,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-STX",
+        "open": 331,
+        "high": 333,
+        "close": 332,
+        "intradayUpPct": 0.6,
+        "closeChgPct": 0.3
+      },
+      {
+        "market": "KRW-FLOCK",
+        "open": 85.5,
+        "high": 91.6,
+        "close": 87.3,
+        "intradayUpPct": 7.13,
+        "closeChgPct": 2.11
+      },
+      {
+        "market": "KRW-PROVE",
+        "open": 363,
+        "high": 365,
+        "close": 365,
+        "intradayUpPct": 0.55,
+        "closeChgPct": 0.55
+      },
+      {
+        "market": "KRW-BSV",
+        "open": 23490,
+        "high": 23730,
+        "close": 23380,
+        "intradayUpPct": 1.02,
+        "closeChgPct": -0.47
+      },
+      {
+        "market": "KRW-SUI",
+        "open": 1364,
+        "high": 1370,
+        "close": 1363,
+        "intradayUpPct": 0.44,
+        "closeChgPct": -0.07
+      },
+      {
+        "market": "KRW-SYRUP",
+        "open": 364,
+        "high": 372,
+        "close": 369,
+        "intradayUpPct": 2.2,
+        "closeChgPct": 1.37
+      },
+      {
+        "market": "KRW-HOLO",
+        "open": 92.1,
+        "high": 93,
+        "close": 91.7,
+        "intradayUpPct": 0.98,
+        "closeChgPct": -0.43
+      },
+      {
+        "market": "KRW-MIRA",
+        "open": 119,
+        "high": 121,
+        "close": 120,
+        "intradayUpPct": 1.68,
+        "closeChgPct": 0.84
+      },
+      {
+        "market": "KRW-SUN",
+        "open": 27.1,
+        "high": 27.4,
+        "close": 27.3,
+        "intradayUpPct": 1.11,
+        "closeChgPct": 0.74
+      },
+      {
+        "market": "KRW-ZBT",
+        "open": 282,
+        "high": 294,
+        "close": 288,
+        "intradayUpPct": 4.26,
+        "closeChgPct": 2.13
+      },
+      {
+        "market": "KRW-ONG",
+        "open": 108,
+        "high": 109,
+        "close": 108,
+        "intradayUpPct": 0.93,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ENSO",
+        "open": 1510,
+        "high": 1544,
+        "close": 1500,
+        "intradayUpPct": 2.25,
+        "closeChgPct": -0.66
+      },
+      {
+        "market": "KRW-BIRB",
+        "open": 197,
+        "high": 203,
+        "close": 201,
+        "intradayUpPct": 3.05,
+        "closeChgPct": 2.03
+      },
+      {
+        "market": "KRW-ONT",
+        "open": 106,
+        "high": 107,
+        "close": 105,
+        "intradayUpPct": 0.94,
+        "closeChgPct": -0.94
+      },
+      {
+        "market": "KRW-SOMI",
+        "open": 271,
+        "high": 274,
+        "close": 271,
+        "intradayUpPct": 1.11,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-DEEP",
+        "open": 41.4,
+        "high": 41.9,
+        "close": 40.9,
+        "intradayUpPct": 1.21,
+        "closeChgPct": -1.21
+      },
+      {
+        "market": "KRW-STRAX",
+        "open": 19.3,
+        "high": 19.4,
+        "close": 19.3,
+        "intradayUpPct": 0.52,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ICP",
+        "open": 3485,
+        "high": 3493,
+        "close": 3465,
+        "intradayUpPct": 0.23,
+        "closeChgPct": -0.57
+      },
+      {
+        "market": "KRW-BREV",
+        "open": 172,
+        "high": 176,
+        "close": 172,
+        "intradayUpPct": 2.33,
+        "closeChgPct": 0
+      },
+      {
+        "market": "KRW-ICX",
+        "open": 53.8,
+        "high": 54,
+        "close": 53.5,
+        "intradayUpPct": 0.37,
+        "closeChgPct": -0.56
+      },
+      {
+        "market": "KRW-POLYX",
+        "open": 70.9,
+        "high": 71.6,
+        "close": 70.2,
+        "intradayUpPct": 0.99,
+        "closeChgPct": -0.99
+      }
+    ]
+  },
+  "summary": {
+    "2026-04-29": {
+      "total": 238,
+      "intraday_5pct": {
+        "count": 29,
+        "top10": [
+          {
+            "market": "KRW-BLEND",
+            "open": 123,
+            "high": 370,
+            "close": 251,
+            "intradayUpPct": 200.81,
+            "closeChgPct": 104.07
+          },
+          {
+            "market": "KRW-API3",
+            "open": 529,
+            "high": 634,
+            "close": 553,
+            "intradayUpPct": 19.85,
+            "closeChgPct": 4.54
+          },
+          {
+            "market": "KRW-AXL",
+            "open": 88.2,
+            "high": 105,
+            "close": 92.6,
+            "intradayUpPct": 19.05,
+            "closeChgPct": 4.99
+          },
+          {
+            "market": "KRW-MOODENG",
+            "open": 85.9,
+            "high": 101,
+            "close": 88.8,
+            "intradayUpPct": 17.58,
+            "closeChgPct": 3.38
+          },
+          {
+            "market": "KRW-SPK",
+            "open": 54.8,
+            "high": 62,
+            "close": 54,
+            "intradayUpPct": 13.14,
+            "closeChgPct": -1.46
+          },
+          {
+            "market": "KRW-ALT",
+            "open": 11.1,
+            "high": 12.4,
+            "close": 11.6,
+            "intradayUpPct": 11.71,
+            "closeChgPct": 4.5
+          },
+          {
+            "market": "KRW-PIEVERSE",
+            "open": 1074,
+            "high": 1195,
+            "close": 1140,
+            "intradayUpPct": 11.27,
+            "closeChgPct": 6.15
+          },
+          {
+            "market": "KRW-RAY",
+            "open": 1108,
+            "high": 1232,
+            "close": 1186,
+            "intradayUpPct": 11.19,
+            "closeChgPct": 7.04
+          },
+          {
+            "market": "KRW-XCN",
+            "open": 8.48,
+            "high": 9.41,
+            "close": 8.62,
+            "intradayUpPct": 10.97,
+            "closeChgPct": 1.65
+          },
+          {
+            "market": "KRW-OPEN",
+            "open": 392,
+            "high": 433,
+            "close": 413,
+            "intradayUpPct": 10.46,
+            "closeChgPct": 5.36
+          }
+        ]
+      },
+      "intraday_10pct": {
+        "count": 11,
+        "top10": [
+          {
+            "market": "KRW-BLEND",
+            "open": 123,
+            "high": 370,
+            "close": 251,
+            "intradayUpPct": 200.81,
+            "closeChgPct": 104.07
+          },
+          {
+            "market": "KRW-API3",
+            "open": 529,
+            "high": 634,
+            "close": 553,
+            "intradayUpPct": 19.85,
+            "closeChgPct": 4.54
+          },
+          {
+            "market": "KRW-AXL",
+            "open": 88.2,
+            "high": 105,
+            "close": 92.6,
+            "intradayUpPct": 19.05,
+            "closeChgPct": 4.99
+          },
+          {
+            "market": "KRW-MOODENG",
+            "open": 85.9,
+            "high": 101,
+            "close": 88.8,
+            "intradayUpPct": 17.58,
+            "closeChgPct": 3.38
+          },
+          {
+            "market": "KRW-SPK",
+            "open": 54.8,
+            "high": 62,
+            "close": 54,
+            "intradayUpPct": 13.14,
+            "closeChgPct": -1.46
+          },
+          {
+            "market": "KRW-ALT",
+            "open": 11.1,
+            "high": 12.4,
+            "close": 11.6,
+            "intradayUpPct": 11.71,
+            "closeChgPct": 4.5
+          },
+          {
+            "market": "KRW-PIEVERSE",
+            "open": 1074,
+            "high": 1195,
+            "close": 1140,
+            "intradayUpPct": 11.27,
+            "closeChgPct": 6.15
+          },
+          {
+            "market": "KRW-RAY",
+            "open": 1108,
+            "high": 1232,
+            "close": 1186,
+            "intradayUpPct": 11.19,
+            "closeChgPct": 7.04
+          },
+          {
+            "market": "KRW-XCN",
+            "open": 8.48,
+            "high": 9.41,
+            "close": 8.62,
+            "intradayUpPct": 10.97,
+            "closeChgPct": 1.65
+          },
+          {
+            "market": "KRW-OPEN",
+            "open": 392,
+            "high": 433,
+            "close": 413,
+            "intradayUpPct": 10.46,
+            "closeChgPct": 5.36
+          }
+        ]
+      },
+      "close_5pct": {
+        "count": 5,
+        "top10": [
+          {
+            "market": "KRW-BLEND",
+            "open": 123,
+            "high": 370,
+            "close": 251,
+            "intradayUpPct": 200.81,
+            "closeChgPct": 104.07
+          },
+          {
+            "market": "KRW-RAY",
+            "open": 1108,
+            "high": 1232,
+            "close": 1186,
+            "intradayUpPct": 11.19,
+            "closeChgPct": 7.04
+          },
+          {
+            "market": "KRW-PIEVERSE",
+            "open": 1074,
+            "high": 1195,
+            "close": 1140,
+            "intradayUpPct": 11.27,
+            "closeChgPct": 6.15
+          },
+          {
+            "market": "KRW-AKT",
+            "open": 730,
+            "high": 785,
+            "close": 772,
+            "intradayUpPct": 7.53,
+            "closeChgPct": 5.75
+          },
+          {
+            "market": "KRW-OPEN",
+            "open": 392,
+            "high": 433,
+            "close": 413,
+            "intradayUpPct": 10.46,
+            "closeChgPct": 5.36
+          }
+        ]
+      },
+      "close_10pct": {
+        "count": 1,
+        "top10": [
+          {
+            "market": "KRW-BLEND",
+            "open": 123,
+            "high": 370,
+            "close": 251,
+            "intradayUpPct": 200.81,
+            "closeChgPct": 104.07
+          }
+        ]
+      }
+    },
+    "2026-04-30": {
+      "total": 239,
+      "intraday_5pct": {
+        "count": 24,
+        "top10": [
+          {
+            "market": "KRW-DRIFT",
+            "open": 68.2,
+            "high": 99.5,
+            "close": 84.3,
+            "intradayUpPct": 45.89,
+            "closeChgPct": 23.61
+          },
+          {
+            "market": "KRW-MEGA",
+            "open": 242,
+            "high": 348,
+            "close": 249,
+            "intradayUpPct": 43.8,
+            "closeChgPct": 2.89
+          },
+          {
+            "market": "KRW-BIO",
+            "open": 50.6,
+            "high": 68.8,
+            "close": 61.7,
+            "intradayUpPct": 35.97,
+            "closeChgPct": 21.94
+          },
+          {
+            "market": "KRW-ORCA",
+            "open": 2443,
+            "high": 3175,
+            "close": 3159,
+            "intradayUpPct": 29.96,
+            "closeChgPct": 29.31
+          },
+          {
+            "market": "KRW-ENSO",
+            "open": 1318,
+            "high": 1578,
+            "close": 1502,
+            "intradayUpPct": 19.73,
+            "closeChgPct": 13.96
+          },
+          {
+            "market": "KRW-ZBT",
+            "open": 270,
+            "high": 302,
+            "close": 271,
+            "intradayUpPct": 11.85,
+            "closeChgPct": 0.37
+          },
+          {
+            "market": "KRW-KERNEL",
+            "open": 101,
+            "high": 112,
+            "close": 99.7,
+            "intradayUpPct": 10.89,
+            "closeChgPct": -1.29
+          },
+          {
+            "market": "KRW-G",
+            "open": 5.4,
+            "high": 5.93,
+            "close": 5.37,
+            "intradayUpPct": 9.81,
+            "closeChgPct": -0.56
+          },
+          {
+            "market": "KRW-ZETA",
+            "open": 82.4,
+            "high": 90.4,
+            "close": 86.9,
+            "intradayUpPct": 9.71,
+            "closeChgPct": 5.46
+          },
+          {
+            "market": "KRW-HYPER",
+            "open": 176,
+            "high": 193,
+            "close": 185,
+            "intradayUpPct": 9.66,
+            "closeChgPct": 5.11
+          }
+        ]
+      },
+      "intraday_10pct": {
+        "count": 7,
+        "top10": [
+          {
+            "market": "KRW-DRIFT",
+            "open": 68.2,
+            "high": 99.5,
+            "close": 84.3,
+            "intradayUpPct": 45.89,
+            "closeChgPct": 23.61
+          },
+          {
+            "market": "KRW-MEGA",
+            "open": 242,
+            "high": 348,
+            "close": 249,
+            "intradayUpPct": 43.8,
+            "closeChgPct": 2.89
+          },
+          {
+            "market": "KRW-BIO",
+            "open": 50.6,
+            "high": 68.8,
+            "close": 61.7,
+            "intradayUpPct": 35.97,
+            "closeChgPct": 21.94
+          },
+          {
+            "market": "KRW-ORCA",
+            "open": 2443,
+            "high": 3175,
+            "close": 3159,
+            "intradayUpPct": 29.96,
+            "closeChgPct": 29.31
+          },
+          {
+            "market": "KRW-ENSO",
+            "open": 1318,
+            "high": 1578,
+            "close": 1502,
+            "intradayUpPct": 19.73,
+            "closeChgPct": 13.96
+          },
+          {
+            "market": "KRW-ZBT",
+            "open": 270,
+            "high": 302,
+            "close": 271,
+            "intradayUpPct": 11.85,
+            "closeChgPct": 0.37
+          },
+          {
+            "market": "KRW-KERNEL",
+            "open": 101,
+            "high": 112,
+            "close": 99.7,
+            "intradayUpPct": 10.89,
+            "closeChgPct": -1.29
+          }
+        ]
+      },
+      "close_5pct": {
+        "count": 10,
+        "top10": [
+          {
+            "market": "KRW-ORCA",
+            "open": 2443,
+            "high": 3175,
+            "close": 3159,
+            "intradayUpPct": 29.96,
+            "closeChgPct": 29.31
+          },
+          {
+            "market": "KRW-DRIFT",
+            "open": 68.2,
+            "high": 99.5,
+            "close": 84.3,
+            "intradayUpPct": 45.89,
+            "closeChgPct": 23.61
+          },
+          {
+            "market": "KRW-BIO",
+            "open": 50.6,
+            "high": 68.8,
+            "close": 61.7,
+            "intradayUpPct": 35.97,
+            "closeChgPct": 21.94
+          },
+          {
+            "market": "KRW-ENSO",
+            "open": 1318,
+            "high": 1578,
+            "close": 1502,
+            "intradayUpPct": 19.73,
+            "closeChgPct": 13.96
+          },
+          {
+            "market": "KRW-PENDLE",
+            "open": 1972,
+            "high": 2135,
+            "close": 2124,
+            "intradayUpPct": 8.27,
+            "closeChgPct": 7.71
+          },
+          {
+            "market": "KRW-SKR",
+            "open": 23.6,
+            "high": 25.3,
+            "close": 25.1,
+            "intradayUpPct": 7.2,
+            "closeChgPct": 6.36
+          },
+          {
+            "market": "KRW-ZETA",
+            "open": 82.4,
+            "high": 90.4,
+            "close": 86.9,
+            "intradayUpPct": 9.71,
+            "closeChgPct": 5.46
+          },
+          {
+            "market": "KRW-SOMI",
+            "open": 267,
+            "high": 287,
+            "close": 281,
+            "intradayUpPct": 7.49,
+            "closeChgPct": 5.24
+          },
+          {
+            "market": "KRW-HYPER",
+            "open": 176,
+            "high": 193,
+            "close": 185,
+            "intradayUpPct": 9.66,
+            "closeChgPct": 5.11
+          },
+          {
+            "market": "KRW-AWE",
+            "open": 87,
+            "high": 92.1,
+            "close": 91.4,
+            "intradayUpPct": 5.86,
+            "closeChgPct": 5.06
+          }
+        ]
+      },
+      "close_10pct": {
+        "count": 4,
+        "top10": [
+          {
+            "market": "KRW-ORCA",
+            "open": 2443,
+            "high": 3175,
+            "close": 3159,
+            "intradayUpPct": 29.96,
+            "closeChgPct": 29.31
+          },
+          {
+            "market": "KRW-DRIFT",
+            "open": 68.2,
+            "high": 99.5,
+            "close": 84.3,
+            "intradayUpPct": 45.89,
+            "closeChgPct": 23.61
+          },
+          {
+            "market": "KRW-BIO",
+            "open": 50.6,
+            "high": 68.8,
+            "close": 61.7,
+            "intradayUpPct": 35.97,
+            "closeChgPct": 21.94
+          },
+          {
+            "market": "KRW-ENSO",
+            "open": 1318,
+            "high": 1578,
+            "close": 1502,
+            "intradayUpPct": 19.73,
+            "closeChgPct": 13.96
+          }
+        ]
+      }
+    },
+    "2026-05-01": {
+      "total": 239,
+      "intraday_5pct": {
+        "count": 29,
+        "top10": [
+          {
+            "market": "KRW-TOKAMAK",
+            "open": 735,
+            "high": 932,
+            "close": 837,
+            "intradayUpPct": 26.8,
+            "closeChgPct": 13.88
+          },
+          {
+            "market": "KRW-FLUID",
+            "open": 2315,
+            "high": 2777,
+            "close": 2467,
+            "intradayUpPct": 19.96,
+            "closeChgPct": 6.57
+          },
+          {
+            "market": "KRW-AXL",
+            "open": 91.8,
+            "high": 108,
+            "close": 101,
+            "intradayUpPct": 17.65,
+            "closeChgPct": 10.02
+          },
+          {
+            "market": "KRW-ZBT",
+            "open": 272,
+            "high": 317,
+            "close": 281,
+            "intradayUpPct": 16.54,
+            "closeChgPct": 3.31
+          },
+          {
+            "market": "KRW-DRIFT",
+            "open": 84.5,
+            "high": 96.3,
+            "close": 88,
+            "intradayUpPct": 13.96,
+            "closeChgPct": 4.14
+          },
+          {
+            "market": "KRW-ZKP",
+            "open": 120,
+            "high": 136,
+            "close": 126,
+            "intradayUpPct": 13.33,
+            "closeChgPct": 5
+          },
+          {
+            "market": "KRW-MANTRA",
+            "open": 14.6,
+            "high": 16.4,
+            "close": 15.2,
+            "intradayUpPct": 12.33,
+            "closeChgPct": 4.11
+          },
+          {
+            "market": "KRW-API3",
+            "open": 552,
+            "high": 617,
+            "close": 575,
+            "intradayUpPct": 11.78,
+            "closeChgPct": 4.17
+          },
+          {
+            "market": "KRW-PENDLE",
+            "open": 2126,
+            "high": 2376,
+            "close": 2333,
+            "intradayUpPct": 11.76,
+            "closeChgPct": 9.74
+          },
+          {
+            "market": "KRW-MON",
+            "open": 40.4,
+            "high": 45,
+            "close": 44.6,
+            "intradayUpPct": 11.39,
+            "closeChgPct": 10.4
+          }
+        ]
+      },
+      "intraday_10pct": {
+        "count": 11,
+        "top10": [
+          {
+            "market": "KRW-TOKAMAK",
+            "open": 735,
+            "high": 932,
+            "close": 837,
+            "intradayUpPct": 26.8,
+            "closeChgPct": 13.88
+          },
+          {
+            "market": "KRW-FLUID",
+            "open": 2315,
+            "high": 2777,
+            "close": 2467,
+            "intradayUpPct": 19.96,
+            "closeChgPct": 6.57
+          },
+          {
+            "market": "KRW-AXL",
+            "open": 91.8,
+            "high": 108,
+            "close": 101,
+            "intradayUpPct": 17.65,
+            "closeChgPct": 10.02
+          },
+          {
+            "market": "KRW-ZBT",
+            "open": 272,
+            "high": 317,
+            "close": 281,
+            "intradayUpPct": 16.54,
+            "closeChgPct": 3.31
+          },
+          {
+            "market": "KRW-DRIFT",
+            "open": 84.5,
+            "high": 96.3,
+            "close": 88,
+            "intradayUpPct": 13.96,
+            "closeChgPct": 4.14
+          },
+          {
+            "market": "KRW-ZKP",
+            "open": 120,
+            "high": 136,
+            "close": 126,
+            "intradayUpPct": 13.33,
+            "closeChgPct": 5
+          },
+          {
+            "market": "KRW-MANTRA",
+            "open": 14.6,
+            "high": 16.4,
+            "close": 15.2,
+            "intradayUpPct": 12.33,
+            "closeChgPct": 4.11
+          },
+          {
+            "market": "KRW-API3",
+            "open": 552,
+            "high": 617,
+            "close": 575,
+            "intradayUpPct": 11.78,
+            "closeChgPct": 4.17
+          },
+          {
+            "market": "KRW-PENDLE",
+            "open": 2126,
+            "high": 2376,
+            "close": 2333,
+            "intradayUpPct": 11.76,
+            "closeChgPct": 9.74
+          },
+          {
+            "market": "KRW-MON",
+            "open": 40.4,
+            "high": 45,
+            "close": 44.6,
+            "intradayUpPct": 11.39,
+            "closeChgPct": 10.4
+          }
+        ]
+      },
+      "close_5pct": {
+        "count": 9,
+        "top10": [
+          {
+            "market": "KRW-TOKAMAK",
+            "open": 735,
+            "high": 932,
+            "close": 837,
+            "intradayUpPct": 26.8,
+            "closeChgPct": 13.88
+          },
+          {
+            "market": "KRW-MON",
+            "open": 40.4,
+            "high": 45,
+            "close": 44.6,
+            "intradayUpPct": 11.39,
+            "closeChgPct": 10.4
+          },
+          {
+            "market": "KRW-AXL",
+            "open": 91.8,
+            "high": 108,
+            "close": 101,
+            "intradayUpPct": 17.65,
+            "closeChgPct": 10.02
+          },
+          {
+            "market": "KRW-PENDLE",
+            "open": 2126,
+            "high": 2376,
+            "close": 2333,
+            "intradayUpPct": 11.76,
+            "closeChgPct": 9.74
+          },
+          {
+            "market": "KRW-TAO",
+            "open": 371200,
+            "high": 408300,
+            "close": 401800,
+            "intradayUpPct": 9.99,
+            "closeChgPct": 8.24
+          },
+          {
+            "market": "KRW-FLUID",
+            "open": 2315,
+            "high": 2777,
+            "close": 2467,
+            "intradayUpPct": 19.96,
+            "closeChgPct": 6.57
+          },
+          {
+            "market": "KRW-INJ",
+            "open": 5095,
+            "high": 5490,
+            "close": 5395,
+            "intradayUpPct": 7.75,
+            "closeChgPct": 5.89
+          },
+          {
+            "market": "KRW-SAHARA",
+            "open": 32.6,
+            "high": 34.8,
+            "close": 34.4,
+            "intradayUpPct": 6.75,
+            "closeChgPct": 5.52
+          },
+          {
+            "market": "KRW-ZKP",
+            "open": 120,
+            "high": 136,
+            "close": 126,
+            "intradayUpPct": 13.33,
+            "closeChgPct": 5
+          }
+        ]
+      },
+      "close_10pct": {
+        "count": 3,
+        "top10": [
+          {
+            "market": "KRW-TOKAMAK",
+            "open": 735,
+            "high": 932,
+            "close": 837,
+            "intradayUpPct": 26.8,
+            "closeChgPct": 13.88
+          },
+          {
+            "market": "KRW-MON",
+            "open": 40.4,
+            "high": 45,
+            "close": 44.6,
+            "intradayUpPct": 11.39,
+            "closeChgPct": 10.4
+          },
+          {
+            "market": "KRW-AXL",
+            "open": 91.8,
+            "high": 108,
+            "close": 101,
+            "intradayUpPct": 17.65,
+            "closeChgPct": 10.02
+          }
+        ]
+      }
+    },
+    "2026-05-02": {
+      "total": 239,
+      "intraday_5pct": {
+        "count": 18,
+        "top10": [
+          {
+            "market": "KRW-KNC",
+            "open": 204,
+            "high": 279,
+            "close": 238,
+            "intradayUpPct": 36.76,
+            "closeChgPct": 16.67
+          },
+          {
+            "market": "KRW-BIO",
+            "open": 59.9,
+            "high": 81.8,
+            "close": 80,
+            "intradayUpPct": 36.56,
+            "closeChgPct": 33.56
+          },
+          {
+            "market": "KRW-KAVA",
+            "open": 84.4,
+            "high": 103,
+            "close": 89.5,
+            "intradayUpPct": 22.04,
+            "closeChgPct": 6.04
+          },
+          {
+            "market": "KRW-ORCA",
+            "open": 2970,
+            "high": 3540,
+            "close": 3212,
+            "intradayUpPct": 19.19,
+            "closeChgPct": 8.15
+          },
+          {
+            "market": "KRW-ARKM",
+            "open": 164,
+            "high": 186,
+            "close": 186,
+            "intradayUpPct": 13.41,
+            "closeChgPct": 13.41
+          },
+          {
+            "market": "KRW-MANTRA",
+            "open": 15.2,
+            "high": 17.1,
+            "close": 15.6,
+            "intradayUpPct": 12.5,
+            "closeChgPct": 2.63
+          },
+          {
+            "market": "KRW-PRL",
+            "open": 375,
+            "high": 415,
+            "close": 386,
+            "intradayUpPct": 10.67,
+            "closeChgPct": 2.93
+          },
+          {
+            "market": "KRW-AWE",
+            "open": 86.2,
+            "high": 94.5,
+            "close": 81.5,
+            "intradayUpPct": 9.63,
+            "closeChgPct": -5.45
+          },
+          {
+            "market": "KRW-BLEND",
+            "open": 177,
+            "high": 194,
+            "close": 174,
+            "intradayUpPct": 9.6,
+            "closeChgPct": -1.69
+          },
+          {
+            "market": "KRW-PIEVERSE",
+            "open": 1005,
+            "high": 1092,
+            "close": 1068,
+            "intradayUpPct": 8.66,
+            "closeChgPct": 6.27
+          }
+        ]
+      },
+      "intraday_10pct": {
+        "count": 7,
+        "top10": [
+          {
+            "market": "KRW-KNC",
+            "open": 204,
+            "high": 279,
+            "close": 238,
+            "intradayUpPct": 36.76,
+            "closeChgPct": 16.67
+          },
+          {
+            "market": "KRW-BIO",
+            "open": 59.9,
+            "high": 81.8,
+            "close": 80,
+            "intradayUpPct": 36.56,
+            "closeChgPct": 33.56
+          },
+          {
+            "market": "KRW-KAVA",
+            "open": 84.4,
+            "high": 103,
+            "close": 89.5,
+            "intradayUpPct": 22.04,
+            "closeChgPct": 6.04
+          },
+          {
+            "market": "KRW-ORCA",
+            "open": 2970,
+            "high": 3540,
+            "close": 3212,
+            "intradayUpPct": 19.19,
+            "closeChgPct": 8.15
+          },
+          {
+            "market": "KRW-ARKM",
+            "open": 164,
+            "high": 186,
+            "close": 186,
+            "intradayUpPct": 13.41,
+            "closeChgPct": 13.41
+          },
+          {
+            "market": "KRW-MANTRA",
+            "open": 15.2,
+            "high": 17.1,
+            "close": 15.6,
+            "intradayUpPct": 12.5,
+            "closeChgPct": 2.63
+          },
+          {
+            "market": "KRW-PRL",
+            "open": 375,
+            "high": 415,
+            "close": 386,
+            "intradayUpPct": 10.67,
+            "closeChgPct": 2.93
+          }
+        ]
+      },
+      "close_5pct": {
+        "count": 6,
+        "top10": [
+          {
+            "market": "KRW-BIO",
+            "open": 59.9,
+            "high": 81.8,
+            "close": 80,
+            "intradayUpPct": 36.56,
+            "closeChgPct": 33.56
+          },
+          {
+            "market": "KRW-KNC",
+            "open": 204,
+            "high": 279,
+            "close": 238,
+            "intradayUpPct": 36.76,
+            "closeChgPct": 16.67
+          },
+          {
+            "market": "KRW-ARKM",
+            "open": 164,
+            "high": 186,
+            "close": 186,
+            "intradayUpPct": 13.41,
+            "closeChgPct": 13.41
+          },
+          {
+            "market": "KRW-ORCA",
+            "open": 2970,
+            "high": 3540,
+            "close": 3212,
+            "intradayUpPct": 19.19,
+            "closeChgPct": 8.15
+          },
+          {
+            "market": "KRW-PIEVERSE",
+            "open": 1005,
+            "high": 1092,
+            "close": 1068,
+            "intradayUpPct": 8.66,
+            "closeChgPct": 6.27
+          },
+          {
+            "market": "KRW-KAVA",
+            "open": 84.4,
+            "high": 103,
+            "close": 89.5,
+            "intradayUpPct": 22.04,
+            "closeChgPct": 6.04
+          }
+        ]
+      },
+      "close_10pct": {
+        "count": 3,
+        "top10": [
+          {
+            "market": "KRW-BIO",
+            "open": 59.9,
+            "high": 81.8,
+            "close": 80,
+            "intradayUpPct": 36.56,
+            "closeChgPct": 33.56
+          },
+          {
+            "market": "KRW-KNC",
+            "open": 204,
+            "high": 279,
+            "close": 238,
+            "intradayUpPct": 36.76,
+            "closeChgPct": 16.67
+          },
+          {
+            "market": "KRW-ARKM",
+            "open": 164,
+            "high": 186,
+            "close": 186,
+            "intradayUpPct": 13.41,
+            "closeChgPct": 13.41
+          }
+        ]
+      }
+    }
+  }
+}

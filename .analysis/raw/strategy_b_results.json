@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "generated": "2026-05-02T14:35:48.659Z",
+    "base_trades": 22,
+    "period": "2026-04-29 ~ 2026-05-02 (4일)",
+    "warning": "표본 22건/4일 한계: 신뢰구간 넓음. 방향성만 참고, 수치는 추정값"
+  },
+  "baseline": {
+    "n": 22,
+    "wins": 11,
+    "losses": 11,
+    "wr": 0.5,
+    "grossWin": 26373,
+    "grossLoss": 67976,
+    "totalPnl": -41603,
+    "pf": 0.388,
+    "avgWin": 2398,
+    "avgLoss": 6180,
+    "dailyPnl": -10401
+  },
+  "strategy_definitions": {
+    "current": {
+      "name": "V130 현재",
+      "wr": "50%",
+      "avgWin": 2398,
+      "avgLoss": 6180,
+      "pf": 0.39,
+      "totalPnl": -41603,
+      "dailyPnl": -10401
+    },
+    "strategy_a": {
+      "name": "(a) 고승률+작은수익",
+      "wr": "67%",
+      "avgWin": 2398,
+      "avgLoss": 3000,
+      "pf": 1.71,
+      "totalPnl": 14970,
+      "dailyPnl": 3743
+    },
+    "strategy_b": {
+      "name": "(b) 목표: 50%승률+큰수익/작은손실",
+      "wr": "50%",
+      "avgWin": 8000,
+      "avgLoss": 3000,
+      "pf": 2.67,
+      "totalPnl": 55000,
+      "dailyPnl": 13750
+    }
+  },
+  "combo_a": [
+    {
+      "n_remove": 0,
+      "blocked": [],
+      "wr": 50,
+      "pf": 0.39,
+      "totalPnl": -41603,
+      "dailyPnl": -10401
+    },
+    {
+      "n_remove": 2,
+      "blocked": [
+        "KRW-DRIFT(-14714)",
+        "KRW-DRIFT(-7591)"
+      ],
+      "wr": 55,
+      "pf": 0.58,
+      "totalPnl": -19298,
+      "dailyPnl": -4824
+    },
+    {
+      "n_remove": 4,
+      "blocked": [
+        "KRW-DRIFT(-14714)",
+        "KRW-DRIFT(-7591)",
+        "KRW-RAY(-7235)",
+        "KRW-SOON(-6776)"
+      ],
+      "wr": 61.1,
+      "pf": 0.83,
+      "totalPnl": -5287,
+      "dailyPnl": -1322
+    },
+    {
+      "n_remove": 5,
+      "blocked": [
+        "KRW-DRIFT(-14714)",
+        "KRW-DRIFT(-7591)",
+        "KRW-RAY(-7235)",
+        "KRW-SOON(-6776)",
+        "KRW-MANTRA(-6573)"
+      ],
+      "wr": 64.7,
+      "pf": 1.05,
+      "totalPnl": 1286,
+      "dailyPnl": 322
+    },
+    {
+      "n_remove": 6,
+      "blocked": [
+        "KRW-DRIFT(-14714)",
+        "KRW-DRIFT(-7591)",
+        "KRW-RAY(-7235)",
+        "KRW-SOON(-6776)",
+        "KRW-MANTRA(-6573)",
+        "KRW-ZETA(-6240)"
+      ],
+      "wr": 68.8,
+      "pf": 1.4,
+      "totalPnl": 7526,
+      "dailyPnl": 1882
+    },
+    {
+      "n_remove": 8,
+      "blocked": [
+        "KRW-DRIFT(-14714)",
+        "KRW-DRIFT(-7591)",
+        "KRW-RAY(-7235)",
+        "KRW-SOON(-6776)",
+        "KRW-MANTRA(-6573)",
+        "KRW-ZETA(-6240)",
+        "KRW-OPEN(-6175)",
+        "KRW-AXS(-6050)"
+      ],
+      "wr": 78.6,
+      "pf": 3.98,
+      "totalPnl": 19751,
+      "dailyPnl": 4938
+    }
+  ],
+  "combo_b": [
+    {
+      "combo": "B",
+      "scenario": "S0",
+      "name": "V130 현재 (baseline) Ladder 0.5/1.0/1.5/2.0",
+      "n25": 25,
+      "wins25": 17,
+      "wr25": 68,
+      "totalPnl25": 32227,
+      "totalPnl22": 28360,
+      "avgSplitWin": 5235,
+      "splitN": 16,
+      "slTightPnl": -52000
+    },
+    {
+      "combo": "B",
+      "scenario": "S1",
+      "name": "drop 단일 2.0% (V128 회귀)",
+      "n25": 25,
+      "wins25": 15,
+      "wr25": 60,
+      "totalPnl25": 15418,
+      "totalPnl22": 13568,
+      "avgSplitWin": 4184,
+      "splitN": 16,
+      "slTightPnl": -52000
+    },
+    {
+      "combo": "B",
+      "scenario": "S2",
+      "name": "drop 단일 3.0%",
+      "n25": 25,
+      "wins25": 11,
+      "wr25": 44,
+      "totalPnl25": -4829,
+      "totalPnl22": -4250,
+      "avgSplitWin": 2919,
+      "splitN": 16,
+      "slTightPnl": -52000
+    },
+    {
+      "combo": "B",
+      "scenario": "S4",
+      "name": "drop 단일 5.0%",
+      "n25": 25,
+      "wins25": 8,
+      "wr25": 32,
+      "totalPnl25": 1359,
+      "totalPnl22": 1196,
+      "avgSplitWin": 3931,
+      "splitN": 14,
+      "slTightPnl": -52000
+    },
+    {
+      "combo": "B",
+      "scenario": "S5",
+      "name": "Hybrid 큰추세 보존 (peak<3: V130 / ≥3: 3.5%)",
+      "n25": 25,
+      "wins25": 17,
+      "wr25": 68,
+      "totalPnl25": 7692,
+      "totalPnl22": 6769,
+      "avgSplitWin": 3701,
+      "splitN": 16,
+      "slTightPnl": -52000
+    },
+    {
+      "combo": "B",
+      "scenario": "S6",
+      "name": "Ratchet trail 0.7/1.0/2.5/4.0/5.0",
+      "n25": 25,
+      "wins25": 17,
+      "wr25": 68,
+      "totalPnl25": 13971,
+      "totalPnl22": 12294,
+      "avgSplitWin": 4094,
+      "splitN": 16,
+      "slTightPnl": -52000
+    },
+    {
+      "combo": "B",
+      "scenario": "S9",
+      "name": "Split 30/70 + V130 Ladder",
+      "n25": 25,
+      "wins25": 17,
+      "wr25": 68,
+      "totalPnl25": 34511,
+      "totalPnl22": 30370,
+      "avgSplitWin": 5377,
+      "splitN": 16,
+      "slTightPnl": -52000
+    }
+  ],
+  "combo_c": [
+    {
+      "scenario": "보수 (WR40%, avgWin5000, avgLoss5000)",
+      "addN": 16,
+      "addPnl": -20000,
+      "newTotalPnl": -61603,
+      "newPF": 0.48,
+      "newDailyPnl": -15401
+    },
+    {
+      "scenario": "중립 (WR45%, avgWin6000, avgLoss4000)",
+      "addN": 16,
+      "addPnl": 6000,
+      "newTotalPnl": -35603,
+      "newPF": 0.66,
+      "newDailyPnl": -8901
+    },
+    {
+      "scenario": "낙관 (WR50%, avgWin8000, avgLoss3500)",
+      "addN": 16,
+      "addPnl": 36000,
+      "newTotalPnl": -5603,
+      "newPF": 0.94,
+      "newDailyPnl": -1401
+    }
+  ],
+  "combo_d": {
+    "combo": "D",
+    "name": "Split 30/70 (S9 vs S0)",
+    "improvementAmt22": 2010,
+    "newTotalPnl": -39593,
+    "newPF": 0.4175432505590208,
+    "newDailyPnl": -9898,
+    "note": "단독 개선 효과 미미 (2%)—다른 조합과 결합 시 의미"
+  },
+  "combo_e": [
+    {
+      "label": "A(filter-3) + B(trail-3500) + C(AD-낙관)",
+      "wr": "54.3%",
+      "avgWin": 5395,
+      "avgLoss": 4152,
+      "pf": 1.54,
+      "totalPnl": 36064,
+      "dailyPnl": 9016
+    },
+    {
+      "label": "A(filter-5) + B(trail-4500) + C(AD-낙관)",
+      "wr": "57.6%",
+      "avgWin": 5974,
+      "avgLoss": 3792,
+      "pf": 2.14,
+      "totalPnl": 60413,
+      "dailyPnl": 15103
+    },
+    {
+      "label": "A(filter-3) + B(trail-5000) + C(AD-낙관)",
+      "wr": "54.3%",
+      "avgWin": 6263,
+      "avgLoss": 4152,
+      "pf": 1.79,
+      "totalPnl": 52564,
+      "dailyPnl": 13141
+    },
+    {
+      "label": "A(filter-5) + B(trail-5000) + C(AD-중립)",
+      "wr": "54.5%",
+      "avgWin": 5389,
+      "avgLoss": 4072,
+      "pf": 1.59,
+      "totalPnl": 35913,
+      "dailyPnl": 8978
+    }
+  ],
+  "roadmap": {
+    "target_strategy_b": {
+      "wr": "50%",
+      "avgWin": "8,000원+",
+      "avgLoss": "3,000원 이하",
+      "pf": "2.67",
+      "daily_pnl": "+13,750원/일 (22건/4일 기준)"
+    },
+    "phases": [
+      {
+        "phase": 1,
+        "label": "Phase 1 — 즉시 (1주 이내)",
+        "changes": [
+          "Trail Ratchet 도입: SPLIT_2ND_TRAIL drop 고정(2%) → Ratchet(0.7/1.0/2.5/4.0/5.0%)",
+          "Split 비율 변경: 50/50 → 30/70 (2차 홀딩 비중 확대)",
+          "DRIFT류 SL_WIDE 진입 조건 강화: qs 점수 최소 3.5 이상, vol 5.0 이상 강제"
+        ],
+        "expected_metrics": {
+          "avgWin": "3,000~3,500원",
+          "avgLoss": "5,500~6,000원 (SL 구조 미변경 시)",
+          "pf": "0.50~0.55",
+          "daily_pnl": "-6,000 ~ -4,000원/일",
+          "note": "Trail 확대만으로 avgWin 증가, avgLoss는 아직 그대로"
+        }
+      },
+      {
+        "phase": 2,
+        "label": "Phase 2 — 백테 후 2주",
+        "changes": [
+          "SL_TIGHT 재설계: 현재 2.5% → 진입 시 변동성(ATR 기반) 동적 SL (1.5~3.5% 범위)",
+          "진입 필터 강화: SL_WIDE 손실 공통 패턴 (qs 낮은 종목, rsi>75 진입) 차단",
+          "AD 스캐너 HC 점수 9.4 → 9.0 완화 + 19:00~21:00 집중 시간대 허용",
+          "거래당 기준금 검토: 손실폭 제한을 위해 1만원 → 7,500원 (SL_TIGHT 시 손실 -4,500원으로 감소)"
+        ],
+        "expected_metrics": {
+          "avgWin": "4,000~5,000원",
+          "avgLoss": "4,000~4,500원",
+          "pf": "0.90~1.10",
+          "daily_pnl": "-1,000 ~ +1,500원/일 (손익분기 수준)",
+          "note": "avgLoss 6,180 → 4,000 감소가 PF 1.0 돌파의 핵심"
+        }
+      },
+      {
+        "phase": 3,
+        "label": "Phase 3 — 안정 후 1개월",
+        "changes": [
+          "AD 스캐너 실질 활성화 (야간 5%+ 32건/4일 → 실진입 10~16건)",
+          "Trail Tiered SL v2: peak 5%+ 달성 시 BEV 보장 + drop 4~5% 적용",
+          "승리 케이스 수익 상한 제거 (현재 SPLIT_2ND_TRAIL이 너무 빠른 청산)",
+          "큰추세 포지션 분리: peak 5%+ 도달 시 1/3만 청산, 나머지 큰 Trail로 보존"
+        ],
+        "expected_metrics": {
+          "avgWin": "7,000~9,000원",
+          "avgLoss": "3,000~3,500원",
+          "pf": "2.0~2.7",
+          "daily_pnl": "+8,000~+14,000원/일",
+          "note": "(b) 전략 완전 도달 구간. 샘플 최소 100건 이상 필요"
+        }
+      }
+    ]
+  }
+}

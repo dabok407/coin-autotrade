@@ -344,6 +344,32 @@ public class AllDayScannerConfigEntity {
     @Column(name = "split_1st_roi_floor_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal split1stRoiFloorPct = BigDecimal.valueOf(0.30);
 
+    // ── V131 Phase 1: L1 강제 익절 캡 ──
+    // Entity default 0=비활성(V130 호환). V131 마이그레이션 UPDATE로 운영값 2.0 설정.
+    /** armed 후 ROI 도달 시 강제 split1 매도. 0.0=비활성. 사용자 첫 의견(+2.0% 권고). */
+    @Column(name = "l1_cap_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal l1CapPct = BigDecimal.valueOf(0.0);
+
+    // ── V132 Phase 2: 동적 ATR SL ──
+    @Column(name = "sl_atr_enabled", nullable = false)
+    private boolean slAtrEnabled = false;
+
+    @Column(name = "sl_atr_mult", nullable = false, precision = 4, scale = 2)
+    private BigDecimal slAtrMult = BigDecimal.valueOf(1.5);
+
+    @Column(name = "sl_atr_min_pct", nullable = false, precision = 4, scale = 2)
+    private BigDecimal slAtrMinPct = BigDecimal.valueOf(1.5);
+
+    @Column(name = "sl_atr_max_pct", nullable = false, precision = 4, scale = 2)
+    private BigDecimal slAtrMaxPct = BigDecimal.valueOf(3.5);
+
+    // ── V133 Phase 3: BEV 보장 ──
+    @Column(name = "bev_guard_enabled", nullable = false)
+    private boolean bevGuardEnabled = false;
+
+    @Column(name = "bev_trigger_pct", nullable = false, precision = 4, scale = 2)
+    private BigDecimal bevTriggerPct = BigDecimal.valueOf(5.0);
+
     public BigDecimal getSplit1stDropUnder2() { return split1stDropUnder2; }
     public void setSplit1stDropUnder2(BigDecimal v) { this.split1stDropUnder2 = v != null ? v : BigDecimal.valueOf(0.50); }
 
@@ -376,6 +402,36 @@ public class AllDayScannerConfigEntity {
 
     public BigDecimal getSplit1stRoiFloorPct() { return split1stRoiFloorPct; }
     public void setSplit1stRoiFloorPct(BigDecimal v) { this.split1stRoiFloorPct = v != null ? v : BigDecimal.ZERO; }
+
+    public BigDecimal getL1CapPct() { return l1CapPct; }
+    public void setL1CapPct(BigDecimal v) { this.l1CapPct = v != null ? v : BigDecimal.ZERO; }
+
+    // ── V132 Phase 2: ATR SL ──
+    public boolean isSlAtrEnabled() { return slAtrEnabled; }
+    public void setSlAtrEnabled(boolean v) { this.slAtrEnabled = v; }
+    public BigDecimal getSlAtrMult() { return slAtrMult; }
+    public void setSlAtrMult(BigDecimal v) { this.slAtrMult = v != null ? v : BigDecimal.valueOf(1.5); }
+    public BigDecimal getSlAtrMinPct() { return slAtrMinPct; }
+    public void setSlAtrMinPct(BigDecimal v) { this.slAtrMinPct = v != null ? v : BigDecimal.valueOf(1.5); }
+    public BigDecimal getSlAtrMaxPct() { return slAtrMaxPct; }
+    public void setSlAtrMaxPct(BigDecimal v) { this.slAtrMaxPct = v != null ? v : BigDecimal.valueOf(3.5); }
+
+    // ── V133 Phase 3: BEV 보장 ──
+    public boolean isBevGuardEnabled() { return bevGuardEnabled; }
+    public void setBevGuardEnabled(boolean v) { this.bevGuardEnabled = v; }
+    public BigDecimal getBevTriggerPct() { return bevTriggerPct; }
+    public void setBevTriggerPct(BigDecimal v) { this.bevTriggerPct = v != null ? v : BigDecimal.valueOf(5.0); }
+
+    public double computeDynamicSlPct(double atrPct, double fallbackSlPct) {
+        if (!slAtrEnabled || atrPct <= 0) return fallbackSlPct;
+        double mult = slAtrMult.doubleValue();
+        double min = slAtrMinPct.doubleValue();
+        double max = slAtrMaxPct.doubleValue();
+        double v = atrPct * mult;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        return v;
+    }
 
     /**
      * V130 ①: peak% 구간에 따라 적용할 drop 임계값을 반환.
