@@ -657,9 +657,10 @@ public class OpeningDetectorSplitExitTest {
         checkRealtimeTp("KRW-V126B", 103.0);
         assertTrue(sellMarkets.isEmpty(), "peak 갱신만 — 매도 없음");
 
-        // peak 103에서 -1.5% drop (trailDropAfterSplit=1.0 초과) → 쿨다운으로 차단
-        checkRealtimeTp("KRW-V126B", 101.4);
-        assertTrue(sellMarkets.isEmpty(), "쿨다운 중 SPLIT_2ND_TRAIL 차단");
+        // V137: 쿨다운은 ROI<0일 때만 차단. 99.0(-1%)로 변경하여 V126 의도 검증
+        // peak 103 → now 99.0 → drop 3.88%, ROI=-1% → 쿨다운 차단
+        checkRealtimeTp("KRW-V126B", 99.0);
+        assertTrue(sellMarkets.isEmpty(), "쿨다운 중 + ROI 음수 → SPLIT_2ND_TRAIL 차단");
 
         // peak는 갱신 유지되었는지 확인 — getPeak 103
         assertEquals(103.0, detector.getPeak("KRW-V126B"), 0.0001, "쿨다운 중에도 peak 갱신 유지");

@@ -308,17 +308,17 @@ public class MorningRushScenarioIntegrationTest {
         // executor async 해제 대기 (sellingMarkets 가드 회피)
         getSellingMarkets().clear();
 
-        // 5) 쿨다운 중 peak 상승 + 1.2% drop → SPLIT_2ND_TRAIL 차단
+        // 5) V137: 쿨다운은 ROI<0일 때만 차단. 99.0 사용 (ROI=-1%)
         invokeCheckRealtimeTpSl("KRW-TEST", 102.5);  // 새 peak
-        invokeCheckRealtimeTpSl("KRW-TEST", 101.0);  // drop (102.5-101)/102.5 = 1.46% > 1.2%
+        invokeCheckRealtimeTpSl("KRW-TEST", 99.0);   // drop=3.41%, ROI=-1% → V129+V137 차단
         assertTrue(getPositionCache().containsKey("KRW-TEST"),
-                "쿨다운 중이라 SPLIT_2ND_TRAIL 차단");
+                "쿨다운 활성 + ROI 음수 → SPLIT_2ND_TRAIL 차단");
 
         // 6) 쿨다운 만료 시뮬레이션 (execMap을 65초 전으로 수정)
         getSplit1stExecMap().put("KRW-TEST", now - 65_000L);
 
         // 7) 동일한 drop 재현 → SPLIT_2ND_TRAIL 발동 (전량 매도)
-        invokeCheckRealtimeTpSl("KRW-TEST", 101.0);
+        invokeCheckRealtimeTpSl("KRW-TEST", 99.0);
         assertFalse(getPositionCache().containsKey("KRW-TEST"),
                 "쿨다운 만료 → SPLIT_2ND_TRAIL 매도");
         assertFalse(getSplit1stExecMap().containsKey("KRW-TEST"),
@@ -370,14 +370,15 @@ public class MorningRushScenarioIntegrationTest {
         // splitPhase=1 직접 설정 (1차 매도 완료 상태 재현)
 
         // 59초 전 체결 → 쿨다운 활성 (60초 미만)
+        // V137: 쿨다운은 ROI<0일 때만 차단. 99.0 사용 (ROI=-1%, peak=102 drop=2.94%)
         getSplit1stExecMap().put("KRW-TEST", now - 59_000L);
-        invokeCheckRealtimeTpSl("KRW-TEST", 100.5);  // drop 1.47% > 1.2%
+        invokeCheckRealtimeTpSl("KRW-TEST", 99.0);
         assertTrue(getPositionCache().containsKey("KRW-TEST"),
-                "59초 → 쿨다운 활성 → 차단");
+                "59초 + ROI 음수 → 쿨다운 활성 → 차단");
 
         // 61초 전 체결 → 쿨다운 만료
         getSplit1stExecMap().put("KRW-TEST", now - 61_000L);
-        invokeCheckRealtimeTpSl("KRW-TEST", 100.5);
+        invokeCheckRealtimeTpSl("KRW-TEST", 99.0);
         assertFalse(getPositionCache().containsKey("KRW-TEST"),
                 "61초 → 쿨다운 만료 → SPLIT_2ND_TRAIL");
     }

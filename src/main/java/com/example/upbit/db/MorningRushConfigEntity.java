@@ -209,6 +209,7 @@ public class MorningRushConfigEntity {
     @Column(name = "bev_trigger_pct", nullable = false, precision = 4, scale = 2)
     private BigDecimal bevTriggerPct = BigDecimal.valueOf(5.0);
 
+
     // ========== Getters & Setters ==========
 
     public int getId() { return id; }
@@ -367,6 +368,7 @@ public class MorningRushConfigEntity {
     public void setBevGuardEnabled(boolean v) { this.bevGuardEnabled = v; }
     public BigDecimal getBevTriggerPct() { return bevTriggerPct; }
     public void setBevTriggerPct(BigDecimal v) { this.bevTriggerPct = v != null ? v : BigDecimal.valueOf(5.0); }
+
 
     public double computeDynamicSlPct(double atrPct, double fallbackSlPct) {
         if (!slAtrEnabled || atrPct <= 0) return fallbackSlPct;

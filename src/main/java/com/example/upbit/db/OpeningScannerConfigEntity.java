@@ -405,6 +405,7 @@ public class OpeningScannerConfigEntity {
     @Column(name = "bev_trigger_pct", nullable = false, precision = 4, scale = 2)
     private BigDecimal bevTriggerPct = BigDecimal.valueOf(5.0);
 
+
     public BigDecimal getSplit1stDropUnder2() { return split1stDropUnder2; }
     public void setSplit1stDropUnder2(BigDecimal v) { this.split1stDropUnder2 = v != null ? v : BigDecimal.valueOf(0.50); }
 
@@ -466,6 +467,7 @@ public class OpeningScannerConfigEntity {
     public void setBevGuardEnabled(boolean v) { this.bevGuardEnabled = v; }
     public BigDecimal getBevTriggerPct() { return bevTriggerPct; }
     public void setBevTriggerPct(BigDecimal v) { this.bevTriggerPct = v != null ? v : BigDecimal.valueOf(5.0); }
+
 
     /**
      * V132 Phase 2: 진입 시점 ATR%를 받아 동적 SL_TIGHT% 계산.

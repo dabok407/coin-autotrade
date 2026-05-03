@@ -195,6 +195,10 @@ public class AllDayScannerService {
     private volatile boolean cachedBevGuardEnabled = false;
     private volatile double cachedBevTriggerPct = 5.0;
 
+    // V134 Phase 2b: 동적 ATR SL — sl_atr_enabled=TRUE일 때 monitorPositions에서 ATR 측정 → dynamicSlMap.put
+    private volatile boolean cachedSlAtrEnabled = false;
+    private final ConcurrentHashMap<String, Double> dynamicSlMap = new ConcurrentHashMap<String, Double>();
+
     // V130 ②: L1 지연 진입용 단일 스레드 스케줄러
     private final ScheduledExecutorService l1DelayScheduler = Executors.newSingleThreadScheduledExecutor(
             new ThreadFactory() {
@@ -593,6 +597,8 @@ public class AllDayScannerService {
         // V133 Phase 3: BEV 보장
         cachedBevGuardEnabled = cfg.isBevGuardEnabled();
         cachedBevTriggerPct = cfg.getBevTriggerPct().doubleValue();
+        // V134 Phase 2b: 동적 ATR SL
+        cachedSlAtrEnabled = cfg.isSlAtrEnabled();
 
         String mode = cfg.getMode();
         boolean isLive = "LIVE".equalsIgnoreCase(mode);
@@ -702,6 +708,8 @@ public class AllDayScannerService {
 
         // 실시간 TP WebSocket 동기화 (포지션 캐시 + 연결 관리)
         syncTpWebSocket(scannerPositions);
+        // V134 Phase 2b: 동적 ATR SL — 포지션별 1번씩 ATR 측정 → dynamicSlMap.put
+        updateDynamicSlForPositions(scannerPositions, cfg);
 
         if (!scannerPositions.isEmpty()) {
             // Submit parallel candle fetches for all scanner positions
@@ -1687,14 +1695,16 @@ public class AllDayScannerService {
         // ━━━ V129: Split-Exit 2차 관리 (splitPhase=1) — BEV 제거 + 쿨다운 게이트 ━━━
         else if (cachedSplitExitEnabled && splitPhase == 1) {
             // V129 쿨다운: SPLIT_1ST 체결 후 60초 동안 SPLIT_2ND_TRAIL 차단. SL은 아래 블록이 처리.
+            // V137 사용자 의견: 쿨다운은 ROI < 0 (마이너스 흔들림 견디기)일 때만 적용.
+            // ROI ≥ 0 (수익 상승 중)이면 쿨다운 무시 → 정상 trail 매도 허용.
             Long execAt = split1stExecutedAtMap.get(market);
             boolean cooldownActive = false;
-            if (execAt != null && cachedSplit1stCooldownMs > 0) {
+            if (execAt != null && cachedSplit1stCooldownMs > 0 && pnlPct < 0) {
                 long sinceMs = System.currentTimeMillis() - execAt;
                 if (sinceMs < cachedSplit1stCooldownMs) {
                     cooldownActive = true;
-                    log.debug("[AllDayScanner] SPLIT_2ND cooldown active: {} since={}ms < {}ms",
-                            market, sinceMs, cachedSplit1stCooldownMs);
+                    log.debug("[AllDayScanner] SPLIT_2ND cooldown active(neg ROI): {} since={}ms < {}ms pnl={}%",
+                            market, sinceMs, cachedSplit1stCooldownMs, pnlPct);
                 }
             }
             if (!cooldownActive && peakPrice > avgPrice) {
@@ -1757,12 +1767,16 @@ public class AllDayScannerService {
                             pnlPct, cachedWideSlPct, price, avgPrice, troughPrice, troughPnl);
                 }
             } else {
-                if (pnlPct <= -cachedTightSlPct) {
+                // V134 Phase 2b: 동적 ATR SL — dynamicSlMap에 있으면 우선, 없으면 cachedTightSlPct fallback
+                Double dynSl = dynamicSlMap.get(market);
+                double slTightForMarket = (dynSl != null) ? dynSl.doubleValue() : cachedTightSlPct;
+                if (pnlPct <= -slTightForMarket) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SL_TIGHT";
+                    String slKind = (dynSl != null) ? "SL_TIGHT_ATR" : "SL_TIGHT";
                     reason = String.format(Locale.ROOT,
-                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                            pnlPct, cachedTightSlPct, price, avgPrice, troughPrice, troughPnl);
+                            "%s pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            slKind, pnlPct, slTightForMarket, price, avgPrice, troughPrice, troughPnl);
                 }
             }
         }
@@ -2509,6 +2523,40 @@ public class AllDayScannerService {
 
         addDecision(market, "SELL", "EXECUTED", fIsDust ? "SPLIT_1ST_DUST" : "SPLIT_1ST", splitReason);
         // ★ 1차 매도 시 sellCooldownMap 미등록 (2차에서만 등록)
+    }
+
+    /**
+     * V134 Phase 2b: 동적 ATR SL — 포지션별 1번씩 ATR 측정 후 dynamicSlMap에 저장.
+     * sl_atr_enabled=false면 즉시 return. 이미 측정된 마켓은 skip.
+     * 매도/포지션 종료된 마켓은 map에서 제거.
+     */
+    private void updateDynamicSlForPositions(List<PositionEntity> positions, AllDayScannerConfigEntity cfg) {
+        if (!cachedSlAtrEnabled || cfg == null || !cfg.isSlAtrEnabled()) return;
+        java.util.Set<String> currentMarkets = new java.util.HashSet<String>();
+        for (PositionEntity pe : positions) {
+            String market = pe.getMarket();
+            currentMarkets.add(market);
+            if (dynamicSlMap.containsKey(market)) continue;
+            if (pe.getAvgPrice() == null) continue;
+            try {
+                List<UpbitCandle> candles = candleService.getMinuteCandlesPaged(market, 1, 20);
+                if (candles == null || candles.size() < 15) continue;
+                double atr = Indicators.atr(candles, 14);
+                if (Double.isNaN(atr) || atr <= 0) continue;
+                double avgPrice = pe.getAvgPrice().doubleValue();
+                double atrPct = atr / avgPrice * 100.0;
+                double dynamicSl = cfg.computeDynamicSlPct(atrPct, cachedTightSlPct);
+                dynamicSlMap.put(market, dynamicSl);
+                log.info("[AllDayScanner] dynamic SL: {} avg={} atr={}% sl={}%",
+                        market, String.format(Locale.ROOT, "%.4f", avgPrice),
+                        String.format(Locale.ROOT, "%.2f", atrPct),
+                        String.format(Locale.ROOT, "%.2f", dynamicSl));
+            } catch (Exception e) {
+                log.debug("[AllDayScanner] dynamic SL fetch failed for {}: {}", market, e.getMessage());
+            }
+        }
+        // 매도/종료된 마켓 제거
+        dynamicSlMap.keySet().retainAll(currentMarkets);
     }
 
     /**

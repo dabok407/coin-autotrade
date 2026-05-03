@@ -617,16 +617,42 @@ public class OpeningScannerService {
         Set<String> ownedMarkets = new HashSet<String>();
         List<PositionEntity> allPositions = positionRepo.findAll();
         int scannerPosCount = 0;
+        Set<String> opPosMarkets = new HashSet<String>();  // V134 Phase 2b: dynamic SL retain용
         for (PositionEntity pe : allPositions) {
             if (!scannerLockService.isDustPosition(pe) && pe.getQty() != null && pe.getQty().compareTo(BigDecimal.ZERO) > 0) {
                 if ("SCALP_OPENING_BREAK".equals(pe.getEntryStrategy())) {
                     scannerPosCount++;
+                    opPosMarkets.add(pe.getMarket());
+                    // V134 Phase 2b: 동적 ATR SL — ATR 측정 후 detector에 주입 (한 번만)
+                    if (cfg.isSlAtrEnabled() && !breakoutDetector.hasDynamicSlForMarket(pe.getMarket()) && pe.getAvgPrice() != null) {
+                        try {
+                            List<UpbitCandle> atrCandles = candleService.getMinuteCandlesPaged(pe.getMarket(), 1, 20);
+                            if (atrCandles != null && atrCandles.size() >= 15) {
+                                double atr = Indicators.atr(atrCandles, 14);
+                                if (!Double.isNaN(atr) && atr > 0) {
+                                    double avgPx = pe.getAvgPrice().doubleValue();
+                                    double atrPct = atr / avgPx * 100.0;
+                                    double dynSl = cfg.computeDynamicSlPct(atrPct, cfg.getTightSlPct().doubleValue());
+                                    breakoutDetector.setDynamicSlForMarket(pe.getMarket(), dynSl);
+                                    log.info("[OpeningScanner] dynamic SL: {} avg={} atr={}% sl={}%",
+                                            pe.getMarket(),
+                                            String.format(Locale.ROOT, "%.4f", avgPx),
+                                            String.format(Locale.ROOT, "%.2f", atrPct),
+                                            String.format(Locale.ROOT, "%.2f", dynSl));
+                                }
+                            }
+                        } catch (Exception e) {
+                            log.debug("[OpeningScanner] dynamic SL fetch failed for {}: {}", pe.getMarket(), e.getMessage());
+                        }
+                    }
                 } else {
                     ownedMarkets.add(pe.getMarket());
                 }
             }
         }
         activePositions = scannerPosCount;
+        // V134 Phase 2b: 매도/종료된 마켓 dynamic SL map에서 제거
+        breakoutDetector.retainDynamicSlMarkets(opPosMarkets);
 
         // LIVE 모드: 업비트 실제 계좌 조회 (1회만 호출, 보유코인 제외 + KRW 잔고 확인에 재사용)
         List<UpbitAccount> cachedAccounts = null;

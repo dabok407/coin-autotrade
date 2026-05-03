@@ -230,11 +230,11 @@ public class AllDayScenarioIntegrationTest {
         pos[6] = 0.0;   // armed 리셋
         getSellingMarkets().clear();  // executor async 가드 회피
 
-        // 4) 쿨다운 중 peak 상승 + 1.5% drop → SPLIT_2ND_TRAIL 차단
+        // 4) 쿨다운 중 peak 상승 + drop → V137: ROI<0 일 때만 차단
         invokeCheckRealtimeTp("KRW-TEST", 102.5);  // 새 peak
-        invokeCheckRealtimeTp("KRW-TEST", 101.0);  // drop (102.5-101)/102.5 = 1.46% > 1.2%
+        invokeCheckRealtimeTp("KRW-TEST", 99.0);   // drop (102.5-99)/102.5 = 3.41%, ROI=-1% → V129+V137 차단
         assertTrue(cache.containsKey("KRW-TEST"),
-                "쿨다운 활성 → SPLIT_2ND_TRAIL 차단");
+                "쿨다운 활성 + ROI 음수 → SPLIT_2ND_TRAIL 차단");
 
         // 5) 쿨다운 만료 (65초 전으로 변경)
         getSplit1stExecMap().put("KRW-TEST", now - 65_000L);
@@ -279,15 +279,16 @@ public class AllDayScenarioIntegrationTest {
         ConcurrentHashMap<String, double[]> cache = getTpPositionCache();
         cache.put("KRW-TEST", new double[]{100.0, 102.0, 0, 100.0, now - 120_000L, 1, 0});
 
-        // 29초 전 체결 → 쿨다운 활성
+        // V137: 쿨다운은 ROI<0일 때만 차단. 99.0 사용해 ROI=-1% (음수) 검증
+        // 29초 전 체결 → 쿨다운 활성 + ROI 음수 → 차단
         getSplit1stExecMap().put("KRW-TEST", now - 29_000L);
-        invokeCheckRealtimeTp("KRW-TEST", 100.5);  // drop 1.47% > 1.2%
+        invokeCheckRealtimeTp("KRW-TEST", 99.0);  // drop=2.94%, ROI=-1% → 차단
         assertTrue(cache.containsKey("KRW-TEST"),
-                "29초 → 쿨다운 활성 → 차단");
+                "29초 + ROI 음수 → 쿨다운 활성 → 차단");
 
-        // 31초 전 체결 → 쿨다운 만료
+        // 31초 전 체결 → 쿨다운 만료 → 매도
         getSplit1stExecMap().put("KRW-TEST", now - 31_000L);
-        invokeCheckRealtimeTp("KRW-TEST", 100.5);
+        invokeCheckRealtimeTp("KRW-TEST", 99.0);
         assertFalse(cache.containsKey("KRW-TEST"),
                 "31초 → 쿨다운 만료 → SPLIT_2ND_TRAIL");
     }

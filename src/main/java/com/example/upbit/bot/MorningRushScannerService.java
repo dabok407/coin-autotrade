@@ -63,6 +63,8 @@ public class MorningRushScannerService {
     private final UpbitMarketCatalogService catalogService;
     private final TickerService tickerService;
     private final SharedPriceService sharedPriceService;
+    // V134 Phase 2b: 동적 ATR SL — 1분봉 fetch 위해 CandleService 의존성 추가 (nullable)
+    private final com.example.upbit.market.CandleService candleService;
 
     // ========== Runtime state ==========
 
@@ -172,6 +174,11 @@ public class MorningRushScannerService {
     private volatile boolean cachedBevGuardEnabled = false;
     private volatile double cachedBevTriggerPct = 5.0;
 
+    // V134 Phase 2b: 동적 ATR SL — 매수 후 한 번 ATR 측정해서 dynamic SL% 저장
+    // sl_atr_enabled=TRUE일 때 monitorPositions 시점에 채움. 매도/포지션 종료 시 제거.
+    private volatile boolean cachedSlAtrEnabled = false;
+    private final ConcurrentHashMap<String, Double> dynamicSlMap = new ConcurrentHashMap<String, Double>();
+
     // V130 ②: L1 지연 진입용 단일 스레드 스케줄러
     private final ScheduledExecutorService l1DelayScheduler = Executors.newSingleThreadScheduledExecutor(
             new ThreadFactory() {
@@ -223,6 +230,7 @@ public class MorningRushScannerService {
     private volatile boolean rangeCollected = false;
     private volatile boolean entryPhaseComplete = false;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public MorningRushScannerService(MorningRushConfigRepository configRepo,
                                       BotConfigRepository botConfigRepo,
                                       PositionRepository positionRepo,
@@ -234,7 +242,8 @@ public class MorningRushScannerService {
                                       TickerService tickerService,
                                       SharedPriceService sharedPriceService,
                                       SharedTradeThrottle hourlyThrottle,
-                                      ScannerLockService scannerLockService) {
+                                      ScannerLockService scannerLockService,
+                                      com.example.upbit.market.CandleService candleService) {
         this.configRepo = configRepo;
         this.botConfigRepo = botConfigRepo;
         this.positionRepo = positionRepo;
@@ -247,6 +256,25 @@ public class MorningRushScannerService {
         this.sharedPriceService = sharedPriceService;
         this.hourlyThrottle = hourlyThrottle;
         this.scannerLockService = scannerLockService;
+        this.candleService = candleService;
+    }
+
+    /** V134 호환: 기존 12개 인자 생성자 (CandleService 없이) — 호환성 유지, candleService=null이면 ATR SL 비활성. */
+    public MorningRushScannerService(MorningRushConfigRepository configRepo,
+                                      BotConfigRepository botConfigRepo,
+                                      PositionRepository positionRepo,
+                                      TradeRepository tradeLogRepo,
+                                      LiveOrderService liveOrders,
+                                      UpbitPrivateClient privateClient,
+                                      TransactionTemplate txTemplate,
+                                      UpbitMarketCatalogService catalogService,
+                                      TickerService tickerService,
+                                      SharedPriceService sharedPriceService,
+                                      SharedTradeThrottle hourlyThrottle,
+                                      ScannerLockService scannerLockService) {
+        this(configRepo, botConfigRepo, positionRepo, tradeLogRepo, liveOrders, privateClient,
+             txTemplate, catalogService, tickerService, sharedPriceService, hourlyThrottle, scannerLockService,
+             null);
     }
 
     // ========== Lifecycle ==========
@@ -740,7 +768,9 @@ public class MorningRushScannerService {
         else if (cachedSplitExitEnabled && splitPhase == 1) {
             Long execAt = split1stExecutedAtMap.get(market);
             boolean cooldownActive = false;
-            if (execAt != null && cachedSplit1stCooldownMs > 0) {
+            // V137 사용자 의견: 쿨다운은 ROI < 0 (마이너스 흔들림 견디기) 일 때만 적용.
+            // ROI ≥ 0 (수익 상승 중)이면 쿨다운 무시 → 정상 trail 매도 허용 (수익 익절).
+            if (execAt != null && cachedSplit1stCooldownMs > 0 && pnlPct < 0) {
                 long sinceMs = System.currentTimeMillis() - execAt;
                 if (sinceMs < cachedSplit1stCooldownMs) {
                     cooldownActive = true;
@@ -801,12 +831,16 @@ public class MorningRushScannerService {
                             pnlPct, cachedWideSlPct, price, avgPrice, troughPrice, troughPnl);
                 }
             } else {
-                if (pnlPct <= -cachedSlPct) {
+                // V134 Phase 2b: 동적 ATR SL — dynamicSlMap에 있으면 우선, 없으면 cachedSlPct fallback
+                Double dynSl = dynamicSlMap.get(market);
+                double slTightForMarket = (dynSl != null) ? dynSl.doubleValue() : cachedSlPct;
+                if (pnlPct <= -slTightForMarket) {
                     double troughPnl = (troughPrice - avgPrice) / avgPrice * 100.0;
                     sellType = "SL";
+                    String slKind = (dynSl != null) ? "SL_TIGHT_ATR" : "SL_TIGHT";
                     reason = String.format(Locale.ROOT,
-                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                            pnlPct, cachedSlPct, price, avgPrice, troughPrice, troughPnl);
+                            "%s pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            slKind, pnlPct, slTightForMarket, price, avgPrice, troughPrice, troughPnl);
                 }
             }
         }
@@ -896,6 +930,8 @@ public class MorningRushScannerService {
         // V133 Phase 3: BEV 보장
         cachedBevGuardEnabled = cfg.isBevGuardEnabled();
         cachedBevTriggerPct = cfg.getBevTriggerPct().doubleValue();
+        // V134 Phase 2b: 동적 ATR SL
+        cachedSlAtrEnabled = cfg.isSlAtrEnabled();
         cachedMode = cfg.getMode();
 
         // V118: positionCache.clear() 제거 — WebSocket 스레드가 pos[3](peak)/pos[6](armed)을
@@ -1086,6 +1122,8 @@ public class MorningRushScannerService {
         // V133 Phase 3: BEV 보장
         cachedBevGuardEnabled = cfg.isBevGuardEnabled();
         cachedBevTriggerPct = cfg.getBevTriggerPct().doubleValue();
+        // V134 Phase 2b: 동적 ATR SL
+        cachedSlAtrEnabled = cfg.isSlAtrEnabled();
         cachedGapPct = cfg.getGapThresholdPct().doubleValue();
         cachedSurgePct = cfg.getSurgeThresholdPct().doubleValue();
         cachedSurgeWindowSec = cfg.getSurgeWindowSec();
@@ -1588,6 +1626,39 @@ public class MorningRushScannerService {
 
     // ========== Phase 3: TP/SL Monitoring ==========
 
+    /**
+     * V134 Phase 2b: 동적 ATR SL — rushPositions에 대해 ATR 측정 후 dynamicSlMap에 저장.
+     * candleService null 또는 sl_atr_enabled=false면 즉시 return.
+     */
+    private void updateDynamicSlForPositions(List<PositionEntity> positions, MorningRushConfigEntity cfg) {
+        if (candleService == null || !cachedSlAtrEnabled || cfg == null || !cfg.isSlAtrEnabled()) return;
+        java.util.Set<String> currentMarkets = new java.util.HashSet<String>();
+        for (PositionEntity pe : positions) {
+            String market = pe.getMarket();
+            currentMarkets.add(market);
+            if (dynamicSlMap.containsKey(market)) continue;
+            if (pe.getAvgPrice() == null) continue;
+            try {
+                List<com.example.upbit.market.UpbitCandle> candles = candleService.getMinuteCandlesPaged(market, 1, 20);
+                if (candles == null || candles.size() < 15) continue;
+                double atr = com.example.upbit.strategy.Indicators.atr(candles, 14);
+                if (Double.isNaN(atr) || atr <= 0) continue;
+                double avgPrice = pe.getAvgPrice().doubleValue();
+                double atrPct = atr / avgPrice * 100.0;
+                double dynamicSl = cfg.computeDynamicSlPct(atrPct, cachedSlPct);
+                dynamicSlMap.put(market, dynamicSl);
+                log.info("[MorningRush] dynamic SL: {} avg={} atr={}% sl={}%",
+                        market, String.format(Locale.ROOT, "%.4f", avgPrice),
+                        String.format(Locale.ROOT, "%.2f", atrPct),
+                        String.format(Locale.ROOT, "%.2f", dynamicSl));
+            } catch (Exception e) {
+                log.debug("[MorningRush] dynamic SL fetch failed for {}: {}", market, e.getMessage());
+            }
+        }
+        // 매도된 마켓 제거
+        dynamicSlMap.keySet().retainAll(currentMarkets);
+    }
+
     private void monitorPositions(MorningRushConfigEntity cfg) {
         List<PositionEntity> allPos = positionRepo.findAll();
         List<PositionEntity> rushPositions = new ArrayList<PositionEntity>();
@@ -1600,6 +1671,9 @@ public class MorningRushScannerService {
                 markets.add(pe.getMarket());
             }
         }
+
+        // V134 Phase 2b: 동적 ATR SL — rushPositions에 대해 ATR 측정 후 dynamicSlMap.put
+        updateDynamicSlForPositions(rushPositions, cfg);
 
         if (rushPositions.isEmpty()) return;
 

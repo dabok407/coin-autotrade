@@ -875,9 +875,10 @@ public class AllDaySplitExitScenarioTest {
                 getField("split1stExecutedAtMap");
         execMap.put("KRW-V129B", nowMs - 10_000);
 
-        invoke("KRW-V129B", 100.8);  // peak 102에서 -1.18% drop
+        // V137: 쿨다운은 ROI<0일 때만 차단. ROI 음수로 변경하여 V129 의도 검증
+        invoke("KRW-V129B", 99.0);  // peak 102 → drop 2.94%, ROI=-1% → 차단
 
-        assertTrue(cache.containsKey("KRW-V129B"), "V129: 쿨다운 중 SPLIT_2ND_TRAIL 차단");
+        assertTrue(cache.containsKey("KRW-V129B"), "V129: 쿨다운 중 + ROI 음수 → SPLIT_2ND_TRAIL 차단");
     }
 
     // ═══════════════════════════════════════════════════
@@ -1048,9 +1049,10 @@ public class AllDaySplitExitScenarioTest {
                 getField("split1stExecutedAtMap");
         execMap.put("KRW-V129G2", nowMs - 55_000);
 
-        invoke("KRW-V129G2", 100.8);
+        // V137: ROI 음수로 변경 (V129 의도 검증)
+        invoke("KRW-V129G2", 99.0);
 
-        assertTrue(cache.containsKey("KRW-V129G2"), "V129: 쿨다운 내 TRAIL 차단");
+        assertTrue(cache.containsKey("KRW-V129G2"), "V129: 쿨다운 내 + ROI 음수 → TRAIL 차단");
     }
 
     // ═══════════════════════════════════════════════════

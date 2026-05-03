@@ -120,6 +120,8 @@ public class OpeningBreakoutDetector {
     // V133 Phase 3: BEV 보장 (V130 호환 default 비활성)
     private volatile boolean bevGuardEnabled = false;
     private volatile double bevTriggerPct = 5.0;
+    // V134 Phase 2b: 동적 ATR SL — OpeningScannerService에서 ATR 측정 후 setter로 주입
+    private final java.util.concurrent.ConcurrentHashMap<String, Double> dynamicSlMap = new java.util.concurrent.ConcurrentHashMap<String, Double>();
 
     public OpeningBreakoutDetector(SharedPriceService sharedPriceService) {
         this.sharedPriceService = sharedPriceService;
@@ -175,6 +177,20 @@ public class OpeningBreakoutDetector {
     public void setBevGuard(boolean enabled, double triggerPct) {
         this.bevGuardEnabled = enabled;
         this.bevTriggerPct = triggerPct;
+    }
+    /** V134 Phase 2b: 동적 ATR SL — OpeningScannerService에서 ATR 측정 후 호출. null이면 cachedTightSlPct fallback. */
+    public void setDynamicSlForMarket(String market, Double slPct) {
+        if (slPct == null) {
+            dynamicSlMap.remove(market);
+        } else {
+            dynamicSlMap.put(market, slPct);
+        }
+    }
+    public void retainDynamicSlMarkets(java.util.Set<String> markets) {
+        dynamicSlMap.keySet().retainAll(markets);
+    }
+    public boolean hasDynamicSlForMarket(String market) {
+        return dynamicSlMap.containsKey(market);
     }
 
     /**
@@ -647,13 +663,16 @@ public class OpeningBreakoutDetector {
                             pnlPct, wideSlPct, price, avgPrice, volumeRank, trough, troughPnl);
                 }
             } else {
-                // SL_TIGHT — 단일
-                if (pnlPct <= -cachedTightSlPct) {
+                // V134 Phase 2b: 동적 ATR SL — dynamicSlMap에 있으면 우선, 없으면 cachedTightSlPct fallback
+                Double dynSl = dynamicSlMap.get(market);
+                double slTightForMarket = (dynSl != null) ? dynSl.doubleValue() : cachedTightSlPct;
+                if (pnlPct <= -slTightForMarket) {
                     sellType = "SL_TIGHT";
                     double troughPnl = (trough - avgPrice) / avgPrice * 100.0;
+                    String slKind = (dynSl != null) ? "SL_TIGHT_ATR" : "SL_TIGHT";
                     reason = String.format(java.util.Locale.ROOT,
-                            "SL_TIGHT pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
-                            pnlPct, cachedTightSlPct, price, avgPrice, trough, troughPnl);
+                            "%s pnl=%.2f%% <= -%.2f%% price=%.2f avg=%.2f trough=%.2f troughPnl=%.2f%% (realtime)",
+                            slKind, pnlPct, slTightForMarket, price, avgPrice, trough, troughPnl);
                 }
             }
         }
@@ -697,14 +716,16 @@ public class OpeningBreakoutDetector {
         // V111: Split 2차 관리 (splitPhase=1)
         else if (sellType == null && splitExitEnabled && splitPhase == 1) {
             // V126: SPLIT_1ST 체결 후 쿨다운 — BEV/TRAIL 매도만 차단. peak 갱신은 위에서 이미 수행됨.
+            // V137 사용자 의견: 쿨다운은 ROI < 0 (마이너스 흔들림 견디기)일 때만 적용.
+            // ROI ≥ 0 (수익 상승 중)이면 쿨다운 무시 → 정상 trail 매도 허용 (수익 익절).
             Long execAt = split1stExecutedAtMap.get(market);
             boolean cooldownActive = false;
-            if (execAt != null && cachedSplit1stCooldownMs > 0) {
+            if (execAt != null && cachedSplit1stCooldownMs > 0 && pnlPct < 0) {
                 long sinceMs = System.currentTimeMillis() - execAt;
                 if (sinceMs < cachedSplit1stCooldownMs) {
                     cooldownActive = true;
-                    log.debug("[BreakoutDetector] SPLIT_2ND cooldown active: {} since={}ms < {}ms",
-                            market, sinceMs, cachedSplit1stCooldownMs);
+                    log.debug("[BreakoutDetector] SPLIT_2ND cooldown active(neg ROI): {} since={}ms < {}ms pnl={}%",
+                            market, sinceMs, cachedSplit1stCooldownMs, pnlPct);
                 }
             }
 
