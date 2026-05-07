@@ -384,6 +384,11 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
 
         // 6. Session End — 캔들 시각 기준 (자정 넘기기 지원)
         // sessionEnd < 12:00이면 다음날 새벽으로 간주 (예: 08:00 = 다음날 아침)
+        //
+        // V140 BUG fix: 매수 시점 검사 추가.
+        //   기존 BUG: 현재 시각만 보고 청산 → 오늘 09:00대 매수 즉시 청산되는 사고 발생
+        //   (5/7 ORCA 36초/AKT 2초 매수즉시매도)
+        //   Fix: 매수 시점이 오늘 sessionEnd 이전이어야만 청산 (overnight 보유 포지션만)
         ZonedDateTime candleKst = toKst(last.candle_date_time_utc);
         ZonedDateTime nowKst = candleKst != null ? candleKst : ZonedDateTime.now(KST);
         int nowMinutes = nowKst.getHour() * 60 + nowKst.getMinute();
@@ -393,7 +398,21 @@ public class HighConfidenceBreakoutStrategy implements TradingStrategy {
             // 다음날 새벽 세션 종료: sessionEnd~10:00 사이에만 청산
             // (08:00~09:59에 청산, 10:00 이후는 새 거래일이므로 미청산)
             if (nowMinutes >= sessionEndMinutes && nowMinutes < 10 * 60) {
-                return Signal.of(SignalAction.SELL, type(), "HC_SESSION_END");
+                Instant openedAtSE = ctx.position.getOpenedAt();
+                if (openedAtSE != null) {
+                    // 오늘 sessionEnd 시점 (예: 오늘 08:59) 계산
+                    ZonedDateTime todaySessionEnd = nowKst.toLocalDate().atStartOfDay(KST)
+                            .plusMinutes(sessionEndMinutes);
+                    ZonedDateTime openedKstSE = openedAtSE.atZone(KST);
+                    // 오늘 sessionEnd 이전에 매수한 경우만 청산 (overnight 보유 포지션)
+                    if (openedKstSE.isBefore(todaySessionEnd)) {
+                        return Signal.of(SignalAction.SELL, type(), "HC_SESSION_END");
+                    }
+                    // 오늘 sessionEnd 이후 매수면 신규 포지션이므로 청산하지 않음 (BUG fix)
+                } else {
+                    // openedAt 없으면 기존 로직 유지 (보수적)
+                    return Signal.of(SignalAction.SELL, type(), "HC_SESSION_END");
+                }
             }
         } else {
             // 당일 세션: sessionEnd 이후 청산

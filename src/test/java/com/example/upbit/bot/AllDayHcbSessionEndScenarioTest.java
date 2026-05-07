@@ -76,7 +76,12 @@ public class AllDayHcbSessionEndScenarioTest {
         pe.setQty(1.0);
         pe.setAvgPrice(avg);
         pe.setAddBuys(0);
-        pe.setOpenedAt(Instant.now().minusSeconds(300));
+        // V140: HC_SESSION_END 매수 시점 검사. overnight 보유 시뮬레이션을 위해
+        // 어제 KST 14:00에 매수한 것으로 설정 (모든 시나리오에서 candle 시각 이전이 보장됨)
+        Instant yesterdayAfternoon = ZonedDateTime.now(ZoneOffset.ofHours(9))
+                .minusDays(1).withHour(14).withMinute(0).withSecond(0).withNano(0)
+                .toInstant();
+        pe.setOpenedAt(yesterdayAfternoon);
         pe.setEntryStrategy("HIGH_CONFIDENCE_BREAKOUT");
         return pe;
     }

@@ -1,0 +1,42 @@
+-- V139: AllDay entry_start 09:00 → 10:05 복구 (V132 BUG fix)
+--
+-- 배경:
+--   V120 (2026-04-17): allday session_end_hour=8, session_end_min=59 (overnight 08:59 강제 청산)
+--   V132 (2026-04-29): allday entry_start_hour=9, entry_start_min=0 (V132에서 09:00로 당김)
+--
+-- BUG 메커니즘:
+--   HighConfidenceBreakoutStrategy.evaluate() 코드 (강제 청산 로직):
+--     sessionEndMinutes = 8*60+59 = 539 (08:59)
+--     isOvernightSession = (539 < 720) = TRUE
+--     if (now >= sessionEndMinutes && now < 600) → SELL HC_SESSION_END
+--   → 08:59 ~ 09:59 매수된 모든 AD 포지션은 다음 tick에서 100% 강제 청산
+--
+-- 발견된 사고 (5/7 운영 로그):
+--   - ORCA: BUY 09:09:29 → SELL 09:10:05 (36초 보유, +0.13% 188원, HC_SESSION_END)
+--           이후 ORCA +7.10% 추가 급등 → 우리는 +0.13%만 챙김
+--   - AKT: BUY 09:15:22 → SELL 09:15:24 (2초 보유, -0.21% -660원, HC_SESSION_END)
+--   - 5/7 순피해 -472원
+--
+-- 영향 범위:
+--   매일 09:00~09:59 사이 AD에서 시그널 발동 시 100% 강제 매도 → 매일 피해 누적 가능
+--
+-- Fix:
+--   AD entry_start를 V120 이전 시간(10:05)로 복구 → 시간 바톤 구조 복원
+--     08:50~08:59  MR Range
+--     09:00~09:04  MR Entry (5분, 그대로)
+--     09:05~10:04  OP Entry (1시간, 그대로)
+--     10:05~23:59  AD Entry (14시간, V120 복구) ← V139 변경 대상
+--
+-- 옵션 비교 (옵션 B 선택):
+--   옵션 A: session_end → 23:59 변경 (HC_SESSION_END 무력화) — 큰 변화, 백테스트 필요
+--   옵션 B: entry_start → 10:05 복구 (V120 시간 바톤 복원) — 사이드이펙트 최소 ← 채택
+--
+-- 검증:
+--   2개 독립 에이전트 Cross-Validation 통과
+--   - 1차: V120+V132 설정 충돌 확인
+--   - 2차: 수학적 증명 (sessionEndMinutes/nowMinutes 계산)
+--   - 두 에이전트 결과 100% 일치
+
+UPDATE allday_scanner_config
+SET entry_start_hour = 10, entry_start_min = 5
+WHERE id = 1;

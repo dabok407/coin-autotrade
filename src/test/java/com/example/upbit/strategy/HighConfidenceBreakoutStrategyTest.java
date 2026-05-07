@@ -787,10 +787,13 @@ public class HighConfidenceBreakoutStrategyTest {
     public void exit_sessionEndOvernight() {
         double avgPrice = 50000;
         List<UpbitCandle> candles = buildFlatCandles(80, avgPrice + 100);
-        candles.get(79).candle_date_time_utc = "2026-04-06T23:30:00"; // 08:30 KST
+        candles.get(79).candle_date_time_utc = "2026-04-06T23:30:00"; // 08:30 KST 4/7
         candles.get(79).trade_price = avgPrice + 100;
 
-        PositionEntity pos = buildPosition(avgPrice, 1.0, Instant.now().minusSeconds(300));
+        // V140: 어제(4/6) 14:00 KST 매수 → 오늘(4/7) 08:30 KST 청산 시점 → overnight 청산 정상 발동
+        Instant yesterdayAfternoon = ZonedDateTime.of(2026, 4, 6, 14, 0, 0, 0,
+                java.time.ZoneId.of("Asia/Seoul")).toInstant();
+        PositionEntity pos = buildPosition(avgPrice, 1.0, yesterdayAfternoon);
         HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
                 .withRisk(5.0, 0.8)
                 .withExitFlags(false, false) // disable EMA/MACD to isolate session end
@@ -801,6 +804,78 @@ public class HighConfidenceBreakoutStrategyTest {
         Signal signal = s.evaluate(exitContext(candles, pos));
         assertEquals(SignalAction.SELL, signal.action);
         assertTrue(signal.reason.contains("HC_SESSION_END"), "reason=" + signal.reason);
+    }
+
+    /**
+     * V140 BUG fix 검증: 같은 날 sessionEnd 이후 매수한 포지션은 HC_SESSION_END 미발동
+     *
+     * 시나리오:
+     *   - sessionEnd = 08:00 (overnight)
+     *   - 캔들 시각: 4/7 08:30 KST (sessionEnd ~ 10:00 청산 윈도우)
+     *   - 매수 시각: 4/7 08:15 KST (오늘 sessionEnd 이후 매수)
+     *   - 기대: HC_SESSION_END 미발동 (오늘 sessionEnd 이후 매수는 신규 포지션)
+     *
+     * 실제 운영 사고 (5/7 ORCA): 09:09:29 매수 → 36초 후 09:10:05 강제 청산
+     * V140 fix 후: 같은 날 매수는 청산 안 함
+     */
+    @Test
+    public void exit_sessionEnd_freshSameDayBuy_shouldNotSell() {
+        double avgPrice = 50000;
+        List<UpbitCandle> candles = buildFlatCandles(80, avgPrice + 100);
+        candles.get(79).candle_date_time_utc = "2026-04-06T23:30:00"; // 4/7 08:30 KST
+        candles.get(79).trade_price = avgPrice + 100;
+
+        // 오늘(4/7) sessionEnd(08:00) 이후 매수 → 신규 포지션
+        Instant todayAfterSessionEnd = ZonedDateTime.of(2026, 4, 7, 8, 15, 0, 0,
+                java.time.ZoneId.of("Asia/Seoul")).toInstant();
+        PositionEntity pos = buildPosition(avgPrice, 1.0, todayAfterSessionEnd);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false)
+                .withTrailActivate(10.0)
+                .withTimeStop(0, 0)
+                .withTiming(8, 0);
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_SESSION_END"),
+                    "오늘 sessionEnd 이후 매수한 신규 포지션은 HC_SESSION_END 미발동해야 함 (V140 BUG fix). reason=" + signal.reason);
+        }
+    }
+
+    /**
+     * V140 BUG fix 검증: 5/7 ORCA 시나리오 재현
+     *
+     * 5/7 운영 사고 정확한 재현:
+     *   - sessionEnd = 08:59 (overnight, V120 설정)
+     *   - 매수 시점: 5/7 09:09:29 KST (entry_start=09:00 V132 설정)
+     *   - 캔들 시각: 5/7 09:10 KST (다음 1분봉)
+     *   - V132 BUG: 09:10이 [08:59, 10:00) 윈도우 → HC_SESSION_END 발동
+     *   - V140 fix: 같은 날 매수이므로 미발동
+     */
+    @Test
+    public void exit_sessionEnd_orcaScenario_shouldNotSellAfterFix() {
+        double avgPrice = 2396; // ORCA 매수가
+        List<UpbitCandle> candles = buildFlatCandles(80, avgPrice + 3);
+        candles.get(79).candle_date_time_utc = "2026-05-07T00:10:00"; // 09:10 KST
+        candles.get(79).trade_price = avgPrice + 3; // ORCA 매도가 2399
+
+        // 5/7 09:09:29 매수 (BUG 발생 정확한 시점)
+        Instant orcaBuyTime = ZonedDateTime.of(2026, 5, 7, 9, 9, 29, 0,
+                java.time.ZoneId.of("Asia/Seoul")).toInstant();
+        PositionEntity pos = buildPosition(avgPrice, 104.34, orcaBuyTime);
+        HighConfidenceBreakoutStrategy s = new HighConfidenceBreakoutStrategy()
+                .withRisk(5.0, 0.8)
+                .withExitFlags(false, false)
+                .withTrailActivate(10.0)
+                .withTimeStop(0, 0)
+                .withTiming(8, 59); // V120 sessionEnd 설정
+
+        Signal signal = s.evaluate(exitContext(candles, pos));
+        if (signal.action == SignalAction.SELL && signal.reason != null) {
+            assertFalse(signal.reason.contains("HC_SESSION_END"),
+                    "5/7 ORCA 36초 매수즉시매도 BUG는 V140 fix로 차단되어야 함. reason=" + signal.reason);
+        }
     }
 
     @Test
