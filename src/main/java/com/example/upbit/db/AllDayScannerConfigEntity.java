@@ -170,7 +170,7 @@ public class AllDayScannerConfigEntity {
     public void setMode(String mode) { this.mode = mode != null ? mode.toUpperCase() : "PAPER"; }
 
     public int getTopN() { return topN; }
-    public void setTopN(int topN) { this.topN = Math.max(1, Math.min(100, topN)); }
+    public void setTopN(int topN) { this.topN = Math.max(1, Math.min(200, topN)); } // V142: 100→200
 
     public int getMaxPositions() { return maxPositions; }
     public void setMaxPositions(int maxPositions) { this.maxPositions = Math.max(1, Math.min(15, maxPositions)); }

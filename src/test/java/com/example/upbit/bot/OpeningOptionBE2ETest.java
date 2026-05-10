@@ -286,29 +286,32 @@ public class OpeningOptionBE2ETest {
         return (Set<String>) f.get(scanner);
     }
 
-    /** 모든 필터 통과하는 1분봉 60개 (양봉 + vol 2x + RSI ~50) */
+    /** 모든 필터 통과하는 1분봉 60개 (V141: RSI 75-85 + 양봉 + vol 2x) */
     private List<UpbitCandle> sidewaysCandlesPass() {
         List<UpbitCandle> candles = new ArrayList<>();
+        // V141: 80% 양봉 패턴, 시작 82.5 → 끝 100.5 (wsPrice 일치, RSI 78 부근)
+        double price = 82.5;
         for (int i = 0; i < 60; i++) {
             UpbitCandle c = new UpbitCandle();
             c.market = "KRW-TEST";
             c.candle_date_time_utc = String.format("2026-04-08T%02d:%02d:00", i / 60, i % 60);
-            // 횡보 + 약간 상승 (EMA20이 wsPrice 100.5보다 낮아야 함)
-            double base = 99.0 + (i % 4 == 0 ? 0.3 : (i % 4 == 1 ? -0.2 : (i % 4 == 2 ? 0.2 : -0.3)));
-            c.opening_price = base;
-            c.trade_price = base + (i % 2 == 0 ? 0.1 : -0.1);
-            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.1;
-            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.1;
+            boolean isDown = (i % 5 == 4);
+            if (isDown) {
+                c.opening_price = price;
+                c.trade_price = price - 0.5;
+                price -= 0.5;
+            } else {
+                c.opening_price = price;
+                c.trade_price = price + 0.5;
+                price += 0.5;
+            }
+            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.05;
+            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.05;
             c.candle_acc_trade_volume = 1000;
             candles.add(c);
         }
-        // 마지막 캔들: 양봉 + 거래량 2x
-        UpbitCandle last = candles.get(59);
-        last.opening_price = 99.0;
-        last.trade_price = 100.0;
-        last.high_price = 100.5;
-        last.low_price = 98.9;
-        last.candle_acc_trade_volume = 2500; // avg ~1075 → ratio ~2.3x
+        // 마지막 캔들: vol 2x
+        candles.get(59).candle_acc_trade_volume = 2500;
         return candles;
     }
 

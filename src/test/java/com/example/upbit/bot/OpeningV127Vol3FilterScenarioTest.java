@@ -247,15 +247,26 @@ public class OpeningV127Vol3FilterScenarioTest {
      */
     private List<UpbitCandle> candlesWithVol3Ratio(double ratio) {
         List<UpbitCandle> candles = new ArrayList<>();
+        // V141: 60봉 전체 80% 양봉 패턴 (5봉 중 4봉 양봉, 1봉 음봉) → RSI 약 80
+        // Wilder smoothing 후 RSI 75-85 범위 형성
+        // 시작가 82.5 → 60봉 (48 up*0.5 - 12 down*0.5 = +18) → 끝 100.5 (wsPrice와 일치)
+        double price = 82.5;
         for (int i = 0; i < 60; i++) {
             UpbitCandle c = new UpbitCandle();
             c.market = "KRW-TEST";
             c.candle_date_time_utc = String.format("2026-04-20T%02d:%02d:00", i / 60, i % 60);
-            double base = 99.0 + (i % 4 == 0 ? 0.3 : (i % 4 == 1 ? -0.2 : (i % 4 == 2 ? 0.2 : -0.3)));
-            c.opening_price = base;
-            c.trade_price = base + (i % 2 == 0 ? 0.1 : -0.1);
-            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.1;
-            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.1;
+            boolean isDown = (i % 5 == 4);  // 5봉마다 1봉 음봉 = 80% 양봉
+            if (isDown) {
+                c.opening_price = price;
+                c.trade_price = price - 0.5;
+                price -= 0.5;
+            } else {
+                c.opening_price = price;
+                c.trade_price = price + 0.5;
+                price += 0.5;
+            }
+            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.05;
+            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.05;
             c.candle_acc_trade_volume = 1000;
             candles.add(c);
         }
@@ -264,13 +275,6 @@ public class OpeningV127Vol3FilterScenarioTest {
         for (int i = 57; i < 60; i++) {
             candles.get(i).candle_acc_trade_volume = recentVol;
         }
-        // 마지막 1분봉: 양봉 (close > open) — 양봉 필터 통과 확정
-        UpbitCandle last = candles.get(59);
-        last.opening_price = 99.0;
-        last.trade_price = 100.0;
-        last.high_price = 100.5;
-        last.low_price = 98.9;
-        last.candle_acc_trade_volume = recentVol;
         return candles;
     }
 

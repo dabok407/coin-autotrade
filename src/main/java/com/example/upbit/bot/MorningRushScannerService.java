@@ -478,18 +478,27 @@ public class MorningRushScannerService {
 
         // 진입 신호: gap OR surge, BUT surge 단독이면 최소 gap 1.5% 필수 (2026-04-13)
         // FF 사고(-4.12%): surge만으로 진입, gap 1.19% → 모멘텀 부족 → 손절
+        // V141 (2026-05-10): gap 상한 2.2% 추가 — 백테스트 1.5~2.0% 최적, 2.5%+ 손실
         boolean entrySignal;
+        double currentGapPct = (price - rangeHigh) / rangeHigh * 100.0;
         if (gapCondition) {
-            entrySignal = true;  // gap 2.6%+ 단독 OK
+            // V141: gap 상한 체크 — 너무 큰 gap은 꼬리매수 패턴
+            if (currentGapPct >= 2.2) {
+                entrySignal = false;
+                log.debug("[MorningRush] GAP too high (V141): {} gap=+{}% >= 2.2%",
+                        code, String.format(Locale.ROOT, "%.2f", currentGapPct));
+            } else {
+                entrySignal = true;  // gap 1.5~2.2% OK
+            }
         } else if (surgeCondition) {
             // surge 단독: rangeHigh 대비 최소 1.5% 갭도 있어야 함
-            double surgeGapPct = (price - rangeHigh) / rangeHigh * 100.0;
-            if (surgeGapPct >= 1.5) {
+            // V141: 동일 상한 2.2% 적용
+            if (currentGapPct >= 1.5 && currentGapPct < 2.2) {
                 entrySignal = true;
             } else {
                 entrySignal = false;
-                log.debug("[MorningRush] SURGE but gap too small: {} gap=+{}% < 1.5%",
-                        code, String.format(Locale.ROOT, "%.2f", surgeGapPct));
+                log.debug("[MorningRush] SURGE gap out of [1.5, 2.2): {} gap=+{}%",
+                        code, String.format(Locale.ROOT, "%.2f", currentGapPct));
             }
         } else {
             entrySignal = false;
@@ -1445,17 +1454,25 @@ public class MorningRushScannerService {
             }
 
             // 진입 신호: gap OR surge, BUT surge 단독이면 최소 gap 1.5% 필수 (2026-04-13)
+            // V141 (2026-05-10): gap 상한 2.2% 추가 — 백테스트 1.5~2.0% 최적
             boolean entrySignal;
+            double currentGapPct2 = (price - rangeHigh) / rangeHigh * 100.0;
             if (gapCondition) {
-                entrySignal = true;
+                // V141: gap 상한 체크
+                if (currentGapPct2 >= 2.2) {
+                    entrySignal = false;
+                    log.debug("[MorningRush] GAP too high (V141): {} gap=+{}% >= 2.2%",
+                            market, String.format(Locale.ROOT, "%.2f", currentGapPct2));
+                } else {
+                    entrySignal = true;
+                }
             } else if (surgeCondition) {
-                double surgeGapPct = (price - rangeHigh) / rangeHigh * 100.0;
-                if (surgeGapPct >= 1.5) {
+                if (currentGapPct2 >= 1.5 && currentGapPct2 < 2.2) {
                     entrySignal = true;
                 } else {
                     entrySignal = false;
-                    log.debug("[MorningRush] SURGE but gap too small: {} gap=+{}% < 1.5%",
-                            market, String.format(Locale.ROOT, "%.2f", surgeGapPct));
+                    log.debug("[MorningRush] SURGE gap out of [1.5, 2.2): {} gap=+{}%",
+                            market, String.format(Locale.ROOT, "%.2f", currentGapPct2));
                 }
             } else {
                 entrySignal = false;
