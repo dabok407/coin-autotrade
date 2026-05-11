@@ -63,7 +63,8 @@ data/write_ps1.py
 extract*.ps1
 
 # ===== Claude Agent =====
-.claude/
+.claude/*
+!.claude/agents/
 CLAUDE.md
 cookies.txt
 
