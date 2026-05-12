@@ -2037,13 +2037,14 @@ public class OpeningScannerService {
             // SKIP 분기마다 breakoutDetector.releaseMarket() 호출로 재시도 가능 (옵션 B)
             UpbitCandle last = candles.get(candles.size() - 1);
 
-            // 2. RSI 범위 필터 (V141: 75~85 진입 허용, 그 외 차단)
-            // 백테스트 근거: RSI 75-85 승률 52% ROI +0.44%, 50-65 승률 27% ROI -0.96%
-            // 분봉 RSI 75-85 = 추세 형성 중 (Pullback Reversal 진입 최적)
+            // 2. RSI 과매수 차단 (V140 원복, 2026-05-12)
+            // V141 (RSI [75,85] 범위) 백테스트 결과 4주 누적 ROI -58.46%, MDD 58.77%로 최악.
+            // V140 단순 차단 (75 미만 통과)이 라이브 정합성 + 매트릭스 모두 우월.
+            // 추후 RSI 60-70 구간으로 좁히는 것은 별도 검토 (DB 설정값화 필요).
             double rsi = Indicators.rsi(candles, 14);
-            if (rsi < 75 || rsi > 85) {
-                addDecision(market, "BUY", "SKIPPED", "RSI_OUT_OF_RANGE",
-                        String.format("RSI %.0f not in [75,85] (1min)", rsi));
+            if (rsi >= 75) {
+                addDecision(market, "BUY", "SKIPPED", "RSI_OVERBOUGHT",
+                        String.format("RSI %.0f >= 75 (1min)", rsi));
                 breakoutDetector.releaseMarket(market);
                 return;
             }
@@ -2105,11 +2106,11 @@ public class OpeningScannerService {
             else if (volForScore >= 3.0) quickScore += 1.0;
             else if (volForScore >= 1.5) quickScore += 0.5;
 
-            // Factor C: RSI 위치 (V141: 75~85 최적 가중치 +1.5)
-            // 위 RSI 범위 필터(line ~2042)에서 75~85만 통과하므로 사실상 +1.5 고정
-            // 65-75 분기는 안전망 (필터 변경 시 호환성)
-            if (rsi >= 75 && rsi <= 85) quickScore += 1.5;
-            else if (rsi >= 65 && rsi < 75) quickScore += 0.5;
+            // Factor C: RSI 위치 (V140 원복, 2026-05-12)
+            // V141 변경 (75-85 +1.5) 함께 원복
+            if (rsi >= 50 && rsi < 65) quickScore += 1.0;
+            else if (rsi >= 65 && rsi < 75) quickScore += 0.6;
+            else if (rsi < 50) quickScore += 0.3;
 
             // V131 Phase 1: 진입 필터 강화 (DRIFT/MANTRA류 차단)
             // 기존 하드코딩 2.0 → DB cfg.minQsScore (기본 3.5)

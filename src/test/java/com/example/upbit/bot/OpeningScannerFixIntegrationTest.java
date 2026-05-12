@@ -295,34 +295,31 @@ public class OpeningScannerFixIntegrationTest {
         return (ConcurrentHashMap<String, List<UpbitCandle>>) f.get(scanner);
     }
 
-    /** V141: 80% 양봉 + vol 2.0x (3분봉 평균) + RSI ~78 + EMA20 ~95 — 모든 필터 통과 */
+    /** V140 원복: 양봉 + vol 2.0x (3분봉 평균) + RSI ~50 + EMA20 ~99.5 — 모든 필터 통과 */
     private List<UpbitCandle> highVolPassingCandles() {
         List<UpbitCandle> candles = new ArrayList<>();
-        // V141: 시작 82.5 → 끝 100.5, RSI 78 부근
-        double price = 82.5;
         for (int i = 0; i < 60; i++) {
             UpbitCandle c = new UpbitCandle();
             c.market = "KRW-TEST";
             c.candle_date_time_utc = String.format("2026-04-09T%02d:%02d:00", i / 60, i % 60);
-            boolean isDown = (i % 5 == 4);
-            if (isDown) {
-                c.opening_price = price;
-                c.trade_price = price - 0.5;
-                price -= 0.5;
-            } else {
-                c.opening_price = price;
-                c.trade_price = price + 0.5;
-                price += 0.5;
-            }
-            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.05;
-            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.05;
+            double base = 99.0 + (i % 4 == 0 ? 0.3 : (i % 4 == 1 ? -0.2 : (i % 4 == 2 ? 0.2 : -0.3)));
+            c.opening_price = base;
+            c.trade_price = base + (i % 2 == 0 ? 0.1 : -0.1);
+            c.high_price = Math.max(c.opening_price, c.trade_price) + 0.1;
+            c.low_price = Math.min(c.opening_price, c.trade_price) - 0.1;
             c.candle_acc_trade_volume = 1000;
             candles.add(c);
         }
-        // 마지막 3분봉: vol 2000 (2.0x)
+        // 마지막 3분봉: vol 2000 (2.0x → vol3Ratio = 2.0 ≥ 1.5 통과)
         for (int i = 57; i < 60; i++) {
             candles.get(i).candle_acc_trade_volume = 2000;
         }
+        // 마지막 1분봉: 양봉 (close > open)
+        UpbitCandle last = candles.get(59);
+        last.opening_price = 99.0;
+        last.trade_price = 100.0;
+        last.high_price = 100.5;
+        last.low_price = 98.9;
         return candles;
     }
 

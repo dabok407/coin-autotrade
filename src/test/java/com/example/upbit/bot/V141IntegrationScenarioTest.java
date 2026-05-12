@@ -6,22 +6,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * V141 통합 시나리오 테스트 — 1번(MR gap) + 2번(OP RSI) + 4번(OP quickScore) 조합
+ * V141 (부분 원복) — MR gap 1.5~2.2% (유지) + Opening RSI 필터 V140 원복 통합 시나리오
  *
- * 실제 5/1~5/10 백테스트 케이스를 시나리오로 재현.
- * 각 코인의 (gap, RSI, vol) 조합이 V141 통합 필터로 어떻게 처리되는지 검증.
+ * 2026-05-12 V141 RSI 변경 (#2 + #4) 원복:
+ * - V141 #1 (MR gap 1.5~2.2%): 유지 (백테스트/라이브 일관 효과)
+ * - V141 #2 (OP RSI 75-85 진입): V140으로 원복 (rsi >= 75 차단)
+ * - V141 #4 (OP quickScore RSI 75-85 +1.5): V140으로 원복 (50-65 +1.0 / 65-75 +0.6)
  *
- * 변경 종합:
- * - V141 #1: MR gap 1.5~2.2% (DB 1.5 + 코드 상한 2.2)
- * - V141 #2: OP RSI 75~85 진입 허용 (이전 < 75)
- * - V141 #4: OP quickScore RSI 가중치 75-85에 +1.5
- *
- * 백테스트 결과 (1+2+4 조합): 28건, 승률 57.1%, ROI +1.04%
+ * 변경 사유: 3개 독립 검증 (백테스트 v3 매트릭스 + 라이브 PnL + Python 더블체크)
+ *           모두 V141 RSI 변경이 손실 확대를 야기함을 확인.
  */
 public class V141IntegrationScenarioTest {
 
     /**
-     * V141 모닝러쉬 진입 가능 여부
+     * V141 #1 모닝러쉬 진입 가능 여부 (유지)
      */
     private static boolean v141MrPass(double gapPct) {
         // gap 1.5~2.2% 범위만 진입 (gapCondition 통과 + 상한 차단)
@@ -29,11 +27,11 @@ public class V141IntegrationScenarioTest {
     }
 
     /**
-     * V141 오프닝 진입 가능 여부 (RSI + quickScore)
+     * V140 (원복) 오프닝 진입 가능 여부 (RSI + quickScore)
      */
-    private static boolean v141OpPass(double gapPct, double rsi, double vol) {
-        // RSI 75-85만 통과
-        if (rsi < 75 || rsi > 85) return false;
+    private static boolean v140OpPass(double gapPct, double rsi, double vol) {
+        // V140 RSI 필터: rsi >= 75 차단
+        if (rsi >= 75) return false;
         // quickScore 계산
         double qs = 0;
         if (gapPct >= 3.0) qs += 2.0;
@@ -43,128 +41,114 @@ public class V141IntegrationScenarioTest {
         if (vol >= 5.0) qs += 1.5;
         else if (vol >= 3.0) qs += 1.0;
         else if (vol >= 1.5) qs += 0.5;
-        // V141 RSI 가중치
-        if (rsi >= 75 && rsi <= 85) qs += 1.5;
-        else if (rsi >= 65 && rsi < 75) qs += 0.5;
+        // V140 RSI 가중치
+        if (rsi >= 50 && rsi < 65) qs += 1.0;
+        else if (rsi >= 65 && rsi < 75) qs += 0.6;
+        else if (rsi < 50) qs += 0.3;
         // qs >= 3.5 통과
         return qs >= 3.5;
     }
 
-    // ===== 1+2+4 통합 시나리오: 백테스트 케이스 검증 =====
+    // ===== MR(V141 유지) + OP(V140 원복) 통합 시나리오 =====
 
     @Test
-    @DisplayName("[수익 케이스] KRW-IP 5/9 gap 1.92% RSI 80 vol 4.5x → 진입 통과")
-    public void scenario_IP_5_9_pass() {
-        // 5/9 10:00 IP gap 1.92% — 실제 익절 성공
-        // qs = 1.0(gap1.92≥1.5) + 1.0(vol4.5≥3) + 1.5(rsi80) = 3.5 ≥ 3.5 통과
+    @DisplayName("[수익 케이스] gap 1.92% RSI 60 vol 4.5x → MR + OP 모두 진입 통과")
+    public void scenario_normalMomentum_pass() {
+        // MR: gap 1.5-2.2 통과
+        // OP: qs = 1.0(gap1.92≥1.5) + 1.0(vol4.5≥3) + 1.0(rsi60 50-65) = 3.0
+        // 단 qs<3.5라 OP 차단, MR만 진입
         assertTrue(v141MrPass(1.92), "MR gap 1.5-2.2 통과");
-        assertTrue(v141OpPass(1.92, 80.0, 4.5), "OP qs=3.5 정확히 경계 통과");
+        assertFalse(v140OpPass(1.92, 60.0, 4.5), "OP qs=3.0 < 3.5 차단 (정상)");
     }
 
     @Test
-    @DisplayName("[수익 케이스] KRW-DEEP 5/9 gap 1.64% RSI 80 vol 4.5x → OP 진입")
-    public void scenario_DEEP_5_9_pass() {
-        // qs = 1.0 + 1.0 + 1.5 = 3.5 ≥ 3.5
-        assertTrue(v141OpPass(1.64, 80.0, 4.5), "DEEP 5/9 진입 가능 (큰 수익)");
+    @DisplayName("[수익 케이스] gap 2.0% RSI 60 vol 3.0x → OP qs 3.5 통과")
+    public void scenario_op_borderline_pass() {
+        // qs = 1.5(gap≥2.0) + 1.0(vol≥3) + 1.0(rsi 50-65) = 3.5 정확히 경계 통과
+        assertTrue(v140OpPass(2.0, 60.0, 3.0), "OP qs 3.5 정확히 경계 통과");
     }
 
     @Test
-    @DisplayName("[차단 검증] KRW-CARV 5/2 gap 1.82% RSI 75 vol 1.2x → OP 차단 (vol 부족)")
-    public void scenario_CARV_blocked_low_vol() {
-        // qs = 1.0(gap) + 0(vol<1.5) + 1.5(rsi) = 2.5 < 3.5 차단
-        // V141도 vol 부족하면 차단 (정상 동작)
-        assertFalse(v141OpPass(1.82, 75.0, 1.2), "vol 1.2 부족으로 차단 — 정상");
+    @DisplayName("[차단 검증] gap 1.82% RSI 60 vol 1.2x → OP 차단 (vol 부족)")
+    public void scenario_blocked_low_vol() {
+        // qs = 1.0(gap) + 0(vol<1.5) + 1.0(rsi) = 2.0 < 3.5 차단
+        assertFalse(v140OpPass(1.82, 60.0, 1.2), "vol 1.2 부족으로 차단 — 정상");
     }
 
     @Test
-    @DisplayName("[손실 회피] KRW-PROS 5/9 gap 5.53% → MR/OP 모두 차단")
-    public void scenario_PROS_5_9_blocked() {
-        // 5/9 09:04 PROS gap 5.53% — 백테스트상 SL 패턴
+    @DisplayName("[손실 회피] gap 5.53% → MR 차단 (V141 #1 유지)")
+    public void scenario_high_gap_mr_blocked() {
         assertFalse(v141MrPass(5.53), "gap 상한 2.2% 초과 차단");
-        assertFalse(v141OpPass(5.53, 70.0, 8.0), "OP RSI 70 < 75 차단");
     }
 
     @Test
-    @DisplayName("[손실 회피] KRW-TOKAMAK 5/3 gap 2.96% RSI 76 → 차단")
-    public void scenario_TOKAMAK_blocked() {
-        // 5/3 TOKAMAK gap 2.96% (V141 상한 초과)
-        assertFalse(v141MrPass(2.96));
-        // OP는 RSI 76 통과지만 gap 2.96%는 quickScore에서 +1.5 받음 (>=2.0 분기)
-        // qs = 1.5(gap2.96) + ?(vol) + 1.5(rsi76) = 3.0+? — vol에 따라 다름
-        // 이 케이스는 실제 SL이었으므로 진입해도 좋지 않음
-        // V141 통합 효과: gap 상한이 모닝러쉬에서 차단 → 매수 안 함
+    @DisplayName("[손실 회피] V141에서 진입했을 RSI 80 → V140 차단")
+    public void scenario_v141Pass_v140Block() {
+        // V141은 RSI 80 통과했으나 V140은 차단
+        assertFalse(v140OpPass(2.0, 80.0, 3.0), "V140은 RSI >= 75 차단 (V141 손실 회피)");
     }
 
-    @Test
-    @DisplayName("[손실 회피] KRW-CPOOL 5/9 gap 3.43% RSI 85 → MR 차단, OP RSI 통과")
-    public void scenario_CPOOL_5_9() {
-        // 5/9 CPOOL gap 3.43% — V141 MR 차단
-        assertFalse(v141MrPass(3.43), "gap 3.43% > 2.2% MR 차단");
-        // OP는 RSI 85에서 정확히 통과 (gap 3.43% 진입 후 RSI 가중치)
-        // 그러나 OP는 gap 1.5-2.0% 범위 위주 → 3% 케이스는 quickScore에서도 +1.5만
-    }
-
-    // ===== 필터 변경 부작용 검증 =====
+    // ===== 부작용 검증 =====
 
     @Test
-    @DisplayName("[부작용 없음] gap 2.0% RSI 80 vol 2.0x → V141 통과")
+    @DisplayName("[정상] gap 2.0% RSI 60 vol 2.0x → V140 통과")
     public void normal_signal_passes() {
-        // qs = 1.5(gap≥2.0) + 0.5(vol≥1.5) + 1.5(rsi) = 3.5 ≥ 3.5 통과
+        // qs = 1.5(gap≥2.0) + 0.5(vol≥1.5) + 1.0(rsi 50-65) = 3.0 < 3.5
+        // vol 부족 → 차단 정상
         assertTrue(v141MrPass(2.0));
-        assertTrue(v141OpPass(2.0, 80.0, 2.0));
+        assertFalse(v140OpPass(2.0, 60.0, 2.0), "vol 2.0 부족으로 OP qs 3.0 차단");
     }
 
     @Test
-    @DisplayName("[경계 차단] gap 1.5% RSI 75 vol 1.5x → qs 3.0 차단")
-    public void boundary_blocked_low_qs() {
-        // qs = 1.0(gap≥1.5) + 0.5(vol≥1.5) + 1.5(rsi) = 3.0 < 3.5 차단
+    @DisplayName("[경계 통과] gap 1.5% RSI 60 vol 3.0x → qs 3.0, 차단")
+    public void boundary_qs_blocked() {
+        // qs = 1.0 + 1.0(vol≥3) + 1.0(rsi 50-65) = 3.0 < 3.5
         assertTrue(v141MrPass(1.5));
-        assertFalse(v141OpPass(1.5, 75.0, 1.5), "qs 3.0으로 경계 미달 — 정상 차단");
+        assertFalse(v140OpPass(1.5, 60.0, 3.0), "qs 3.0으로 차단 — 정상");
     }
 
     @Test
-    @DisplayName("[경계 통과] gap 1.5% RSI 75 vol 5.0x → qs 4.0 통과")
+    @DisplayName("[경계 통과] gap 1.5% RSI 60 vol 5.0x → qs 3.5 통과")
     public void boundary_passes_high_vol() {
-        // qs = 1.0 + 1.5(vol≥5) + 1.5 = 4.0 ≥ 3.5 통과
-        assertTrue(v141OpPass(1.5, 75.0, 5.0));
+        // qs = 1.0 + 1.5(vol≥5) + 1.0 = 3.5 ≥ 3.5 통과
+        assertTrue(v140OpPass(1.5, 60.0, 5.0));
     }
 
     @Test
-    @DisplayName("[부작용 검증] gap 1.5% RSI 60 → OP 차단 (V141 RSI 75-85만)")
-    public void low_rsi_blocked() {
+    @DisplayName("[차단] gap 1.5% RSI 76 → V140 OP 차단 (RSI >= 75)")
+    public void rsi76_blocked() {
         assertTrue(v141MrPass(1.5));
-        assertFalse(v141OpPass(1.5, 60.0, 2.0), "RSI 60은 V141 차단");
+        assertFalse(v140OpPass(1.5, 76.0, 5.0), "RSI 76 >= 75 V140 차단");
     }
 
     @Test
-    @DisplayName("[부작용 검증] gap 2.5% RSI 80 → MR 차단, OP는 통과 가능")
-    public void mid_gap_high_rsi() {
+    @DisplayName("[차단] gap 2.5% RSI 60 → MR 차단, OP 통과 가능")
+    public void mid_gap_normal_rsi() {
         assertFalse(v141MrPass(2.5), "MR 상한 2.2 초과 차단");
-        // OP qs = 1.5(gap2.5>=2.0) + 1.0(vol>=3) + 1.5(rsi80) = 4.0 >= 3.5
-        assertTrue(v141OpPass(2.5, 80.0, 3.5));
+        // OP qs = 1.5(gap2.5>=2.0) + 1.0(vol>=3) + 1.0(rsi60 50-65) = 3.5 >= 3.5
+        assertTrue(v140OpPass(2.5, 60.0, 3.5));
     }
 
-    // ===== 통합 효과: 1+2+4 vs 단일 변경 =====
+    // ===== 통합 효과 검증 =====
 
     @Test
-    @DisplayName("[1+2+4 통합] 모든 필터 동시 적용 시 핵심 시나리오 검증")
-    public void all_three_combined() {
-        // 백테스트 1+2+4 조합 결과: 28건 진입, 승률 57.1%, ROI +1.04%
-        // (1) 통과 케이스: gap 1.7% RSI 78 vol 3x → qs 1.0+1.0+1.5=3.5 통과
+    @DisplayName("[1+(2+4 원복) 통합] 모든 필터 동시 적용 시 핵심 시나리오 검증")
+    public void all_combined() {
+        // (1) 통과: gap 1.7% RSI 60 vol 3x → qs 1.0+1.0+1.0=3.0 차단
         assertTrue(v141MrPass(1.7), "MR gap 1.7% 통과");
-        assertTrue(v141OpPass(1.7, 78.0, 3.0), "OP qs 3.5 통과 (vol 3x)");
+        assertFalse(v140OpPass(1.7, 60.0, 3.0), "OP qs 3.0 차단 (vol 부족)");
 
-        // (2) MR-OP 분기: gap 2.1% RSI 80 vol 2x → qs 1.5+0.5+1.5=3.5 통과
+        // (2) OP 통과: gap 2.1% RSI 60 vol 3.0x → qs 1.5+1.0+1.0=3.5 통과
         assertTrue(v141MrPass(2.1));
-        assertTrue(v141OpPass(2.1, 80.0, 2.0));
+        assertTrue(v140OpPass(2.1, 60.0, 3.0));
 
-        // (3) 차단 케이스: gap 2.5% (MR 차단, OP는 qs 통과 가능)
+        // (3) MR 차단: gap 2.5% (MR 상한 차단)
         assertFalse(v141MrPass(2.5), "MR gap 상한 2.2 초과 차단");
 
-        // (4) RSI 차단: RSI 70 (이전 봇 통과, V141 차단)
-        assertFalse(v141OpPass(1.7, 70.0, 3.0), "RSI 70은 V141 차단");
+        // (4) RSI 76 차단 (V140 동작): V141 통과했던 RSI 76 → V140 차단
+        assertFalse(v140OpPass(1.7, 76.0, 3.0), "RSI 76 >= 75 V140 차단");
 
-        // (5) vol 부족: gap 1.5 RSI 80 vol 1.0x → qs 1.0+0+1.5=2.5 차단
-        assertFalse(v141OpPass(1.5, 80.0, 1.0), "vol 부족으로 qs 2.5 차단");
+        // (5) vol 부족: gap 1.5 RSI 60 vol 1.0x → qs 1.0+0+1.0=2.0 차단
+        assertFalse(v140OpPass(1.5, 60.0, 1.0), "vol 부족으로 qs 2.0 차단");
     }
 }

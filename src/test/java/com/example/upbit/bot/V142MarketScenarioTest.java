@@ -93,7 +93,7 @@ public class V142MarketScenarioTest {
     public void scenario_ORCA_5_9_added_with_v142() {
         // 5/9 ORCA: 거래대금 24h 약 17억 (51위 부근)
         // V130 (TOP 50): 추적 안 됨 → 진입 불가
-        // V142 (TOP 100): 추적 가능 → V141 필터(gap 1.5-2.2, RSI 75-85) 통과 시 진입
+        // V142 (TOP 100): 추적 가능 → V141 필터(gap 1.5-2.2) + V140 RSI(<75) 통과 시 진입
         Set<String> v130_tracked = new HashSet<>(BOT_TRACKED_5_9.subList(0, 50));
         boolean v130_has_orca = v130_tracked.contains("KRW-ORCA");
         // 실측: ORCA가 BOT_TRACKED_5_9 50개 안에 있는지 확인
