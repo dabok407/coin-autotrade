@@ -478,26 +478,27 @@ public class MorningRushScannerService {
 
         // 진입 신호: gap OR surge, BUT surge 단독이면 최소 gap 1.5% 필수 (2026-04-13)
         // FF 사고(-4.12%): surge만으로 진입, gap 1.19% → 모멘텀 부족 → 손절
-        // V141 (2026-05-10): gap 상한 2.2% 추가 — 백테스트 1.5~2.0% 최적, 2.5%+ 손실
+        // V141 (2026-05-10): gap 상한 추가. 2026-05-12 4주 데이터 분석 후 2.2 → 2.5 완화
+        // 4주 라이브 (14건) gap 2.0~2.5% 구간: 2건 100% 승률 +2.78% (최고).
+        // V141 1.5~2.2% 단독은 -0.47% 음의 EV → 2.5 상한 완화로 좋은 구간 포착.
         boolean entrySignal;
         double currentGapPct = (price - rangeHigh) / rangeHigh * 100.0;
         if (gapCondition) {
-            // V141: gap 상한 체크 — 너무 큰 gap은 꼬리매수 패턴
-            if (currentGapPct >= 2.2) {
+            // gap 상한 체크 — 너무 큰 gap은 꼬리매수 패턴 (2.5%+ 손실 데이터)
+            if (currentGapPct >= 2.5) {
                 entrySignal = false;
-                log.debug("[MorningRush] GAP too high (V141): {} gap=+{}% >= 2.2%",
+                log.debug("[MorningRush] GAP too high: {} gap=+{}% >= 2.5%",
                         code, String.format(Locale.ROOT, "%.2f", currentGapPct));
             } else {
-                entrySignal = true;  // gap 1.5~2.2% OK
+                entrySignal = true;  // gap 1.5~2.5% OK
             }
         } else if (surgeCondition) {
-            // surge 단독: rangeHigh 대비 최소 1.5% 갭도 있어야 함
-            // V141: 동일 상한 2.2% 적용
-            if (currentGapPct >= 1.5 && currentGapPct < 2.2) {
+            // surge 단독: rangeHigh 대비 최소 1.5% 갭도 있어야 함, 동일 상한 2.5% 적용
+            if (currentGapPct >= 1.5 && currentGapPct < 2.5) {
                 entrySignal = true;
             } else {
                 entrySignal = false;
-                log.debug("[MorningRush] SURGE gap out of [1.5, 2.2): {} gap=+{}%",
+                log.debug("[MorningRush] SURGE gap out of [1.5, 2.5): {} gap=+{}%",
                         code, String.format(Locale.ROOT, "%.2f", currentGapPct));
             }
         } else {
@@ -1454,24 +1455,26 @@ public class MorningRushScannerService {
             }
 
             // 진입 신호: gap OR surge, BUT surge 단독이면 최소 gap 1.5% 필수 (2026-04-13)
-            // V141 (2026-05-10): gap 상한 2.2% 추가 — 백테스트 1.5~2.0% 최적
+            // V141 (2026-05-10): gap 상한 추가. 2026-05-12 4주 데이터 분석 후 2.2 → 2.5 완화
+            // 4주 라이브 (14건) gap 2.0~2.5% 구간: 2건 100% 승률 +2.78% (최고).
+            // V141 1.5~2.2% 단독은 -0.47% 음의 EV → 2.5 상한 완화로 좋은 구간 포착.
             boolean entrySignal;
             double currentGapPct2 = (price - rangeHigh) / rangeHigh * 100.0;
             if (gapCondition) {
-                // V141: gap 상한 체크
-                if (currentGapPct2 >= 2.2) {
+                // gap 상한 체크 — 너무 큰 gap은 꼬리매수 패턴 (2.5%+ 손실 데이터)
+                if (currentGapPct2 >= 2.5) {
                     entrySignal = false;
-                    log.debug("[MorningRush] GAP too high (V141): {} gap=+{}% >= 2.2%",
+                    log.debug("[MorningRush] GAP too high: {} gap=+{}% >= 2.5%",
                             market, String.format(Locale.ROOT, "%.2f", currentGapPct2));
                 } else {
                     entrySignal = true;
                 }
             } else if (surgeCondition) {
-                if (currentGapPct2 >= 1.5 && currentGapPct2 < 2.2) {
+                if (currentGapPct2 >= 1.5 && currentGapPct2 < 2.5) {
                     entrySignal = true;
                 } else {
                     entrySignal = false;
-                    log.debug("[MorningRush] SURGE gap out of [1.5, 2.2): {} gap=+{}%",
+                    log.debug("[MorningRush] SURGE gap out of [1.5, 2.5): {} gap=+{}%",
                             market, String.format(Locale.ROOT, "%.2f", currentGapPct2));
                 }
             } else {

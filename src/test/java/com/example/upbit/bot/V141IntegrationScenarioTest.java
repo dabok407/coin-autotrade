@@ -6,24 +6,25 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * V141 (부분 원복) — MR gap 1.5~2.2% (유지) + Opening RSI 필터 V140 원복 통합 시나리오
+ * V141 (부분 원복 + 부분 완화) — MR gap 1.5~2.5% + Opening RSI 필터 V140 원복 통합 시나리오
  *
- * 2026-05-12 V141 RSI 변경 (#2 + #4) 원복:
- * - V141 #1 (MR gap 1.5~2.2%): 유지 (백테스트/라이브 일관 효과)
+ * 2026-05-12 변경:
+ * - V141 #1 (MR gap): 부분 완화 — 상한 2.2% → 2.5% (V145, 4주 라이브 데이터 기반)
  * - V141 #2 (OP RSI 75-85 진입): V140으로 원복 (rsi >= 75 차단)
  * - V141 #4 (OP quickScore RSI 75-85 +1.5): V140으로 원복 (50-65 +1.0 / 65-75 +0.6)
  *
- * 변경 사유: 3개 독립 검증 (백테스트 v3 매트릭스 + 라이브 PnL + Python 더블체크)
- *           모두 V141 RSI 변경이 손실 확대를 야기함을 확인.
+ * 변경 사유:
+ * - RSI 원복: 3개 독립 검증 (백테스트 v3 + 라이브 PnL + Python 더블체크) 모두 손실 확대 확인.
+ * - MR gap 완화: 4주 라이브 (14건) gap 2.0~2.5% 구간 2건 100% 승률 +2.78% (가장 좋음).
  */
 public class V141IntegrationScenarioTest {
 
     /**
-     * V141 #1 모닝러쉬 진입 가능 여부 (유지)
+     * V141 #1 모닝러쉬 진입 가능 여부 (V145 완화: 상한 2.5%)
      */
     private static boolean v141MrPass(double gapPct) {
-        // gap 1.5~2.2% 범위만 진입 (gapCondition 통과 + 상한 차단)
-        return gapPct >= 1.5 && gapPct < 2.2;
+        // gap 1.5~2.5% 범위만 진입 (gapCondition 통과 + 상한 차단)
+        return gapPct >= 1.5 && gapPct < 2.5;
     }
 
     /**
@@ -76,9 +77,9 @@ public class V141IntegrationScenarioTest {
     }
 
     @Test
-    @DisplayName("[손실 회피] gap 5.53% → MR 차단 (V141 #1 유지)")
+    @DisplayName("[손실 회피] gap 5.53% → MR 차단 (V145 상한 2.5% 초과)")
     public void scenario_high_gap_mr_blocked() {
-        assertFalse(v141MrPass(5.53), "gap 상한 2.2% 초과 차단");
+        assertFalse(v141MrPass(5.53), "gap 상한 2.5% 초과 차단");
     }
 
     @Test
@@ -122,11 +123,21 @@ public class V141IntegrationScenarioTest {
     }
 
     @Test
-    @DisplayName("[차단] gap 2.5% RSI 60 → MR 차단, OP 통과 가능")
+    @DisplayName("[차단] gap 2.5% RSI 60 → MR 차단(상한 inclusive), OP 통과 가능")
     public void mid_gap_normal_rsi() {
-        assertFalse(v141MrPass(2.5), "MR 상한 2.2 초과 차단");
+        assertFalse(v141MrPass(2.5), "MR 상한 2.5 inclusive 차단");
         // OP qs = 1.5(gap2.5>=2.0) + 1.0(vol>=3) + 1.0(rsi60 50-65) = 3.5 >= 3.5
         assertTrue(v140OpPass(2.5, 60.0, 3.5));
+    }
+
+    @Test
+    @DisplayName("[V145 완화] gap 2.3% RSI 60 vol 3.0x → MR 통과 (V141은 차단)")
+    public void scenario_v145_relaxed_pass() {
+        // V141에서는 gap 2.3% 차단 (>= 2.2), V145에서는 통과 (< 2.5)
+        // 4주 데이터 gap 2.0~2.5% 구간 100% 승률 +2.78% 근거
+        assertTrue(v141MrPass(2.3), "V145 완화: gap 2.3% MR 통과 (V141 차단 케이스)");
+        // OP qs = 1.5(gap≥2.0) + 1.0(vol≥3) + 1.0(rsi 50-65) = 3.5 통과
+        assertTrue(v140OpPass(2.3, 60.0, 3.0));
     }
 
     // ===== 통합 효과 검증 =====
@@ -142,8 +153,10 @@ public class V141IntegrationScenarioTest {
         assertTrue(v141MrPass(2.1));
         assertTrue(v140OpPass(2.1, 60.0, 3.0));
 
-        // (3) MR 차단: gap 2.5% (MR 상한 차단)
-        assertFalse(v141MrPass(2.5), "MR gap 상한 2.2 초과 차단");
+        // (3) MR 차단: gap 2.5% (MR 상한 inclusive 차단)
+        assertFalse(v141MrPass(2.5), "MR gap 상한 2.5 inclusive 차단");
+        // (3-2) V145 완화 케이스: gap 2.3% (V141 차단, V145 통과)
+        assertTrue(v141MrPass(2.3), "V145 완화: MR gap 2.3% 통과");
 
         // (4) RSI 76 차단 (V140 동작): V141 통과했던 RSI 76 → V140 차단
         assertFalse(v140OpPass(1.7, 76.0, 3.0), "RSI 76 >= 75 V140 차단");
